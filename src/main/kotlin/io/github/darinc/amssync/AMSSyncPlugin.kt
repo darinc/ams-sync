@@ -61,11 +61,11 @@ class AMSSyncPlugin : JavaPlugin() {
         if (rateLimitEnabled) {
             val rateLimiterConfig = RateLimiterConfig(
                 enabled = true,
-                cooldownMs = config.getLong("rate-limiting.cooldown-ms", 3000L),
+                penaltyCooldownMs = config.getLong("rate-limiting.penalty-cooldown-ms", 10000L),
                 maxRequestsPerMinute = config.getInt("rate-limiting.max-requests-per-minute", 60)
             )
             rateLimiter = rateLimiterConfig.toRateLimiter(logger)
-            logger.info("Rate limiting enabled: cooldown=${rateLimiterConfig.cooldownMs}ms, max=${rateLimiterConfig.maxRequestsPerMinute}/min")
+            logger.info("Rate limiting enabled: penalty-cooldown=${rateLimiterConfig.penaltyCooldownMs}ms, max=${rateLimiterConfig.maxRequestsPerMinute}/min")
         } else {
             logger.info("Rate limiting disabled")
         }

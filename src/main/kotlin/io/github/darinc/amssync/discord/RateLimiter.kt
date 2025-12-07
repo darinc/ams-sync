@@ -4,19 +4,22 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.logging.Logger
 
 /**
- * Rate limiter with per-user cooldown and burst protection.
+ * Rate limiter with burst protection and penalty cooldown.
  *
- * @param cooldownMs Minimum time between requests per user (default: 3 seconds)
+ * Users can make requests freely until they exceed the burst limit.
+ * Once exceeded, a penalty cooldown is enforced before they can make more requests.
+ *
+ * @param penaltyCooldownMs Cooldown enforced after exceeding rate limit (default: 10 seconds)
  * @param maxRequests Maximum requests allowed per time window (default: 60)
  * @param windowMs Time window for burst limiting in milliseconds (default: 60 seconds)
  */
 class RateLimiter(
-    private val cooldownMs: Long = 3000L,
+    private val penaltyCooldownMs: Long = 10000L,
     private val maxRequests: Int = 60,
     private val windowMs: Long = 60000L,
     private val logger: Logger? = null
 ) {
-    private val lastRequest = ConcurrentHashMap<String, Long>()
+    private val penaltyExpiry = ConcurrentHashMap<String, Long>()
     private val requestTimestamps = ConcurrentHashMap<String, MutableList<Long>>()
 
     /**
@@ -28,15 +31,15 @@ class RateLimiter(
     fun checkRateLimit(userId: String): RateLimitResult {
         val now = System.currentTimeMillis()
 
-        // Check cooldown (minimum time between requests)
-        val lastTime = lastRequest[userId]
-        if (lastTime != null) {
-            val elapsed = now - lastTime
-            if (elapsed < cooldownMs) {
-                val remainingMs = cooldownMs - elapsed
-                logger?.fine("Rate limit: $userId cooldown active, ${remainingMs}ms remaining")
-                return RateLimitResult.Cooldown(remainingMs)
-            }
+        // Check if user is in penalty cooldown (only applied after exceeding rate limit)
+        val expiry = penaltyExpiry[userId]
+        if (expiry != null && now < expiry) {
+            val remainingMs = expiry - now
+            logger?.fine("Rate limit: $userId in penalty cooldown, ${remainingMs}ms remaining")
+            return RateLimitResult.Cooldown(remainingMs)
+        } else if (expiry != null) {
+            // Penalty expired, remove it
+            penaltyExpiry.remove(userId)
         }
 
         // Check burst limit (max requests per window)
@@ -48,19 +51,15 @@ class RateLimiter(
             timestamps.removeIf { it < windowStart }
 
             if (timestamps.size >= maxRequests) {
-                // Find when the oldest request will expire
-                val oldestTimestamp = timestamps.minOrNull() ?: now
-                val retryAfterMs = (oldestTimestamp + windowMs) - now
-                logger?.fine("Rate limit: $userId burst limited, retry after ${retryAfterMs}ms")
-                return RateLimitResult.BurstLimited(retryAfterMs.coerceAtLeast(0))
+                // Apply penalty cooldown
+                penaltyExpiry[userId] = now + penaltyCooldownMs
+                logger?.fine("Rate limit: $userId exceeded burst limit, applying ${penaltyCooldownMs}ms penalty cooldown")
+                return RateLimitResult.BurstLimited(penaltyCooldownMs)
             }
 
             // Record this request
             timestamps.add(now)
         }
-
-        // Update last request time
-        lastRequest[userId] = now
 
         return RateLimitResult.Allowed
     }
@@ -72,10 +71,9 @@ class RateLimiter(
     fun cleanup() {
         val now = System.currentTimeMillis()
         val windowStart = now - windowMs
-        val cooldownStart = now - cooldownMs
 
-        // Remove users with no recent activity
-        lastRequest.entries.removeIf { it.value < cooldownStart }
+        // Remove expired penalty cooldowns
+        penaltyExpiry.entries.removeIf { it.value < now }
 
         // Clean up timestamp lists
         requestTimestamps.entries.removeIf { (_, timestamps) ->
@@ -103,7 +101,7 @@ class RateLimiter(
      * Reset rate limit for a specific user (useful for testing or admin override).
      */
     fun reset(userId: String) {
-        lastRequest.remove(userId)
+        penaltyExpiry.remove(userId)
         requestTimestamps.remove(userId)
     }
 
@@ -111,7 +109,7 @@ class RateLimiter(
      * Reset all rate limits.
      */
     fun resetAll() {
-        lastRequest.clear()
+        penaltyExpiry.clear()
         requestTimestamps.clear()
     }
 }
@@ -139,12 +137,12 @@ sealed class RateLimitResult {
  */
 data class RateLimiterConfig(
     val enabled: Boolean = true,
-    val cooldownMs: Long = 3000L,
+    val penaltyCooldownMs: Long = 10000L,
     val maxRequestsPerMinute: Int = 60
 ) {
     fun toRateLimiter(logger: Logger? = null): RateLimiter {
         return RateLimiter(
-            cooldownMs = cooldownMs,
+            penaltyCooldownMs = penaltyCooldownMs,
             maxRequests = maxRequestsPerMinute,
             windowMs = 60000L,
             logger = logger

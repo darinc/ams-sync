@@ -119,9 +119,10 @@ rate-limiting:
   # Enable/disable rate limiting
   enabled: true
 
-  # Minimum time between commands per user (milliseconds)
-  # Example: 3000 = 3 seconds between commands
-  cooldown-ms: 3000
+  # Cooldown applied after exceeding the rate limit (milliseconds)
+  # Users can make requests freely until they hit the limit, then must wait
+  # Example: 10000 = 10 second penalty after exceeding rate limit
+  penalty-cooldown-ms: 10000
 
   # Maximum requests per minute per user (burst protection)
   # Example: 60 = max 60 commands per minute
