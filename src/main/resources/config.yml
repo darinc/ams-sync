@@ -1,0 +1,99 @@
+# AMS Discord Plugin Configuration
+#
+# IMPORTANT: Add this file to .gitignore to protect your bot token!
+
+discord:
+  # Your Discord bot token from https://discord.com/developers/applications
+  token: "YOUR_BOT_TOKEN_HERE"
+
+  # Your Discord server (guild) ID for slash command registration
+  # Right-click your server icon -> Copy ID (requires Developer Mode enabled)
+  guild-id: "YOUR_GUILD_ID_HERE"
+
+  # Retry configuration for Discord connection failures
+  # Implements exponential backoff to handle transient network issues
+  retry:
+    # Enable/disable retry logic (true = retry on failure, false = fail immediately)
+    enabled: true
+
+    # Maximum number of connection attempts (including initial attempt)
+    max-attempts: 5
+
+    # Initial delay in seconds before first retry attempt
+    initial-delay-seconds: 5
+
+    # Maximum delay in seconds between retry attempts (caps exponential backoff)
+    max-delay-seconds: 300
+
+    # Exponential backoff multiplier (delay doubles with default 2.0)
+    # Example delays with defaults: 5s, 10s, 20s, 40s, 80s
+    backoff-multiplier: 2.0
+
+  # Timeout protection for Discord operations
+  # Prevents hanging operations from blocking the plugin
+  timeout:
+    # Enable/disable timeout protection (true = operations have timeout limits)
+    enabled: true
+
+    # Warning threshold in seconds - logs warning if operation takes longer
+    # Helps identify slow operations before they timeout
+    warning-threshold-seconds: 3
+
+    # Hard timeout in seconds - operation is cancelled if it exceeds this
+    # Prevents indefinite blocking of plugin operations
+    # Discord initialization and API calls will abort after this duration
+    hard-timeout-seconds: 10
+
+  # Circuit breaker pattern for Discord API calls
+  # Prevents cascading failures by failing fast when Discord is down
+  circuit-breaker:
+    # Enable/disable circuit breaker (true = automatic failure protection)
+    enabled: true
+
+    # Number of failures before opening circuit (failing fast)
+    # Example: 5 failures = circuit opens and all requests fail immediately
+    failure-threshold: 5
+
+    # Time window in seconds for counting failures
+    # Failures outside this window are not counted toward threshold
+    # Example: 5 failures in 60 seconds = circuit opens
+    time-window-seconds: 60
+
+    # Cooldown period in seconds before attempting recovery
+    # When circuit is open, wait this long before testing if service recovered
+    # Example: After 30 seconds, circuit enters HALF_OPEN state to test recovery
+    cooldown-seconds: 30
+
+    # Number of consecutive successes needed to close circuit
+    # In HALF_OPEN state, this many successes are needed to fully recover
+    # Example: 2 successful calls = circuit closes and normal operation resumes
+    success-threshold: 2
+
+# MCMMO Integration Settings
+mcmmo:
+  leaderboard:
+    # Maximum number of players to scan when generating leaderboards
+    # Prevents timeout issues on servers with many players (1000+ recommended)
+    # Lower value = faster queries but may miss some players
+    # Higher value = more complete but slower queries
+    max-players-to-scan: 1000
+
+    # Cache time-to-live in seconds for leaderboard results
+    # Cached leaderboards are reused for this duration to improve performance
+    # Set to 0 to disable caching (not recommended)
+    # Recommended: 60 seconds (provides ~60x performance improvement)
+    cache-ttl-seconds: 60
+
+# Discord User ID to Minecraft Username mappings
+# Format: "discord_user_id": "MinecraftUsername"
+#
+# IMPORTANT: Use Minecraft USERNAMES (not UUIDs) as values!
+# You can find Discord IDs by right-clicking a user in Discord -> Copy ID (Developer Mode required)
+#
+# Example:
+#   user-mappings:
+#     "123456789012345678": "Steve"
+#     "987654321098765432": "Alex"
+#
+# Use /amslink command in-game or Discord to add mappings
+user-mappings:

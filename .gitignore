@@ -1,0 +1,43 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Local test server (with plugin configs that contain secrets)
+test-server/
+server/
+
+# Compiled plugin JARs (except in build/libs which is already ignored)
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# Temporary files
+*.tmp
+*.bak
+*~

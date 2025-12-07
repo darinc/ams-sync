@@ -1,0 +1,29 @@
+name: AmsDiscord
+version: '${version}'
+main: io.github.darinc.amsdiscord.AmsDiscordPlugin
+api-version: '1.21'
+author: darinc
+description: Discord integration plugin for Amazing Minecraft Server with MCMMO support
+website: https://github.com/darinc/ams-discord
+
+depend:
+  - mcMMO
+
+softdepend: []
+
+load: POSTWORLD
+
+commands:
+  amslink:
+    description: Manage Discord-Minecraft user linking
+    usage: /amslink <add|remove|list|players>
+    permission: amsdiscord.admin
+    aliases: [discordlink, dlink]
+
+permissions:
+  amsdiscord.admin:
+    description: Administrator permissions for AMS Discord
+    default: op
+  amsdiscord.link:
+    description: Allows players to link their Discord account
+    default: true

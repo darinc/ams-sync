@@ -1,0 +1,8 @@
+# Detekt Static Analysis Configuration
+# Focuses on preventing bugs and nullable safety issues
+
+build:
+  maxIssues: -1  # Report issues but don't fail build
+
+potential-bugs:
+  active: true
