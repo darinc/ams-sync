@@ -53,6 +53,9 @@ class AMSSyncPlugin : JavaPlugin() {
     var chatBridge: ChatBridge? = null
         private set
 
+    var chatWebhookManager: ChatWebhookManager? = null
+        private set
+
     var webhookManager: WebhookManager? = null
         private set
 
@@ -298,8 +301,9 @@ class AMSSyncPlugin : JavaPlugin() {
         // Shutdown status channel manager
         statusChannelManager?.shutdown()
 
-        // Shutdown webhook manager
+        // Shutdown webhook managers
         webhookManager?.shutdown()
+        chatWebhookManager?.shutdown()
 
         // Shutdown Discord gracefully
         if (::discordManager.isInitialized) {
@@ -406,7 +410,21 @@ class AMSSyncPlugin : JavaPlugin() {
                 logger.warning("Chat bridge enabled but no channel-id configured")
                 return
             }
-            chatBridge = ChatBridge(this, chatConfig)
+
+            // Initialize webhook manager if webhook is enabled
+            if (chatConfig.useWebhook) {
+                if (chatConfig.webhookUrl.isNullOrBlank()) {
+                    logger.warning("Chat bridge use-webhook is true but no webhook-url configured")
+                    logger.warning("Chat bridge falling back to bot messages")
+                } else {
+                    chatWebhookManager = ChatWebhookManager(this, chatConfig.webhookUrl)
+                    if (chatWebhookManager?.isWebhookAvailable() == true) {
+                        logger.info("Chat bridge using webhook for rich messages")
+                    }
+                }
+            }
+
+            chatBridge = ChatBridge(this, chatConfig, chatWebhookManager)
             // Register as Bukkit listener for MC->Discord
             server.pluginManager.registerEvents(chatBridge!!, this)
             // Register as JDA listener for Discord->MC

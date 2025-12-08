@@ -200,6 +200,8 @@ discord:
     # Format for Minecraft messages shown in Discord
     # Available placeholders: {player} = Minecraft username, {message} = message content
     # Supports Discord markdown (**bold**, *italic*, etc.)
+    # NOTE: When use-webhook is true, discord-format is ignored - messages show
+    # directly with player name and avatar
     discord-format: "**{player}**: {message}"
     # Message prefixes to ignore (e.g., don't relay commands)
     ignore-prefixes:
@@ -207,7 +209,19 @@ discord:
     # Suppress Discord notifications for bridged messages
     # When true, messages from Minecraft won't trigger Discord push notifications
     # Users will still see messages but won't get pinged
+    # NOTE: Only applies when use-webhook is false
     suppress-notifications: true
+    # Use webhook for richer Discord messages
+    # When true, Minecraft messages appear with player's head as avatar and username
+    # When false, messages appear as bot messages with discord-format template
+    use-webhook: false
+    # Optional webhook URL for chat bridge
+    # Leave empty to use standard bot messages (use-webhook must be true for this to work)
+    # Create a webhook: Channel Settings -> Integrations -> Webhooks -> New Webhook
+    webhook-url: ""
+    # Avatar provider for player heads in webhook messages
+    # Options: "mc-heads" or "crafatar"
+    avatar-provider: "mc-heads"
 
 # Rate limiting for commands
 # Prevents spam and abuse of plugin commands

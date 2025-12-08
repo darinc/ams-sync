@@ -21,10 +21,12 @@ import org.bukkit.event.Listener
  *
  * @property plugin The parent plugin instance
  * @property config Chat bridge configuration
+ * @property chatWebhookManager Optional webhook manager for rich Discord messages
  */
 class ChatBridge(
     private val plugin: AMSSyncPlugin,
-    private val config: ChatBridgeConfig
+    private val config: ChatBridgeConfig,
+    private val chatWebhookManager: ChatWebhookManager? = null
 ) : Listener, ListenerAdapter() {
 
     /**
@@ -43,14 +45,20 @@ class ChatBridge(
             return
         }
 
-        val playerName = event.player.name
+        val player = event.player
+        val playerName = player.name
 
-        // Format and send to Discord
-        val formatted = config.discordFormat
-            .replace("{player}", playerName)
-            .replace("{message}", message)
-
-        sendToDiscord(formatted)
+        // Use webhook if enabled and available
+        if (config.useWebhook && chatWebhookManager?.isWebhookAvailable() == true) {
+            val avatarUrl = ChatBridgeConfig.getAvatarUrl(playerName, player.uniqueId, config.avatarProvider)
+            sendViaWebhook(message, playerName, avatarUrl)
+        } else {
+            // Fall back to bot message with formatted text
+            val formatted = config.discordFormat
+                .replace("{player}", playerName)
+                .replace("{message}", message)
+            sendToDiscord(formatted)
+        }
     }
 
     /**
@@ -95,6 +103,19 @@ class ChatBridge(
         } catch (e: Exception) {
             plugin.logger.warning("Error relaying chat to Discord: ${e.message}")
         }
+    }
+
+    /**
+     * Send a message to Discord via webhook with custom username and avatar.
+     *
+     * @param message The message content
+     * @param playerName Player name to display as sender
+     * @param avatarUrl URL to player's head image
+     */
+    private fun sendViaWebhook(message: String, playerName: String, avatarUrl: String) {
+        // Sanitize to prevent @everyone/@here mentions
+        val sanitized = sanitizeDiscordMessage(message)
+        chatWebhookManager?.sendMessage(sanitized, playerName, avatarUrl)
     }
 
     /**
@@ -168,6 +189,10 @@ class ChatBridge(
  * @property mcFormat Format for Discord messages shown in Minecraft
  * @property discordFormat Format for Minecraft messages shown in Discord
  * @property ignorePrefixes Message prefixes to ignore (e.g., commands)
+ * @property suppressNotifications Suppress Discord push notifications
+ * @property useWebhook Use webhook for richer Discord messages
+ * @property webhookUrl Webhook URL (empty = auto-create in channel)
+ * @property avatarProvider Avatar service: "mc-heads" or "crafatar"
  */
 data class ChatBridgeConfig(
     val enabled: Boolean,
@@ -177,7 +202,10 @@ data class ChatBridgeConfig(
     val mcFormat: String,
     val discordFormat: String,
     val ignorePrefixes: List<String>,
-    val suppressNotifications: Boolean
+    val suppressNotifications: Boolean,
+    val useWebhook: Boolean,
+    val webhookUrl: String?,
+    val avatarProvider: String
 ) {
     companion object {
         /**
@@ -197,8 +225,26 @@ data class ChatBridgeConfig(
                 discordFormat = config.getString("discord.chat-bridge.discord-format", "**{player}**: {message}")
                     ?: "**{player}**: {message}",
                 ignorePrefixes = config.getStringList("discord.chat-bridge.ignore-prefixes").ifEmpty { listOf("/") },
-                suppressNotifications = config.getBoolean("discord.chat-bridge.suppress-notifications", true)
+                suppressNotifications = config.getBoolean("discord.chat-bridge.suppress-notifications", true),
+                useWebhook = config.getBoolean("discord.chat-bridge.use-webhook", false),
+                webhookUrl = config.getString("discord.chat-bridge.webhook-url", "")?.takeIf { it.isNotBlank() },
+                avatarProvider = config.getString("discord.chat-bridge.avatar-provider", "mc-heads") ?: "mc-heads"
             )
+        }
+
+        /**
+         * Get avatar URL for a player.
+         *
+         * @param playerName Minecraft username
+         * @param uuid Player's UUID
+         * @param provider Avatar service ("mc-heads" or "crafatar")
+         * @return URL to player's avatar image
+         */
+        fun getAvatarUrl(playerName: String, uuid: java.util.UUID, provider: String): String {
+            return when (provider.lowercase()) {
+                "crafatar" -> "https://crafatar.com/avatars/$uuid?size=64&overlay"
+                else -> "https://mc-heads.net/avatar/$playerName?size=64"
+            }
         }
     }
 }
