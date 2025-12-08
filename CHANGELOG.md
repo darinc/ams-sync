@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.1] - 2025-12-08
+
+### Fixed
+
+- Fix O(n²) performance issue in ErrorMetrics duration tracking by using ArrayDeque
+- Replace printStackTrace with logger in Discord connection error handling
+
+### Changed
+
+- Expand detekt configuration with project-appropriate thresholds
+- Add thread-safety documentation to UserMappingService
+- Replace wildcard imports with explicit imports
+
 ## [0.11.0] - 2025-12-08
 
 ### Added

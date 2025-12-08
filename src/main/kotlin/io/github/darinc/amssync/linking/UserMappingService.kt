@@ -10,13 +10,26 @@ import io.github.darinc.amssync.exceptions.MappingNotFoundException
  * Manages mappings between Discord user IDs and Minecraft usernames.
  *
  * Provides bidirectional mapping with validation and exception-based error handling.
+ *
+ * ## Thread Safety
+ *
+ * **This class is NOT thread-safe.** All public methods must be called from the
+ * Bukkit main thread only. This is enforced by design since:
+ * - `loadMappings()` and `saveMappings()` interact with Bukkit's config API
+ * - All command handlers (AMSSyncCommand, SlashCommandListener) run on the main thread
+ *   or schedule callbacks to it via `Bukkit.getScheduler().runTask()`
+ *
+ * If concurrent access is ever needed, wrap calls with `synchronized(this)` or
+ * convert the backing maps to ConcurrentHashMap.
  */
 class UserMappingService(private val plugin: AMSSyncPlugin) {
 
     // Discord ID -> Minecraft Username
+    // NOT thread-safe - access only from Bukkit main thread
     private val discordToMinecraft = mutableMapOf<String, String>()
 
     // Minecraft Username -> Discord ID (for reverse lookups)
+    // NOT thread-safe - access only from Bukkit main thread
     private val minecraftToDiscord = mutableMapOf<String, String>()
 
     /**

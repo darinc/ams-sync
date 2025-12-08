@@ -3,10 +3,29 @@ package io.github.darinc.amssync
 import io.github.darinc.amssync.audit.AuditLogger
 import io.github.darinc.amssync.commands.AMSSyncCommand
 import io.github.darinc.amssync.config.ConfigValidator
-import io.github.darinc.amssync.discord.*
+import io.github.darinc.amssync.discord.ChatBridge
+import io.github.darinc.amssync.discord.ChatBridgeConfig
+import io.github.darinc.amssync.discord.ChatWebhookManager
+import io.github.darinc.amssync.discord.CircuitBreaker
+import io.github.darinc.amssync.discord.CircuitBreakerConfig
+import io.github.darinc.amssync.discord.DiscordApiWrapper
+import io.github.darinc.amssync.discord.DiscordManager
+import io.github.darinc.amssync.discord.PlayerCountPresence
+import io.github.darinc.amssync.discord.PresenceConfig
+import io.github.darinc.amssync.discord.RateLimiter
+import io.github.darinc.amssync.discord.RateLimiterConfig
+import io.github.darinc.amssync.discord.RetryManager
+import io.github.darinc.amssync.discord.StatusChannelConfig
+import io.github.darinc.amssync.discord.StatusChannelManager
+import io.github.darinc.amssync.discord.TimeoutConfig
+import io.github.darinc.amssync.discord.TimeoutManager
+import io.github.darinc.amssync.discord.WebhookManager
 import io.github.darinc.amssync.discord.commands.AmsStatsCommand
 import io.github.darinc.amssync.discord.commands.AmsTopCommand
-import io.github.darinc.amssync.events.*
+import io.github.darinc.amssync.events.AchievementListener
+import io.github.darinc.amssync.events.EventAnnouncementConfig
+import io.github.darinc.amssync.events.PlayerDeathListener
+import io.github.darinc.amssync.events.ServerEventListener
 import io.github.darinc.amssync.image.AvatarFetcher
 import io.github.darinc.amssync.image.ImageConfig
 import io.github.darinc.amssync.image.PlayerCardRenderer
@@ -216,7 +235,10 @@ class AMSSyncPlugin : JavaPlugin() {
         // Initialize circuit breaker
         if (circuitBreakerEnabled) {
             circuitBreaker = circuitBreakerConfig.toCircuitBreaker(logger)
-            logger.info("Circuit breaker enabled: failures=${circuitBreakerConfig.failureThreshold}/${circuitBreakerConfig.timeWindowSeconds}s, cooldown=${circuitBreakerConfig.cooldownSeconds}s")
+            logger.info(
+                "Circuit breaker enabled: failures=${circuitBreakerConfig.failureThreshold}/" +
+                    "${circuitBreakerConfig.timeWindowSeconds}s, cooldown=${circuitBreakerConfig.cooldownSeconds}s"
+            )
         }
 
         // Initialize Discord API wrapper with circuit breaker and metrics
@@ -304,7 +326,7 @@ class AMSSyncPlugin : JavaPlugin() {
                 logger.severe("Failed to initialize Discord bot: ${e.message}")
                 logger.severe("Retry logic is disabled. Plugin will be disabled.")
                 logger.severe("Enable retry in config.yml: discord.retry.enabled = true")
-                e.printStackTrace()
+                logger.severe("Stack trace: ${e.stackTraceToString()}")
                 server.pluginManager.disablePlugin(this)
                 return
             }
@@ -476,7 +498,10 @@ class AMSSyncPlugin : JavaPlugin() {
 
             val imageMode = if (announcementConfig.useImageCards) "image cards" else "embeds"
             val webhookMode = if (announcementConfig.webhookUrl != null) " via webhook" else ""
-            logger.info("MCMMO milestone announcements enabled ($imageMode$webhookMode, skill=${announcementConfig.skillMilestoneInterval}, power=${announcementConfig.powerMilestoneInterval})")
+            logger.info(
+                "MCMMO milestone announcements enabled ($imageMode$webhookMode, " +
+                    "skill=${announcementConfig.skillMilestoneInterval}, power=${announcementConfig.powerMilestoneInterval})"
+            )
         } else {
             logger.info("MCMMO announcements are disabled in config")
         }

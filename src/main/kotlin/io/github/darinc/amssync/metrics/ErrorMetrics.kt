@@ -1,5 +1,6 @@
 package io.github.darinc.amssync.metrics
 
+import java.util.ArrayDeque
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 import java.time.Instant
@@ -28,7 +29,7 @@ class ErrorMetrics {
     // Command execution counters
     private val commandSuccessCount = ConcurrentHashMap<String, AtomicLong>()
     private val commandFailureCount = ConcurrentHashMap<String, AtomicLong>()
-    private val commandDurations = ConcurrentHashMap<String, MutableList<Long>>()
+    private val commandDurations = ConcurrentHashMap<String, ArrayDeque<Long>>()
 
     // Error type counters
     private val errorTypeCount = ConcurrentHashMap<String, AtomicLong>()
@@ -85,17 +86,17 @@ class ErrorMetrics {
 
     /**
      * Record command duration for latency tracking.
+     *
+     * Uses ArrayDeque for O(1) removal from front when trimming old samples.
      */
     private fun recordDuration(commandName: String, durationMs: Long) {
-        val durations = commandDurations.computeIfAbsent(commandName) {
-            java.util.Collections.synchronizedList(mutableListOf())
-        }
+        val durations = commandDurations.computeIfAbsent(commandName) { ArrayDeque() }
 
         synchronized(durations) {
-            durations.add(durationMs)
-            // Keep only the most recent samples
+            durations.addLast(durationMs)
+            // Keep only the most recent samples - O(1) removal from front
             while (durations.size > maxDurationSamples) {
-                durations.removeAt(0)
+                durations.removeFirst()
             }
         }
     }
@@ -187,7 +188,7 @@ class ErrorMetrics {
         val durations = commandDurations[commandName] ?: return null
         synchronized(durations) {
             if (durations.isEmpty()) return null
-            return durations.average()
+            return durations.toList().average()
         }
     }
 
@@ -201,7 +202,7 @@ class ErrorMetrics {
         val durations = commandDurations[commandName] ?: return null
         synchronized(durations) {
             if (durations.isEmpty()) return null
-            val sorted = durations.sorted()
+            val sorted = durations.toList().sorted()
             val index = (sorted.size * 0.95).toInt().coerceAtMost(sorted.size - 1)
             return sorted[index]
         }

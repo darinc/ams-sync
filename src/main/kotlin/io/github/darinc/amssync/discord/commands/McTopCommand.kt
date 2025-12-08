@@ -14,7 +14,7 @@ import java.time.Instant
  */
 class McTopCommand(private val plugin: AMSSyncPlugin) {
 
-    private val LEADERBOARD_SIZE = 10
+    private val leaderboardSize = 10
 
     fun handle(event: SlashCommandInteractionEvent) {
         // Defer reply immediately to avoid timeout
@@ -158,7 +158,7 @@ class McTopCommand(private val plugin: AMSSyncPlugin) {
     private fun handleSkillLeaderboard(event: SlashCommandInteractionEvent, skillName: String) {
         // Throws InvalidSkillException if skill invalid
         val skill = plugin.mcmmoApi.parseSkillType(skillName)
-        val leaderboard = plugin.mcmmoApi.getLeaderboard(skill.name, LEADERBOARD_SIZE)
+        val leaderboard = plugin.mcmmoApi.getLeaderboard(skill.name, leaderboardSize)
 
         if (leaderboard.isEmpty()) {
             event.hook.sendMessage(
@@ -173,7 +173,7 @@ class McTopCommand(private val plugin: AMSSyncPlugin) {
         }
 
         val embed = EmbedBuilder()
-            .setTitle("Top $LEADERBOARD_SIZE - ${formatSkillName(skill.name)}")
+            .setTitle("Top $leaderboardSize - ${formatSkillName(skill.name)}")
             .setColor(Color.ORANGE)
             .setTimestamp(Instant.now())
             .setFooter("Amazing Minecraft Server", null)
@@ -199,7 +199,7 @@ class McTopCommand(private val plugin: AMSSyncPlugin) {
     }
 
     private fun handlePowerLevelLeaderboard(event: SlashCommandInteractionEvent) {
-        val leaderboard = plugin.mcmmoApi.getPowerLevelLeaderboard(LEADERBOARD_SIZE)
+        val leaderboard = plugin.mcmmoApi.getPowerLevelLeaderboard(leaderboardSize)
 
         if (leaderboard.isEmpty()) {
             event.hook.sendMessage(
@@ -214,7 +214,7 @@ class McTopCommand(private val plugin: AMSSyncPlugin) {
         }
 
         val embed = EmbedBuilder()
-            .setTitle("Top $LEADERBOARD_SIZE - Power Level")
+            .setTitle("Top $leaderboardSize - Power Level")
             .setColor(Color.MAGENTA)
             .setTimestamp(Instant.now())
             .setFooter("Amazing Minecraft Server", null)

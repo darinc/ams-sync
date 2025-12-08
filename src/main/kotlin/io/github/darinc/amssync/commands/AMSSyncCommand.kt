@@ -124,7 +124,11 @@ class AMSSyncCommand(private val plugin: AMSSyncPlugin) : CommandExecutor, TabCo
                 event = SecurityEvent.INVALID_INPUT,
                 actor = actorName,
                 actorType = actorType,
-                details = mapOf("field" to "minecraftUsername", "value" to minecraftUsername, "error" to Validators.getMinecraftUsernameError(minecraftUsername))
+                details = mapOf(
+                    "field" to "minecraftUsername",
+                    "value" to minecraftUsername,
+                    "error" to Validators.getMinecraftUsernameError(minecraftUsername)
+                )
             )
             sender.sendMessage("§cInvalid Minecraft username: ${Validators.getMinecraftUsernameError(minecraftUsername)}")
             return
