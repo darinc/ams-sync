@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "io.github.darinc"
-version = "0.7.1"
+version = "0.8.0"
 
 repositories {
     mavenCentral()
@@ -27,6 +27,7 @@ dependencies {
 
     // Discord
     implementation("net.dv8tion:JDA:5.0.0-beta.18")
+    implementation("club.minnced:discord-webhooks:0.8.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
     implementation(kotlin("stdlib"))
 
@@ -50,6 +51,7 @@ tasks {
         archiveClassifier.set("")
         // Relocate to avoid conflicts with other plugins
         relocate("net.dv8tion", "io.github.darinc.amssync.libs.jda")
+        relocate("club.minnced", "io.github.darinc.amssync.libs.webhook")
         relocate("kotlin", "io.github.darinc.amssync.libs.kotlin")
         relocate("kotlinx", "io.github.darinc.amssync.libs.kotlinx")
         // Note: Don't relocate SLF4J - JDA needs to find it in original package

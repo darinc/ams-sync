@@ -4,6 +4,7 @@ import io.github.darinc.amssync.audit.AuditLogger
 import io.github.darinc.amssync.commands.AMSSyncCommand
 import io.github.darinc.amssync.config.ConfigValidator
 import io.github.darinc.amssync.discord.*
+import io.github.darinc.amssync.events.*
 import io.github.darinc.amssync.linking.UserMappingService
 import io.github.darinc.amssync.mcmmo.AnnouncementConfig
 import io.github.darinc.amssync.mcmmo.McMMOEventListener
@@ -50,6 +51,18 @@ class AMSSyncPlugin : JavaPlugin() {
         private set
 
     var chatBridge: ChatBridge? = null
+        private set
+
+    var webhookManager: WebhookManager? = null
+        private set
+
+    var serverEventListener: ServerEventListener? = null
+        private set
+
+    var playerDeathListener: PlayerDeathListener? = null
+        private set
+
+    var achievementListener: AchievementListener? = null
         private set
 
     override fun onEnable() {
@@ -276,11 +289,17 @@ class AMSSyncPlugin : JavaPlugin() {
     override fun onDisable() {
         logger.info("Shutting down AMSSync plugin...")
 
+        // Announce server stop before disconnecting
+        serverEventListener?.announceServerStop()
+
         // Shutdown player count presence
         playerCountPresence?.shutdown()
 
         // Shutdown status channel manager
         statusChannelManager?.shutdown()
+
+        // Shutdown webhook manager
+        webhookManager?.shutdown()
 
         // Shutdown Discord gracefully
         if (::discordManager.isInitialized) {
@@ -337,6 +356,9 @@ class AMSSyncPlugin : JavaPlugin() {
 
         // Initialize chat bridge
         initializeChatBridge()
+
+        // Initialize event announcements (deaths, achievements, server start/stop)
+        initializeEventAnnouncements()
     }
 
     /**
@@ -392,6 +414,48 @@ class AMSSyncPlugin : JavaPlugin() {
             logger.info("Chat bridge enabled (MC->Discord=${chatConfig.minecraftToDiscord}, Discord->MC=${chatConfig.discordToMinecraft})")
         } else {
             logger.info("Chat bridge is disabled in config")
+        }
+    }
+
+    /**
+     * Initialize event announcements (deaths, achievements, server start/stop).
+     */
+    private fun initializeEventAnnouncements() {
+        val eventConfig = EventAnnouncementConfig.fromConfig(config)
+        if (!eventConfig.enabled) {
+            logger.info("Event announcements are disabled in config")
+            return
+        }
+
+        if (eventConfig.channelId.isBlank()) {
+            logger.warning("Event announcements enabled but no text-channel-id configured")
+            return
+        }
+
+        // Initialize webhook manager
+        webhookManager = WebhookManager(this, eventConfig.webhookUrl, eventConfig.channelId)
+        if (eventConfig.webhookUrl != null) {
+            logger.info("Event announcements using webhook")
+        } else {
+            logger.info("Event announcements using bot messages")
+        }
+
+        // Initialize server event listener
+        serverEventListener = ServerEventListener(this, eventConfig, webhookManager!!)
+        serverEventListener?.announceServerStart()
+
+        // Initialize player death listener
+        if (eventConfig.playerDeaths.enabled) {
+            playerDeathListener = PlayerDeathListener(this, eventConfig, webhookManager!!)
+            server.pluginManager.registerEvents(playerDeathListener!!, this)
+            logger.info("Player death announcements enabled")
+        }
+
+        // Initialize achievement listener
+        if (eventConfig.achievements.enabled) {
+            achievementListener = AchievementListener(this, eventConfig, webhookManager!!)
+            server.pluginManager.registerEvents(achievementListener!!, this)
+            logger.info("Achievement announcements enabled (exclude-recipes=${eventConfig.achievements.excludeRecipes})")
         }
     }
 }

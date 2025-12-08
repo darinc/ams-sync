@@ -144,6 +144,44 @@ discord:
     # Use rich embeds (true) or plain text (false)
     use-embeds: true
 
+  # Event announcements (server start/stop, deaths, achievements)
+  # Announces various server events to a Discord channel
+  events:
+    # Enable/disable event announcements
+    enabled: false
+    # Text channel ID for event announcements (right-click channel -> Copy ID)
+    text-channel-id: ""
+    # Optional webhook URL for prettier messages with custom avatars
+    # Leave empty to use standard bot messages
+    # Create a webhook: Channel Settings -> Integrations -> Webhooks -> New Webhook
+    webhook-url: ""
+    # Use rich embeds (true) or plain text (false)
+    use-embeds: true
+    # Show player Minecraft avatars in embeds/webhook messages
+    show-avatars: true
+    # Avatar provider: "mc-heads" or "crafatar"
+    avatar-provider: "mc-heads"
+
+    # Server start announcement
+    server-start:
+      enabled: true
+      message: "Server is now online!"
+
+    # Server stop announcement
+    server-stop:
+      enabled: true
+      message: "Server is shutting down..."
+
+    # Player death announcements
+    player-deaths:
+      enabled: true
+
+    # Achievement/advancement announcements
+    achievements:
+      enabled: true
+      # Exclude recipe unlock advancements (only show real achievements)
+      exclude-recipes: true
+
   # Two-way chat bridge between Minecraft and Discord
   # Relays messages between a Discord channel and in-game chat
   chat-bridge:
