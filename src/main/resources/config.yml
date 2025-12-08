@@ -113,6 +113,64 @@ discord:
       # If false, disables nickname updates after first failure
       graceful-fallback: true
 
+  # Voice channel showing player count
+  # Updates the channel name to show current player count (e.g., "5 AMS Online")
+  # NOTE: Discord limits channel renames to 2 per 10 minutes, so updates are batched
+  status-channel:
+    # Enable/disable status channel updates
+    enabled: false
+    # Voice channel ID to update (right-click channel -> Copy ID)
+    voice-channel-id: ""
+    # Channel name template
+    # Available placeholders: {count} = current player count, {max} = max players
+    template: "{count} AMS Online"
+    # Minimum seconds between channel name updates
+    # Discord rate limit is 2 updates per 10 minutes - recommend 300+ seconds
+    update-interval-seconds: 300
+
+  # MCMMO milestone announcements
+  # Posts to a Discord channel when players reach skill/power level milestones
+  announcements:
+    # Enable/disable milestone announcements
+    enabled: false
+    # Text channel ID for announcements (right-click channel -> Copy ID)
+    text-channel-id: ""
+    # Announce when a skill reaches a multiple of this level (0 = disabled)
+    # Example: 100 = announce at level 100, 200, 300, etc.
+    skill-milestone-interval: 100
+    # Announce when power level reaches a multiple of this level (0 = disabled)
+    # Example: 500 = announce at power level 500, 1000, 1500, etc.
+    power-milestone-interval: 500
+    # Use rich embeds (true) or plain text (false)
+    use-embeds: true
+
+  # Two-way chat bridge between Minecraft and Discord
+  # Relays messages between a Discord channel and in-game chat
+  chat-bridge:
+    # Enable/disable chat bridge
+    enabled: false
+    # Text channel ID for chat relay (right-click channel -> Copy ID)
+    channel-id: ""
+    # Relay Minecraft chat to Discord
+    minecraft-to-discord: true
+    # Relay Discord chat to Minecraft
+    discord-to-minecraft: true
+    # Format for Discord messages shown in Minecraft
+    # Available placeholders: {author} = Discord username, {message} = message content
+    # Supports color codes with &
+    mc-format: "&7[Discord] &b{author}&7: {message}"
+    # Format for Minecraft messages shown in Discord
+    # Available placeholders: {player} = Minecraft username, {message} = message content
+    # Supports Discord markdown (**bold**, *italic*, etc.)
+    discord-format: "**{player}**: {message}"
+    # Message prefixes to ignore (e.g., don't relay commands)
+    ignore-prefixes:
+      - "/"
+    # Suppress Discord notifications for bridged messages
+    # When true, messages from Minecraft won't trigger Discord push notifications
+    # Users will still see messages but won't get pinged
+    suppress-notifications: true
+
 # Rate limiting for commands
 # Prevents spam and abuse of plugin commands
 rate-limiting:

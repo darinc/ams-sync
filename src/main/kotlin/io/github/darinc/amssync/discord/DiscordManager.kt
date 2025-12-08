@@ -31,7 +31,11 @@ class DiscordManager(private val plugin: AMSSyncPlugin) {
             // Build JDA instance
             // Note: Activity is set by PlayerCountPresence after initialization
             jda = JDABuilder.createDefault(token)
-                .enableIntents(GatewayIntent.GUILD_MEMBERS) // Needed for user lookups
+                .enableIntents(
+                    GatewayIntent.GUILD_MEMBERS,   // Needed for user lookups
+                    GatewayIntent.GUILD_MESSAGES,  // Needed for chat bridge (receive messages)
+                    GatewayIntent.MESSAGE_CONTENT  // Needed for chat bridge (read message content)
+                )
                 .addEventListeners(SlashCommandListener(plugin))
                 .build()
                 .awaitReady()

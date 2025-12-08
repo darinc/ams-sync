@@ -5,6 +5,8 @@ import io.github.darinc.amssync.commands.AMSSyncCommand
 import io.github.darinc.amssync.config.ConfigValidator
 import io.github.darinc.amssync.discord.*
 import io.github.darinc.amssync.linking.UserMappingService
+import io.github.darinc.amssync.mcmmo.AnnouncementConfig
+import io.github.darinc.amssync.mcmmo.McMMOEventListener
 import io.github.darinc.amssync.mcmmo.McmmoApiWrapper
 import io.github.darinc.amssync.metrics.ErrorMetrics
 import org.bukkit.plugin.java.JavaPlugin
@@ -39,6 +41,15 @@ class AMSSyncPlugin : JavaPlugin() {
         private set
 
     var rateLimiter: RateLimiter? = null
+        private set
+
+    var statusChannelManager: StatusChannelManager? = null
+        private set
+
+    var mcmmoEventListener: McMMOEventListener? = null
+        private set
+
+    var chatBridge: ChatBridge? = null
         private set
 
     override fun onEnable() {
@@ -268,6 +279,9 @@ class AMSSyncPlugin : JavaPlugin() {
         // Shutdown player count presence
         playerCountPresence?.shutdown()
 
+        // Shutdown status channel manager
+        statusChannelManager?.shutdown()
+
         // Shutdown Discord gracefully
         if (::discordManager.isInitialized) {
             try {
@@ -313,6 +327,71 @@ class AMSSyncPlugin : JavaPlugin() {
             playerCountPresence?.initialize()
         } else {
             logger.info("Player count presence is disabled in config")
+        }
+
+        // Initialize status channel manager
+        initializeStatusChannel()
+
+        // Initialize MCMMO event listener
+        initializeMcMMOAnnouncements()
+
+        // Initialize chat bridge
+        initializeChatBridge()
+    }
+
+    /**
+     * Initialize status channel manager for voice channel player count display.
+     */
+    private fun initializeStatusChannel() {
+        val statusConfig = StatusChannelConfig.fromConfig(config)
+        if (statusConfig.enabled) {
+            if (statusConfig.channelId.isBlank()) {
+                logger.warning("Status channel enabled but no voice-channel-id configured")
+                return
+            }
+            statusChannelManager = StatusChannelManager(this, statusConfig)
+            statusChannelManager?.initialize()
+        } else {
+            logger.info("Status channel manager is disabled in config")
+        }
+    }
+
+    /**
+     * Initialize MCMMO event listener for milestone announcements.
+     */
+    private fun initializeMcMMOAnnouncements() {
+        val announcementConfig = AnnouncementConfig.fromConfig(config)
+        if (announcementConfig.enabled) {
+            if (announcementConfig.channelId.isBlank()) {
+                logger.warning("MCMMO announcements enabled but no text-channel-id configured")
+                return
+            }
+            mcmmoEventListener = McMMOEventListener(this, announcementConfig)
+            server.pluginManager.registerEvents(mcmmoEventListener!!, this)
+            logger.info("MCMMO milestone announcements enabled (skill interval=${announcementConfig.skillMilestoneInterval}, power interval=${announcementConfig.powerMilestoneInterval})")
+        } else {
+            logger.info("MCMMO announcements are disabled in config")
+        }
+    }
+
+    /**
+     * Initialize chat bridge for two-way Minecraft/Discord chat relay.
+     */
+    private fun initializeChatBridge() {
+        val chatConfig = ChatBridgeConfig.fromConfig(config)
+        if (chatConfig.enabled) {
+            if (chatConfig.channelId.isBlank()) {
+                logger.warning("Chat bridge enabled but no channel-id configured")
+                return
+            }
+            chatBridge = ChatBridge(this, chatConfig)
+            // Register as Bukkit listener for MC->Discord
+            server.pluginManager.registerEvents(chatBridge!!, this)
+            // Register as JDA listener for Discord->MC
+            discordManager.getJda()?.addEventListener(chatBridge)
+            logger.info("Chat bridge enabled (MC->Discord=${chatConfig.minecraftToDiscord}, Discord->MC=${chatConfig.discordToMinecraft})")
+        } else {
+            logger.info("Chat bridge is disabled in config")
         }
     }
 }
