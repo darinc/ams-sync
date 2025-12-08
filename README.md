@@ -13,6 +13,8 @@ AMSSync eliminates the need for separate bot hosting by integrating Discord func
 - **Slash Commands**: Modern Discord slash command interface
 - **Real-time Stats**: Live MCMMO data from both online and offline players
 - **Automatic Reconnection**: Built-in retry logic with exponential backoff
+- **Event Announcements**: Server start/stop, player deaths, and achievements
+- **Webhook Support**: Optional webhooks for custom avatars and usernames
 
 ### MCMMO Integration
 - **Full Stats Access**: Query individual skill levels, power levels, and leaderboards
@@ -227,6 +229,37 @@ Query timeout protection:
 - **enabled**: Enable/disable timeout manager (default: true)
 - **default-timeout-ms**: Maximum time for MCMMO queries before cancellation (default: 5000 = 5 seconds)
 
+### discord.events
+
+Event announcements to Discord:
+- **enabled**: Enable/disable event announcements (default: false)
+- **text-channel-id**: Channel ID for event messages
+- **webhook-url**: Optional webhook URL for custom avatars (leave empty for bot messages)
+- **use-embeds**: Use rich embeds or plain text (default: true)
+- **show-avatars**: Include player Minecraft avatars in messages (default: true)
+- **avatar-provider**: Avatar service - "mc-heads" or "crafatar" (default: mc-heads)
+- **server-start.enabled**: Announce server start (default: true)
+- **server-start.message**: Custom start message
+- **server-stop.enabled**: Announce server stop (default: true)
+- **server-stop.message**: Custom stop message
+- **player-deaths.enabled**: Announce player deaths (default: true)
+- **achievements.enabled**: Announce advancements (default: true)
+- **achievements.exclude-recipes**: Skip recipe unlock advancements (default: true)
+
+#### Webhook vs Bot Messages
+
+When `webhook-url` is configured:
+- Messages show the player's Minecraft head as the sender avatar
+- Username appears as the player's name instead of the bot
+- Creates a more immersive experience
+
+When `webhook-url` is empty (default):
+- Messages are sent as the bot
+- Player avatars appear as embed thumbnails
+- Works out of the box with no extra setup
+
+To create a webhook: Channel Settings → Integrations → Webhooks → New Webhook
+
 ### user-mappings
 
 Discord ID to Minecraft username mappings.
@@ -259,6 +292,16 @@ AMSSyncPlugin (Main)
 │   ├── ConcurrentHashMap for thread safety
 │   └── Automatic cleanup task
 │
+├── WebhookManager - Discord webhook/bot message handling
+│   ├── Optional webhook support with custom avatars
+│   ├── Fallback to standard bot messages
+│   └── Circuit breaker integration
+│
+├── Event Listeners
+│   ├── ServerEventListener - Server start/stop announcements
+│   ├── PlayerDeathListener - Death announcements with avatars
+│   └── AchievementListener - Advancement announcements
+│
 ├── SlashCommandListener (Discord)
 │   ├── McStatsCommand - /mcstats handler
 │   ├── McTopCommand - /mctop handler
@@ -289,10 +332,17 @@ ams-sync/
 │   │   │   ├── DiscordManager.kt          # JDA lifecycle
 │   │   │   ├── SlashCommandListener.kt    # Command routing
 │   │   │   ├── TimeoutManager.kt          # Query timeout protection
+│   │   │   ├── WebhookManager.kt          # Webhook/bot message handling
 │   │   │   └── commands/
 │   │   │       ├── DiscordLinkCommand.kt  # Discord /amssync admin
 │   │   │       ├── McStatsCommand.kt      # /mcstats handler
 │   │   │       └── McTopCommand.kt        # /mctop handler
+│   │   │
+│   │   ├── events/
+│   │   │   ├── EventAnnouncementConfig.kt # Event configuration
+│   │   │   ├── ServerEventListener.kt     # Start/stop announcements
+│   │   │   ├── PlayerDeathListener.kt     # Death announcements
+│   │   │   └── AchievementListener.kt     # Advancement announcements
 │   │   │
 │   │   ├── exceptions/
 │   │   │   └── AMSSyncExceptions.kt       # Custom exception hierarchy
@@ -409,8 +459,6 @@ val powerLevel = PrimarySkillType.values()
 
 Potential features for future releases:
 - [ ] Self-service `/link` command with verification codes
-- [ ] MC events - Discord announcements (level-ups, achievements, deaths)
-- [ ] Discord - MC chat bridge
 - [ ] Skill-specific role assignments (e.g., "Master Miner" role at Mining 1000)
 - [ ] Database storage for mappings (MySQL/PostgreSQL support)
 - [ ] Web dashboard for link management
