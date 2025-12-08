@@ -113,6 +113,7 @@ class ChatBridge(
      * @param avatarUrl URL to player's head image
      */
     private fun sendViaWebhook(message: String, playerName: String, avatarUrl: String) {
+        plugin.logger.fine("Sending webhook with avatar URL: $avatarUrl")
         // Sanitize to prevent @everyone/@here mentions
         val sanitized = sanitizeDiscordMessage(message)
         chatWebhookManager?.sendMessage(sanitized, playerName, avatarUrl)
@@ -242,8 +243,12 @@ data class ChatBridgeConfig(
          */
         fun getAvatarUrl(playerName: String, uuid: java.util.UUID, provider: String): String {
             return when (provider.lowercase()) {
-                "crafatar" -> "https://crafatar.com/avatars/$uuid?size=64&overlay"
-                else -> "https://mc-heads.net/avatar/$playerName?size=64"
+                "crafatar" -> {
+                    // Crafatar requires UUID without dashes
+                    val id = uuid.toString().replace("-", "")
+                    "https://crafatar.com/avatars/$id?size=64&overlay"
+                }
+                else -> "https://mc-heads.net/avatar/$playerName/64"
             }
         }
     }

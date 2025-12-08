@@ -14,22 +14,26 @@ class ChatBridgeConfigTest : DescribeSpec({
 
         it("returns mc-heads URL for mc-heads provider") {
             val url = ChatBridgeConfig.getAvatarUrl(playerName, uuid, "mc-heads")
-            url shouldBe "https://mc-heads.net/avatar/$playerName?size=64"
+            url shouldBe "https://mc-heads.net/avatar/$playerName/64"
         }
 
         it("returns crafatar URL for crafatar provider") {
             val url = ChatBridgeConfig.getAvatarUrl(playerName, uuid, "crafatar")
-            url shouldBe "https://crafatar.com/avatars/$uuid?size=64&overlay"
+            // Crafatar requires UUID without dashes
+            val uuidNoDashes = uuid.toString().replace("-", "")
+            url shouldBe "https://crafatar.com/avatars/$uuidNoDashes?size=64&overlay"
         }
 
         it("defaults to mc-heads for unknown provider") {
             val url = ChatBridgeConfig.getAvatarUrl(playerName, uuid, "unknown")
-            url shouldBe "https://mc-heads.net/avatar/$playerName?size=64"
+            url shouldBe "https://mc-heads.net/avatar/$playerName/64"
         }
 
         it("is case insensitive for provider") {
             val url = ChatBridgeConfig.getAvatarUrl(playerName, uuid, "CRAFATAR")
-            url shouldBe "https://crafatar.com/avatars/$uuid?size=64&overlay"
+            // Crafatar requires UUID without dashes
+            val uuidNoDashes = uuid.toString().replace("-", "")
+            url shouldBe "https://crafatar.com/avatars/$uuidNoDashes?size=64&overlay"
         }
     }
 
