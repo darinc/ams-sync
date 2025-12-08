@@ -55,8 +55,14 @@ class UserMappingService(private val plugin: AMSSyncPlugin) {
 
     /**
      * Save user mappings to config.yml
+     *
+     * Reloads the config first to preserve any manual edits made to the file,
+     * then updates only the user-mappings section.
      */
     fun saveMappings() {
+        // Reload config from disk to get any manual changes
+        plugin.reloadConfig()
+
         // Clear existing mappings section
         plugin.config.set("user-mappings", null)
 
