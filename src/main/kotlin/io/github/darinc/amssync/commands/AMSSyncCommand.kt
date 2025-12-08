@@ -1,10 +1,16 @@
 package io.github.darinc.amssync.commands
 
 import io.github.darinc.amssync.AMSSyncPlugin
+import io.github.darinc.amssync.audit.ActorType
+import io.github.darinc.amssync.audit.AuditAction
+import io.github.darinc.amssync.audit.SecurityEvent
+import io.github.darinc.amssync.discord.RateLimitResult
+import io.github.darinc.amssync.validation.Validators
 import org.bukkit.Bukkit
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
+import org.bukkit.command.ConsoleCommandSender
 import org.bukkit.command.TabCompleter
 import org.bukkit.entity.Player
 
@@ -21,9 +27,50 @@ class AMSSyncCommand(private val plugin: AMSSyncPlugin) : CommandExecutor, TabCo
         label: String,
         args: Array<out String>
     ): Boolean {
+        val actorType = getActorType(sender)
+        val actorName = getActorName(sender)
+
         if (!sender.hasPermission("amssync.admin")) {
+            plugin.auditLogger.logSecurityEvent(
+                event = SecurityEvent.PERMISSION_DENIED,
+                actor = actorName,
+                actorType = actorType,
+                details = mapOf("command" to "amssync", "args" to args.joinToString(" "))
+            )
             sender.sendMessage("§cYou don't have permission to use this command.")
             return true
+        }
+
+        // Rate limit check - console commands are exempt
+        if (sender !is ConsoleCommandSender) {
+            val rateLimiter = plugin.rateLimiter
+            if (rateLimiter != null && sender is Player) {
+                when (val result = rateLimiter.checkRateLimit(sender.uniqueId.toString())) {
+                    is RateLimitResult.Cooldown -> {
+                        plugin.auditLogger.logSecurityEvent(
+                            event = SecurityEvent.RATE_LIMITED,
+                            actor = actorName,
+                            actorType = actorType,
+                            details = mapOf("reason" to "cooldown", "remainingMs" to result.remainingMs)
+                        )
+                        sender.sendMessage("§cPlease wait ${String.format("%.1f", result.remainingSeconds)} seconds before using another command.")
+                        return true
+                    }
+                    is RateLimitResult.BurstLimited -> {
+                        plugin.auditLogger.logSecurityEvent(
+                            event = SecurityEvent.RATE_LIMITED,
+                            actor = actorName,
+                            actorType = actorType,
+                            details = mapOf("reason" to "burst", "retryAfterMs" to result.retryAfterMs)
+                        )
+                        sender.sendMessage("§cYou've made too many requests. Please try again in ${String.format("%.0f", result.retryAfterSeconds)} seconds.")
+                        return true
+                    }
+                    is RateLimitResult.Allowed -> {
+                        // Continue processing
+                    }
+                }
+            }
         }
 
         if (args.isEmpty()) {
@@ -47,6 +94,9 @@ class AMSSyncCommand(private val plugin: AMSSyncPlugin) : CommandExecutor, TabCo
     }
 
     private fun handleAdd(sender: CommandSender, args: Array<out String>) {
+        val actorType = getActorType(sender)
+        val actorName = getActorName(sender)
+
         if (args.size < 3) {
             sender.sendMessage("§cUsage: /amssync add <discordId> <minecraftUsername>")
             return
@@ -55,10 +105,28 @@ class AMSSyncCommand(private val plugin: AMSSyncPlugin) : CommandExecutor, TabCo
         val discordId = args[1]
         val minecraftUsername = args[2]
 
-        // Validate Discord ID (should be all digits, 17-19 characters)
-        if (!discordId.matches(Regex("\\d{17,19}"))) {
-            sender.sendMessage("§cInvalid Discord ID. Must be a numeric ID (17-19 digits).")
+        // Validate Discord ID
+        if (!Validators.isValidDiscordId(discordId)) {
+            plugin.auditLogger.logSecurityEvent(
+                event = SecurityEvent.INVALID_INPUT,
+                actor = actorName,
+                actorType = actorType,
+                details = mapOf("field" to "discordId", "value" to discordId, "error" to Validators.getDiscordIdError(discordId))
+            )
+            sender.sendMessage("§cInvalid Discord ID: ${Validators.getDiscordIdError(discordId)}")
             sender.sendMessage("§7Find it by right-clicking a user in Discord → Copy ID (Developer Mode required)")
+            return
+        }
+
+        // Validate Minecraft username
+        if (!Validators.isValidMinecraftUsername(minecraftUsername)) {
+            plugin.auditLogger.logSecurityEvent(
+                event = SecurityEvent.INVALID_INPUT,
+                actor = actorName,
+                actorType = actorType,
+                details = mapOf("field" to "minecraftUsername", "value" to minecraftUsername, "error" to Validators.getMinecraftUsernameError(minecraftUsername))
+            )
+            sender.sendMessage("§cInvalid Minecraft username: ${Validators.getMinecraftUsernameError(minecraftUsername)}")
             return
         }
 
@@ -66,10 +134,22 @@ class AMSSyncCommand(private val plugin: AMSSyncPlugin) : CommandExecutor, TabCo
         plugin.userMappingService.addMapping(discordId, minecraftUsername)
         plugin.userMappingService.saveMappings()
 
+        plugin.auditLogger.logAdminAction(
+            action = AuditAction.LINK_USER,
+            actor = actorName,
+            actorType = actorType,
+            target = minecraftUsername,
+            success = true,
+            details = mapOf("discordId" to discordId)
+        )
+
         sender.sendMessage("§aSuccessfully linked Discord ID §f$discordId §ato Minecraft user §f$minecraftUsername")
     }
 
     private fun handleRemove(sender: CommandSender, args: Array<out String>) {
+        val actorType = getActorType(sender)
+        val actorName = getActorName(sender)
+
         if (args.size < 2) {
             sender.sendMessage("§cUsage: /amssync remove <discordId>")
             return
@@ -77,10 +157,32 @@ class AMSSyncCommand(private val plugin: AMSSyncPlugin) : CommandExecutor, TabCo
 
         val discordId = args[1]
 
+        // Get the linked username before removal for audit logging
+        val linkedUsername = plugin.userMappingService.getMinecraftUsername(discordId)
+
         if (plugin.userMappingService.removeMappingByDiscordId(discordId)) {
             plugin.userMappingService.saveMappings()
+
+            plugin.auditLogger.logAdminAction(
+                action = AuditAction.UNLINK_USER,
+                actor = actorName,
+                actorType = actorType,
+                target = linkedUsername,
+                success = true,
+                details = mapOf("discordId" to discordId)
+            )
+
             sender.sendMessage("§aSuccessfully removed mapping for Discord ID §f$discordId")
         } else {
+            plugin.auditLogger.logAdminAction(
+                action = AuditAction.UNLINK_USER,
+                actor = actorName,
+                actorType = actorType,
+                target = discordId,
+                success = false,
+                details = mapOf("reason" to "not_found")
+            )
+
             sender.sendMessage("§cNo mapping found for Discord ID §f$discordId")
         }
     }
@@ -561,6 +663,21 @@ class AMSSyncCommand(private val plugin: AMSSyncPlugin) : CommandExecutor, TabCo
                 else -> emptyList()
             }
             else -> emptyList()
+        }
+    }
+
+    private fun getActorType(sender: CommandSender): ActorType {
+        return when (sender) {
+            is Player -> ActorType.MINECRAFT_PLAYER
+            is ConsoleCommandSender -> ActorType.CONSOLE
+            else -> ActorType.CONSOLE // Default to console for unknown sender types
+        }
+    }
+
+    private fun getActorName(sender: CommandSender): String {
+        return when (sender) {
+            is Player -> "${sender.name} (${sender.uniqueId})"
+            else -> "Console"
         }
     }
 }

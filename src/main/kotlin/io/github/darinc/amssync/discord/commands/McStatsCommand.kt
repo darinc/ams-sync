@@ -3,6 +3,7 @@ package io.github.darinc.amssync.discord.commands
 import io.github.darinc.amssync.AMSSyncPlugin
 import io.github.darinc.amssync.exceptions.InvalidSkillException
 import io.github.darinc.amssync.exceptions.PlayerDataNotFoundException
+import io.github.darinc.amssync.validation.Validators
 import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
 import org.bukkit.Bukkit
@@ -192,8 +193,17 @@ class McStatsCommand(private val plugin: AMSSyncPlugin) {
             return mcUsername
         }
 
-        // Assume it's a Minecraft username - return as-is
-        // MCMMO API will validate if player exists
+        // Assume it's a Minecraft username - validate format before passing to MCMMO
+        if (!Validators.isValidMinecraftUsername(cleanedInput)) {
+            throw IllegalArgumentException(
+                "❌ **Invalid Username**\n\n" +
+                "${Validators.getMinecraftUsernameError(cleanedInput)}\n\n" +
+                "**Minecraft usernames must:**\n" +
+                "• Be 3-16 characters long\n" +
+                "• Contain only letters, numbers, and underscores"
+            )
+        }
+
         return cleanedInput
     }
 

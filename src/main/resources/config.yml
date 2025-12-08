@@ -1,6 +1,10 @@
 # AMSSync Plugin Configuration
 #
 # IMPORTANT: Add this file to .gitignore to protect your bot token!
+#
+# SECRETS: Discord token and guild ID can be set via environment variables:
+#   - AMS_DISCORD_TOKEN: Bot token (takes precedence over config file)
+#   - AMS_GUILD_ID: Guild ID (takes precedence over config file)
 
 discord:
   # Your Discord bot token from https://discord.com/developers/applications
@@ -108,6 +112,20 @@ discord:
       # If true, logs warning and continues if nickname change fails
       # If false, disables nickname updates after first failure
       graceful-fallback: true
+
+# Rate limiting for commands
+# Prevents spam and abuse of plugin commands
+rate-limiting:
+  # Enable/disable rate limiting
+  enabled: true
+
+  # Minimum time between commands per user (milliseconds)
+  # Example: 3000 = 3 seconds between commands
+  cooldown-ms: 3000
+
+  # Maximum requests per minute per user (burst protection)
+  # Example: 60 = max 60 commands per minute
+  max-requests-per-minute: 60
 
 # MCMMO Integration Settings
 mcmmo:

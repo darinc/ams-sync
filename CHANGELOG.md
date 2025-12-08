@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2025-12-07
+
+### Added
+
+- Environment variable support for secrets (`AMS_DISCORD_TOKEN`, `AMS_GUILD_ID`)
+- Command rate limiting with configurable cooldown and burst protection
+- Input validation for Minecraft usernames
+- Audit logging to console and `audit.log` file for admin actions
+- MIT LICENSE file
+
+### Security
+
+- Rate limiting prevents command spam (3-second cooldown, 60 requests/minute)
+- Console commands exempt from rate limiting for trusted operators
+
 ## [0.5.0] - 2025-12-07
 
 ### Changed

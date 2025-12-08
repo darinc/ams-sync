@@ -1,5 +1,6 @@
 package io.github.darinc.amssync
 
+import io.github.darinc.amssync.audit.AuditLogger
 import io.github.darinc.amssync.commands.AMSSyncCommand
 import io.github.darinc.amssync.config.ConfigValidator
 import io.github.darinc.amssync.discord.*
@@ -34,6 +35,12 @@ class AMSSyncPlugin : JavaPlugin() {
     lateinit var errorMetrics: ErrorMetrics
         private set
 
+    lateinit var auditLogger: AuditLogger
+        private set
+
+    var rateLimiter: RateLimiter? = null
+        private set
+
     override fun onEnable() {
         // Save default config if it doesn't exist
         saveDefaultConfig()
@@ -44,6 +51,24 @@ class AMSSyncPlugin : JavaPlugin() {
         // Initialize error metrics
         errorMetrics = ErrorMetrics()
         logger.info("Error metrics initialized")
+
+        // Initialize audit logger
+        auditLogger = AuditLogger(this)
+        logger.info("Audit logger initialized")
+
+        // Initialize rate limiter if enabled
+        val rateLimitEnabled = config.getBoolean("rate-limiting.enabled", true)
+        if (rateLimitEnabled) {
+            val rateLimiterConfig = RateLimiterConfig(
+                enabled = true,
+                cooldownMs = config.getLong("rate-limiting.cooldown-ms", 3000L),
+                maxRequestsPerMinute = config.getInt("rate-limiting.max-requests-per-minute", 60)
+            )
+            rateLimiter = rateLimiterConfig.toRateLimiter(logger)
+            logger.info("Rate limiting enabled: cooldown=${rateLimiterConfig.cooldownMs}ms, max=${rateLimiterConfig.maxRequestsPerMinute}/min")
+        } else {
+            logger.info("Rate limiting disabled")
+        }
 
         // Load user mappings
         userMappingService = UserMappingService(this)
@@ -62,8 +87,23 @@ class AMSSyncPlugin : JavaPlugin() {
         getCommand("amssync")?.tabCompleter = syncCommand
 
         // Initialize Discord with retry logic
-        val token = config.getString("discord.token") ?: ""
-        val guildId = config.getString("discord.guild-id") ?: ""
+        // Environment variables take precedence over config file
+        val token = System.getenv("AMS_DISCORD_TOKEN")
+            ?: config.getString("discord.token")
+            ?: ""
+        val guildId = System.getenv("AMS_GUILD_ID")
+            ?: config.getString("discord.guild-id")
+            ?: ""
+
+        // Log configuration source (without exposing secrets)
+        if (System.getenv("AMS_DISCORD_TOKEN") != null) {
+            logger.info("Discord token loaded from environment variable AMS_DISCORD_TOKEN")
+        } else {
+            logger.info("Discord token loaded from config.yml")
+        }
+        if (System.getenv("AMS_GUILD_ID") != null) {
+            logger.info("Guild ID loaded from environment variable AMS_GUILD_ID")
+        }
 
         // Pre-validate Discord configuration before attempting connection
         val validationResult = ConfigValidator.validateDiscordConfig(token, guildId, logger)

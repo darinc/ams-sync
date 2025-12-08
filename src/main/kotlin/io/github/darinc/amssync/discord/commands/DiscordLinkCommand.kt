@@ -1,8 +1,12 @@
 package io.github.darinc.amssync.discord.commands
 
 import io.github.darinc.amssync.AMSSyncPlugin
+import io.github.darinc.amssync.audit.ActorType
+import io.github.darinc.amssync.audit.AuditAction
+import io.github.darinc.amssync.audit.SecurityEvent
 import io.github.darinc.amssync.exceptions.InvalidDiscordIdException
 import io.github.darinc.amssync.exceptions.MappingNotFoundException
+import io.github.darinc.amssync.validation.Validators
 import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
@@ -16,8 +20,16 @@ import java.time.Instant
 class DiscordLinkCommand(private val plugin: AMSSyncPlugin) {
 
     fun handle(event: SlashCommandInteractionEvent) {
+        val actorName = "${event.user.name} (${event.user.id})"
+
         // Check admin permission
         if (event.member?.hasPermission(Permission.MANAGE_SERVER) != true) {
+            plugin.auditLogger.logSecurityEvent(
+                event = SecurityEvent.PERMISSION_DENIED,
+                actor = actorName,
+                actorType = ActorType.DISCORD_USER,
+                details = mapOf("command" to "amssync", "subcommand" to (event.subcommandName ?: "none"))
+            )
             event.reply("⛔ This command requires **Manage Server** permission.")
                 .setEphemeral(true)
                 .queue(
@@ -44,6 +56,8 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) {
     }
 
     private fun handleAdd(event: SlashCommandInteractionEvent) {
+        val actorName = "${event.user.name} (${event.user.id})"
+
         event.deferReply().setEphemeral(true).queue(
             null,
             { error -> plugin.logger.warning("Failed to defer reply for /amslink add: ${error.message}") }
@@ -62,6 +76,25 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) {
             return
         }
 
+        // Validate Minecraft username
+        if (!Validators.isValidMinecraftUsername(minecraftName)) {
+            plugin.auditLogger.logSecurityEvent(
+                event = SecurityEvent.INVALID_INPUT,
+                actor = actorName,
+                actorType = ActorType.DISCORD_USER,
+                details = mapOf("field" to "minecraftUsername", "value" to minecraftName, "error" to Validators.getMinecraftUsernameError(minecraftName))
+            )
+            event.hook.sendMessage(
+                "❌ **Invalid Minecraft Username**\n\n" +
+                "${Validators.getMinecraftUsernameError(minecraftName)}\n\n" +
+                "Minecraft usernames must be 3-16 characters and contain only letters, numbers, and underscores."
+            ).setEphemeral(true).queue(
+                null,
+                { error -> plugin.logger.warning("Failed to send validation error: ${error.message}") }
+            )
+            return
+        }
+
         // Run on Bukkit main thread for safety
         Bukkit.getScheduler().runTask(plugin, Runnable {
             try {
@@ -72,7 +105,7 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) {
                 if (existingLink != null) {
                     event.hook.sendMessage(
                         "⚠️ **${targetUser.name}** is already linked to `$existingLink`.\n" +
-                        "Use `/amslink remove` first to unlink."
+                        "Use `/amssync remove` first to unlink."
                     ).setEphemeral(true).queue(
                         null,
                         { error -> plugin.logger.warning("Failed to send already linked message: ${error.message}") }
@@ -83,6 +116,15 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) {
                 // Add the mapping
                 plugin.userMappingService.addMapping(discordId, minecraftName)
                 plugin.userMappingService.saveMappings()
+
+                plugin.auditLogger.logAdminAction(
+                    action = AuditAction.LINK_USER,
+                    actor = actorName,
+                    actorType = ActorType.DISCORD_USER,
+                    target = minecraftName,
+                    success = true,
+                    details = mapOf("discordId" to discordId, "discordName" to targetUser.name)
+                )
 
                 val embed = EmbedBuilder()
                     .setTitle("✅ User Linked Successfully")
@@ -128,6 +170,8 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) {
     }
 
     private fun handleRemove(event: SlashCommandInteractionEvent) {
+        val actorName = "${event.user.name} (${event.user.id})"
+
         event.deferReply().setEphemeral(true).queue(
             null,
             { error -> plugin.logger.warning("Failed to defer reply for /amslink remove: ${error.message}") }
@@ -151,6 +195,14 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) {
                 val minecraftName = plugin.userMappingService.getMinecraftUsername(discordId)
 
                 if (minecraftName == null) {
+                    plugin.auditLogger.logAdminAction(
+                        action = AuditAction.UNLINK_USER,
+                        actor = actorName,
+                        actorType = ActorType.DISCORD_USER,
+                        target = targetUser.name,
+                        success = false,
+                        details = mapOf("discordId" to discordId, "reason" to "not_linked")
+                    )
                     event.hook.sendMessage(
                         "⚠️ **${targetUser.name}** is not currently linked to any Minecraft account."
                     ).setEphemeral(true).queue(
@@ -162,6 +214,15 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) {
 
                 plugin.userMappingService.removeMappingByDiscordId(discordId)
                 plugin.userMappingService.saveMappings()
+
+                plugin.auditLogger.logAdminAction(
+                    action = AuditAction.UNLINK_USER,
+                    actor = actorName,
+                    actorType = ActorType.DISCORD_USER,
+                    target = minecraftName,
+                    success = true,
+                    details = mapOf("discordId" to discordId, "discordName" to targetUser.name)
+                )
 
                 val embed = EmbedBuilder()
                     .setTitle("🔓 User Unlinked Successfully")
