@@ -69,6 +69,46 @@ discord:
     # Example: 2 successful calls = circuit closes and normal operation resumes
     success-threshold: 2
 
+  # Player count presence display
+  # Shows current player count in bot status and/or nickname
+  presence:
+    # Master enable/disable for all presence features
+    enabled: true
+
+    # Minimum seconds between Discord API updates
+    # Discord rate limits presence updates to ~5/minute
+    # Recommended: 30-60 seconds to stay well under limits
+    min-update-interval-seconds: 30
+
+    # Debounce delay in seconds
+    # Waits this long after player join/quit before updating
+    # Helps batch rapid changes (e.g., server restart, mass teleport)
+    debounce-seconds: 5
+
+    # Bot Activity/Status display
+    # Shows in Discord under the bot's name (e.g., "Playing 12 players online")
+    activity:
+      # Enable/disable activity updates
+      enabled: true
+      # Activity type: playing, watching, listening, competing
+      type: "playing"
+      # Message template
+      # Available placeholders: {count} = current player count, {max} = max players
+      template: "{count} players online"
+
+    # Bot Nickname display (per-guild)
+    # Changes the bot's nickname in your Discord server
+    # IMPORTANT: Bot needs CHANGE_NICKNAME permission in your server
+    nickname:
+      # Enable/disable nickname updates (disabled by default - requires permission)
+      enabled: false
+      # Nickname template
+      # Available placeholders: {count} = player count, {name} = original bot name, {max} = max players
+      template: "[{count}] {name}"
+      # If true, logs warning and continues if nickname change fails
+      # If false, disables nickname updates after first failure
+      graceful-fallback: true
+
 # MCMMO Integration Settings
 mcmmo:
   leaderboard:

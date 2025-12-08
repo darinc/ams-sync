@@ -26,6 +26,9 @@ class AmsDiscordPlugin : JavaPlugin() {
     var discordApiWrapper: DiscordApiWrapper? = null
         private set
 
+    var playerCountPresence: PlayerCountPresence? = null
+        private set
+
     override fun onEnable() {
         // Save default config if it doesn't exist
         saveDefaultConfig()
@@ -137,6 +140,7 @@ class AmsDiscordPlugin : JavaPlugin() {
                     when (val retryResult = connectionResult.value) {
                         is RetryManager.RetryResult.Success -> {
                             logger.info("Discord bot successfully connected!")
+                            initializePlayerCountPresence()
                         }
                         is RetryManager.RetryResult.Failure -> {
                             logger.severe("=".repeat(60))
@@ -173,6 +177,7 @@ class AmsDiscordPlugin : JavaPlugin() {
             try {
                 discordManager.initialize(token, guildId)
                 logger.info("Discord bot successfully connected!")
+                initializePlayerCountPresence()
             } catch (e: Exception) {
                 logger.severe("Failed to initialize Discord bot: ${e.message}")
                 logger.severe("Retry logic is disabled. Plugin will be disabled.")
@@ -188,6 +193,9 @@ class AmsDiscordPlugin : JavaPlugin() {
 
     override fun onDisable() {
         logger.info("Shutting down AMS Discord plugin...")
+
+        // Shutdown player count presence
+        playerCountPresence?.shutdown()
 
         // Shutdown Discord gracefully
         if (::discordManager.isInitialized) {
@@ -217,5 +225,23 @@ class AmsDiscordPlugin : JavaPlugin() {
         reloadConfig()
         userMappingService.loadMappings()
         logger.info("Configuration reloaded")
+    }
+
+    /**
+     * Initialize player count presence display if enabled and Discord is connected.
+     */
+    private fun initializePlayerCountPresence() {
+        if (!discordManager.isConnected()) {
+            logger.fine("Skipping presence initialization - Discord not connected")
+            return
+        }
+
+        val presenceConfig = PresenceConfig.fromConfig(config)
+        if (presenceConfig.enabled) {
+            playerCountPresence = PlayerCountPresence(this, presenceConfig)
+            playerCountPresence?.initialize()
+        } else {
+            logger.info("Player count presence is disabled in config")
+        }
     }
 }

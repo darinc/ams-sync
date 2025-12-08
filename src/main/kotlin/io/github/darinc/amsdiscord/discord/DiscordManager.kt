@@ -5,7 +5,6 @@ import io.github.darinc.amsdiscord.discord.commands.McStatsCommand
 import io.github.darinc.amsdiscord.discord.commands.McTopCommand
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
-import net.dv8tion.jda.api.entities.Activity
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions
 import net.dv8tion.jda.api.interactions.commands.OptionType
 import net.dv8tion.jda.api.interactions.commands.build.Commands
@@ -30,8 +29,8 @@ class DiscordManager(private val plugin: AmsDiscordPlugin) {
 
         try {
             // Build JDA instance
+            // Note: Activity is set by PlayerCountPresence after initialization
             jda = JDABuilder.createDefault(token)
-                .setActivity(Activity.playing("Amazing Minecraft Server"))
                 .enableIntents(GatewayIntent.GUILD_MEMBERS) // Needed for user lookups
                 .addEventListeners(SlashCommandListener(plugin))
                 .build()
