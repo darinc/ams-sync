@@ -38,7 +38,7 @@ class DiscordManager(private val plugin: AmsDiscordPlugin) {
                 .awaitReady()
 
             connected = true
-            plugin.logger.info("Discord bot is ready! Connected as ${jda?.selfUser?.asTag}")
+            plugin.logger.info("Discord bot is ready! Connected as ${jda?.selfUser?.name}")
 
             // Register slash commands
             registerSlashCommands(guildId)
@@ -69,7 +69,8 @@ class DiscordManager(private val plugin: AmsDiscordPlugin) {
     private fun registerSlashCommands(guildId: String) {
         val commands = listOf(
             // Player commands
-            Commands.slash("mcstats", "View your MCMMO stats")
+            Commands.slash("mcstats", "View MCMMO stats for yourself or another player")
+                .addOption(OptionType.STRING, "username", "Minecraft or Discord username (leave empty for your own stats)", false)
                 .addOption(OptionType.STRING, "skill", "View stats for a specific skill (leave empty for all)", false),
 
             Commands.slash("mctop", "View MCMMO leaderboard")

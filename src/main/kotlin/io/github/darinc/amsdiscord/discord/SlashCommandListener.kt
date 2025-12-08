@@ -17,7 +17,7 @@ class SlashCommandListener(private val plugin: AmsDiscordPlugin) : ListenerAdapt
     private val discordLinkCommand = DiscordLinkCommand(plugin)
 
     override fun onSlashCommandInteraction(event: SlashCommandInteractionEvent) {
-        plugin.logger.info("Received slash command: ${event.name} from ${event.user.asTag}")
+        plugin.logger.info("Received slash command: ${event.name} from ${event.user.name}")
 
         when (event.name) {
             "mcstats" -> mcStatsCommand.handle(event)

@@ -113,14 +113,14 @@ Then build the AMS Discord plugin:
 ./gradlew shadowJar
 ```
 
-The plugin JAR will be in `build/libs/ams-discord-2.0.0.jar`
+The plugin JAR will be in `build/libs/ams-discord-0.1.0.jar`
 
 ### 2. Install on Server
 
 Copy the JAR to your server's `plugins/` directory:
 
 ```bash
-cp build/libs/ams-discord-2.0.0.jar /path/to/server/plugins/
+cp build/libs/ams-discord-0.1.0.jar /path/to/server/plugins/
 ```
 
 ### 3. Configure the Plugin
@@ -364,7 +364,7 @@ The plugin provides detailed logging to the server console:
 ### Example Log Output
 
 ```
-[INFO] [AmsDiscord] Enabling AmsDiscord v2.0.0
+[INFO] [AmsDiscord] Enabling AmsDiscord v0.1.0
 [INFO] [AmsDiscord] Connecting to Discord...
 [INFO] [AmsDiscord] Discord bot is ready! Connected as AMS Bot#1234
 [INFO] [AmsDiscord] Slash commands registered to guild: Amazing Minecraft Server

@@ -18,32 +18,31 @@ class McStatsCommand(private val plugin: AmsDiscordPlugin) {
         // Defer reply immediately to avoid timeout
         event.deferReply().queue()
 
-        val discordId = event.user.id
+        val usernameOption = event.getOption("username")?.asString
         val skillOption = event.getOption("skill")?.asString
+        val invokerDiscordId = event.user.id
+        val invokerTag = event.user.name
 
         // Run on main Bukkit thread
         Bukkit.getScheduler().runTask(plugin, Runnable {
             try {
-                // Get Minecraft username for this Discord user
-                val mcUsername = plugin.userMappingService.getMinecraftUsername(discordId)
-
-                if (mcUsername == null) {
-                    event.hook.sendMessage(
-                        "❌ **Account Not Linked**\n\n" +
-                        "Your Discord account is not linked to a Minecraft account.\n\n" +
-                        "**How to link:**\n" +
-                        "Contact a server administrator to use `/amslink add` command."
-                    ).setEphemeral(true).queue()
-                    return@Runnable
-                }
+                // Resolve the target Minecraft username (self or other player)
+                val mcUsername = resolveMinecraftUsername(usernameOption, invokerDiscordId)
 
                 if (skillOption != null) {
                     // Show specific skill
-                    handleSpecificSkill(event, mcUsername, skillOption)
+                    handleSpecificSkill(event, mcUsername, skillOption, invokerTag)
                 } else {
                     // Show all skills
-                    handleAllSkills(event, mcUsername)
+                    handleAllSkills(event, mcUsername, invokerTag)
                 }
+
+            } catch (e: IllegalArgumentException) {
+                // Username resolution errors (not linked, Discord user not found, etc.)
+                plugin.logger.fine("Username resolution failed: ${e.message}")
+                event.hook.sendMessage(e.message ?: "Invalid username")
+                    .setEphemeral(true)
+                    .queue()
 
             } catch (e: PlayerDataNotFoundException) {
                 plugin.logger.fine("Player data not found: ${e.message}")
@@ -77,7 +76,7 @@ class McStatsCommand(private val plugin: AmsDiscordPlugin) {
         })
     }
 
-    private fun handleAllSkills(event: SlashCommandInteractionEvent, mcUsername: String) {
+    private fun handleAllSkills(event: SlashCommandInteractionEvent, mcUsername: String, invokerTag: String) {
         // Throws PlayerDataNotFoundException if player not found
         val stats = plugin.mcmmoApi.getPlayerStats(mcUsername)
         val powerLevel = plugin.mcmmoApi.getPowerLevel(mcUsername)
@@ -87,7 +86,7 @@ class McStatsCommand(private val plugin: AmsDiscordPlugin) {
             .setColor(Color.GREEN)
             .setDescription("**Power Level:** $powerLevel")
             .setTimestamp(Instant.now())
-            .setFooter("Amazing Minecraft Server", null)
+            .setFooter("Requested by $invokerTag", null)
 
         // Add fields for each skill (in columns)
         val sortedStats = stats.entries.sortedByDescending { it.value }
@@ -99,7 +98,7 @@ class McStatsCommand(private val plugin: AmsDiscordPlugin) {
         event.hook.sendMessageEmbeds(embed.build()).queue()
     }
 
-    private fun handleSpecificSkill(event: SlashCommandInteractionEvent, mcUsername: String, skillName: String) {
+    private fun handleSpecificSkill(event: SlashCommandInteractionEvent, mcUsername: String, skillName: String, invokerTag: String) {
         // Throws InvalidSkillException if skill invalid
         val skill = plugin.mcmmoApi.parseSkillType(skillName)
 
@@ -111,9 +110,70 @@ class McStatsCommand(private val plugin: AmsDiscordPlugin) {
             .setColor(Color.CYAN)
             .setDescription("**Level:** $level")
             .setTimestamp(Instant.now())
-            .setFooter("Amazing Minecraft Server", null)
+            .setFooter("Requested by $invokerTag", null)
 
         event.hook.sendMessageEmbeds(embed.build()).queue()
+    }
+
+    /**
+     * Resolve a flexible username input to a Minecraft username.
+     *
+     * Strategy:
+     * 1. If usernameInput is null/empty, use command invoker's Discord ID (requires linking)
+     * 2. If usernameInput is provided:
+     *    a. Strip Discord mention format if present (<@123...> or <@!123...>)
+     *    b. If it's a Discord ID (17-19 digits), lookup via UserMappingService
+     *    c. Otherwise, assume it's a Minecraft username and use directly
+     *
+     * @param usernameInput The username parameter from the command (can be null)
+     * @param invokerDiscordId The Discord ID of the user who invoked the command
+     * @return Minecraft username to query
+     * @throws IllegalArgumentException if username cannot be resolved
+     */
+    private fun resolveMinecraftUsername(usernameInput: String?, invokerDiscordId: String): String {
+        // Case 1: No username provided - use command invoker's Discord ID
+        if (usernameInput.isNullOrBlank()) {
+            val mcUsername = plugin.userMappingService.getMinecraftUsername(invokerDiscordId)
+            if (mcUsername == null) {
+                throw IllegalArgumentException(
+                    "❌ **Account Not Linked**\n\n" +
+                    "Your Discord account is not linked to a Minecraft account.\n\n" +
+                    "**How to link:**\n" +
+                    "Contact a server administrator to use `/amslink add` command."
+                )
+            }
+            return mcUsername
+        }
+
+        // Case 2: Username provided - flexible detection
+        var cleanedInput = usernameInput.trim()
+
+        // Strip Discord mention format: <@123456789012345678> or <@!123456789012345678>
+        if (cleanedInput.startsWith("<@") && cleanedInput.endsWith(">")) {
+            cleanedInput = cleanedInput.removePrefix("<@").removeSuffix(">")
+            if (cleanedInput.startsWith("!")) {
+                cleanedInput = cleanedInput.removePrefix("!")
+            }
+        }
+
+        // Check if it's a Discord ID (17-19 digit snowflake)
+        if (cleanedInput.matches(Regex("^\\d{17,19}$"))) {
+            // Try to resolve via UserMappingService
+            val mcUsername = plugin.userMappingService.getMinecraftUsername(cleanedInput)
+            if (mcUsername == null) {
+                throw IllegalArgumentException(
+                    "❌ **Discord User Not Linked**\n\n" +
+                    "Discord user <@$cleanedInput> is not linked to a Minecraft account.\n\n" +
+                    "**How to link:**\n" +
+                    "Contact a server administrator to use `/amslink add` command."
+                )
+            }
+            return mcUsername
+        }
+
+        // Assume it's a Minecraft username - return as-is
+        // MCMMO API will validate if player exists
+        return cleanedInput
     }
 
     /**
