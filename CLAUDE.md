@@ -19,6 +19,12 @@ Output: `build/libs/ams-sync-*.jar` (shaded JAR with all dependencies)
 ./gradlew clean build
 ```
 
+**Run tests:**
+```bash
+./gradlew test
+```
+Uses Kotest with JUnit5 platform.
+
 **Run static analysis:**
 ```bash
 ./gradlew detekt
@@ -37,6 +43,10 @@ MCMMO must be installed to local Maven repository before building:
 cd /path/to/mcMMO
 mvn install -DskipTests
 ```
+
+**Environment Variables:** Discord secrets can be set via environment variables (override config values):
+- `AMS_DISCORD_TOKEN` - Bot token
+- `AMS_GUILD_ID` - Guild ID
 
 ## Architecture
 
@@ -61,7 +71,7 @@ mvn install -DskipTests
 ### Core Services
 
 **DiscordManager** (`discord/DiscordManager.kt`)
-- JDA lifecycle management (build - awaitReady - shutdown)
+- JDA lifecycle management (build → awaitReady → shutdown)
 - Slash command registration (guild-specific or global)
 - Connection status tracking
 
@@ -72,7 +82,7 @@ mvn install -DskipTests
 - Power level calculation (sum of all non-child skills)
 
 **UserMappingService** (`linking/UserMappingService.kt`)
-- Bidirectional mapping: Discord ID - Minecraft username
+- Bidirectional mapping: Discord ID ↔ Minecraft username
 - Config persistence (saved to `config.yml` under `user-mappings`)
 - Validation: Discord IDs must be 17-19 digit snowflakes
 - Automatic replacement: prevents duplicate mappings
@@ -83,7 +93,7 @@ mvn install -DskipTests
 - Returns sealed class `TimeoutResult` (Success, Timeout, Failure)
 
 **CircuitBreaker** (`discord/CircuitBreaker.kt`)
-- States: CLOSED (normal) - OPEN (failing fast) - HALF_OPEN (testing recovery)
+- States: CLOSED (normal) → OPEN (failing fast) → HALF_OPEN (testing recovery)
 - Configurable failure threshold in time window
 - Cooldown period before attempting recovery
 
@@ -92,11 +102,68 @@ mvn install -DskipTests
 - Max delay cap to prevent excessive wait times
 - Returns sealed class `RetryResult` (Success, Failure)
 
+**RateLimiter** (`discord/RateLimiter.kt`)
+- Per-user rate limiting for Discord commands
+- Configurable penalty cooldown after exceeding limit
+- Prevents spam and abuse
+
+**ErrorMetrics** (`metrics/ErrorMetrics.kt`)
+- Tracks connection attempts, API call success/failure rates
+- Exposed via `/amssync metrics` command
+
+**AuditLogger** (`audit/AuditLogger.kt`)
+- Logs administrative actions (link/unlink operations)
+- File-based audit trail
+
+### Image Card System
+
+**PlayerCardRenderer** (`image/PlayerCardRenderer.kt`)
+- Generates Pokemon-style stats cards for `/amsstats`
+- Creates podium leaderboard images for `/amstop`
+- Uses Graphics2D for image generation
+
+**MilestoneCardRenderer** (`image/MilestoneCardRenderer.kt`)
+- Generates celebration cards for MCMMO milestone achievements
+- Includes skill badges and player avatars
+
+**AvatarFetcher** (`image/AvatarFetcher.kt`)
+- Downloads and caches player Minecraft avatars
+- Supports mc-heads and crafatar providers
+- LRU cache with configurable TTL
+
+### Event and Communication Services
+
+**ChatBridge** (`discord/ChatBridge.kt`)
+- Two-way chat relay between Minecraft and Discord
+- Configurable message formats with placeholders
+- Optional webhook support for rich messages
+
+**PlayerCountPresence** (`discord/PlayerCountPresence.kt`)
+- Updates bot activity/status with player count
+- Optional nickname updates showing player count
+- Rate-limited to respect Discord API limits
+
+**StatusChannelManager** (`discord/StatusChannelManager.kt`)
+- Updates voice channel name with player count
+- Respects Discord's 2 per 10 minute rename limit
+
+**McMMOEventListener** (`mcmmo/McMMOEventListener.kt`)
+- Listens for MCMMO level-up events
+- Posts milestone announcements to Discord
+- Supports both embeds and image cards
+
+**WebhookManager** (`discord/WebhookManager.kt`)
+- Sends messages via Discord webhooks with custom avatars
+- Fallback to bot messages when webhook unavailable
+
 ### Command Handling
 
 **Discord Commands** (`discord/SlashCommandListener.kt`)
-- Routes slash commands to handlers: `McStatsCommand`, `McTopCommand`, `DiscordLinkCommand`
-- All commands check `CircuitBreaker` state before executing
+- Routes slash commands to handlers
+- Text commands: `McStatsCommand`, `McTopCommand` (embed-based)
+- Image commands: `AmsStatsCommand`, `AmsTopCommand` (visual cards)
+- Admin: `DiscordLinkCommand`
+- All commands check `CircuitBreaker` and `RateLimiter` state before executing
 - Uses ephemeral responses for errors
 
 **Minecraft Commands** (`commands/AMSSyncCommand.kt`)
@@ -149,9 +216,10 @@ discordId.matches(Regex("^\\d{17,19}$"))
 ### Dependency Relocation
 
 The shadowJar task relocates dependencies to prevent conflicts:
-- `net.dv8tion` - `io.github.darinc.amssync.libs.jda`
-- `kotlin` - `io.github.darinc.amssync.libs.kotlin`
-- `kotlinx` - `io.github.darinc.amssync.libs.kotlinx`
+- `net.dv8tion` → `io.github.darinc.amssync.libs.jda`
+- `club.minnced` → `io.github.darinc.amssync.libs.webhook`
+- `kotlin` → `io.github.darinc.amssync.libs.kotlin`
+- `kotlinx` → `io.github.darinc.amssync.libs.kotlinx`
 
 **DO NOT** relocate SLF4J - JDA needs to find it in the original package.
 
@@ -159,14 +227,30 @@ The shadowJar task relocates dependencies to prevent conflicts:
 
 All configuration lives in `src/main/resources/config.yml`:
 
-- `discord.token` - Bot token (REQUIRED, never commit actual token)
+**Core Settings:**
+- `discord.token` - Bot token (REQUIRED, or use `AMS_DISCORD_TOKEN` env var)
 - `discord.guild-id` - Server ID for instant command registration (optional but recommended)
+
+**Resilience Settings:**
 - `discord.retry.*` - Retry logic configuration (enabled by default)
 - `discord.timeout.*` - Timeout protection settings
 - `discord.circuit-breaker.*` - Circuit breaker thresholds
+
+**Discord Features:**
+- `discord.presence.*` - Bot activity/status and nickname player count display
+- `discord.status-channel.*` - Voice channel name showing player count
+- `discord.announcements.*` - MCMMO milestone announcements
+- `discord.events.*` - Server start/stop, deaths, achievements announcements
+- `discord.chat-bridge.*` - Two-way Minecraft↔Discord chat relay
+
+**MCMMO Settings:**
 - `mcmmo.leaderboard.max-players-to-scan` - Query limit to prevent timeouts (default: 1000)
 - `mcmmo.leaderboard.cache-ttl-seconds` - Leaderboard cache duration (default: 60)
-- `user-mappings` - Discord ID - Minecraft username mappings (managed by `/amssync`)
+
+**Other Settings:**
+- `image-cards.*` - Visual card generation for `/amsstats` and `/amstop`
+- `rate-limiting.*` - Command spam protection
+- `user-mappings` - Discord ID → Minecraft username mappings (managed by `/amssync`)
 
 ## Common Patterns
 
@@ -189,6 +273,8 @@ All configuration lives in `src/main/resources/config.yml`:
 - `UserMappingService` - not thread-safe, accessed only from Bukkit main thread
 - `McmmoApiWrapper.leaderboardCache` - uses ConcurrentHashMap
 - `LinkingSessionManager` - uses ConcurrentHashMap for session storage
+- `RateLimiter` - uses ConcurrentHashMap for per-user tracking
+- `AvatarFetcher` - uses synchronized LinkedHashMap for LRU cache
 - Discord operations run on JDA thread pool, use Bukkit scheduler for server operations
 
 ## Testing Locally
@@ -206,3 +292,5 @@ All configuration lives in `src/main/resources/config.yml`:
 - Use `lateinit` for plugin services initialized in `onEnable()`
 - Nullable types for optional services (e.g., `timeoutManager`, `circuitBreaker`)
 - Prefer sealed classes for result types (e.g., `RetryResult`, `TimeoutResult`)
+- Config data classes with companion `fromConfig()` factory methods (e.g., `ImageConfig`, `PresenceConfig`)
+- Testing with Kotest (spec style) and MockK for mocking
