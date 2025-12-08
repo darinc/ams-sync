@@ -148,8 +148,13 @@ class ChatBridge(
      * Sanitize a message for Minecraft to prevent format exploits.
      */
     private fun sanitizeMinecraftMessage(message: String): String {
-        // Remove any color code attempts from Discord users
-        return message.replace("&", "&\u200B")
+        return message
+            // Remove any color code attempts from Discord users
+            .replace("&", "&\u200B")
+            // Strip Unicode Variation Selectors (VS15 text-style, VS16 emoji-style)
+            // These cause boxes in Minecraft as it lacks glyphs for them
+            .replace("\uFE0E", "")
+            .replace("\uFE0F", "")
     }
 }
 
