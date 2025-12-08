@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-12-07
+
+### Added
+
+- Configuration validation with detailed error messages before Discord connection
+- Error metrics tracking system with `/amslink metrics` command
+- Circuit breaker state context in Discord API error logs
+
+### Changed
+
+- Improved thread safety in linking session management
+- Enhanced Discord command error handling with null-safe queue callbacks
+
 ## [0.3.1] - 2025-12-07
 
 ### Fixed

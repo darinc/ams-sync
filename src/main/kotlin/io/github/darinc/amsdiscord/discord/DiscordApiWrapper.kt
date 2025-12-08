@@ -1,5 +1,6 @@
 package io.github.darinc.amsdiscord.discord
 
+import io.github.darinc.amsdiscord.metrics.ErrorMetrics
 import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.MessageEmbed
 import net.dv8tion.jda.api.interactions.InteractionHook
@@ -20,6 +21,7 @@ import java.util.logging.Logger
  * - Circuit breaker protection for all Discord API calls
  * - Automatic fallback error messages when circuit is open
  * - Metrics tracking for Discord API failures
+ * - Enhanced error logging with circuit breaker state context
  * - Thread-safe operation
  *
  * @property circuitBreaker Circuit breaker instance for failure protection
@@ -27,8 +29,53 @@ import java.util.logging.Logger
  */
 class DiscordApiWrapper(
     private val circuitBreaker: CircuitBreaker?,
-    private val logger: Logger
+    private val logger: Logger,
+    private val errorMetrics: ErrorMetrics? = null
 ) {
+    /**
+     * Formats circuit breaker state for inclusion in log messages.
+     * Provides context about the current circuit state when logging errors.
+     *
+     * @return String describing current circuit breaker state, or empty if disabled
+     */
+    private fun getCircuitStateContext(): String {
+        val cb = circuitBreaker ?: return ""
+        val metrics = cb.getMetrics()
+
+        return when (metrics.state) {
+            CircuitBreaker.State.CLOSED -> {
+                if (metrics.failureCount > 0) {
+                    " [Circuit: CLOSED, failures: ${metrics.failureCount}/${metrics.failureThreshold}]"
+                } else {
+                    " [Circuit: CLOSED]"
+                }
+            }
+            CircuitBreaker.State.OPEN -> {
+                val remainingCooldown = maxOf(0, 30000 - metrics.timeSinceStateChangeMs) / 1000
+                " [Circuit: OPEN, cooldown remaining: ~${remainingCooldown}s]"
+            }
+            CircuitBreaker.State.HALF_OPEN -> {
+                " [Circuit: HALF_OPEN, recovery progress: ${metrics.successCount}/${metrics.successThreshold}]"
+            }
+        }
+    }
+
+    /**
+     * Logs an error with circuit breaker state context.
+     *
+     * @param operation Name of the operation that failed
+     * @param error Error message or exception message
+     * @param level Log level (defaults to WARNING)
+     */
+    private fun logWithCircuitState(operation: String, error: String, severe: Boolean = false) {
+        val message = "$operation: $error${getCircuitStateContext()}"
+        if (severe) {
+            logger.severe(message)
+        } else {
+            logger.warning(message)
+        }
+    }
+
     /**
      * Send a message using InteractionHook with circuit breaker protection.
      *
@@ -49,7 +96,7 @@ class DiscordApiWrapper(
             action.queue(
                 { msg -> future.complete(msg) },
                 { error ->
-                    logger.warning("Discord API error (sendMessage): ${error.message}")
+                    logWithCircuitState("Discord API error (sendMessage)", error.message ?: "Unknown error")
                     future.completeExceptionally(error)
                 }
             )
@@ -78,7 +125,7 @@ class DiscordApiWrapper(
             action.queue(
                 { msg -> future.complete(msg) },
                 { error ->
-                    logger.warning("Discord API error (sendMessageEmbed): ${error.message}")
+                    logWithCircuitState("Discord API error (sendMessageEmbed)", error.message ?: "Unknown error")
                     future.completeExceptionally(error)
                 }
             )
@@ -104,7 +151,7 @@ class DiscordApiWrapper(
     ) {
         val result = sendMessage(hook, message, ephemeral)
         result.exceptionally { error ->
-            logger.warning("Failed to send Discord message, attempting fallback: ${error.message}")
+            logWithCircuitState("Failed to send Discord message, attempting fallback", error.message ?: "Unknown error")
 
             // Attempt fallback message
             try {
@@ -114,10 +161,10 @@ class DiscordApiWrapper(
                     "Please try again in a few moments."
                 ).setEphemeral(true).queue(
                     { logger.info("Sent fallback error message") },
-                    { fallbackError -> logger.severe("Failed to send fallback message: ${fallbackError.message}") }
+                    { fallbackError -> logWithCircuitState("Failed to send fallback message", fallbackError.message ?: "Unknown error", severe = true) }
                 )
             } catch (e: Exception) {
-                logger.severe("Critical error: Unable to send any Discord message: ${e.message}")
+                logWithCircuitState("Critical error: Unable to send any Discord message", e.message ?: "Unknown error", severe = true)
             }
 
             null
@@ -141,7 +188,7 @@ class DiscordApiWrapper(
     ) {
         val result = sendMessageEmbed(hook, embed, ephemeral)
         result.exceptionally { error ->
-            logger.warning("Failed to send Discord embed, attempting fallback: ${error.message}")
+            logWithCircuitState("Failed to send Discord embed, attempting fallback", error.message ?: "Unknown error")
 
             // Attempt fallback message
             try {
@@ -151,10 +198,10 @@ class DiscordApiWrapper(
                     "Please try again in a few moments."
                 ).setEphemeral(true).queue(
                     { logger.info("Sent fallback error message") },
-                    { fallbackError -> logger.severe("Failed to send fallback message: ${fallbackError.message}") }
+                    { fallbackError -> logWithCircuitState("Failed to send fallback message", fallbackError.message ?: "Unknown error", severe = true) }
                 )
             } catch (e: Exception) {
-                logger.severe("Critical error: Unable to send any Discord message: ${e.message}")
+                logWithCircuitState("Critical error: Unable to send any Discord message", e.message ?: "Unknown error", severe = true)
             }
 
             null
@@ -188,14 +235,17 @@ class DiscordApiWrapper(
 
         return when (circuitResult) {
             is CircuitBreaker.CircuitResult.Success -> {
+                errorMetrics?.recordDiscordApiSuccess()
                 CompletableFuture.completedFuture(circuitResult.value)
             }
             is CircuitBreaker.CircuitResult.Failure -> {
-                logger.warning("$operationName failed: ${circuitResult.exception.message}")
+                errorMetrics?.recordDiscordApiFailure("api_error")
+                logWithCircuitState("$operationName failed", circuitResult.exception.message ?: "Unknown error")
                 CompletableFuture.failedFuture(circuitResult.exception)
             }
             is CircuitBreaker.CircuitResult.Rejected -> {
-                logger.warning("$operationName rejected by circuit breaker: ${circuitResult.message}")
+                errorMetrics?.recordDiscordApiRejected()
+                logWithCircuitState("$operationName rejected by circuit breaker", circuitResult.message)
                 CompletableFuture.failedFuture(
                     Exception("Circuit breaker rejected request: ${circuitResult.message}")
                 )

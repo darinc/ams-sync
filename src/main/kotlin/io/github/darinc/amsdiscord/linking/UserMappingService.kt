@@ -1,10 +1,10 @@
 package io.github.darinc.amsdiscord.linking
 
 import io.github.darinc.amsdiscord.AmsDiscordPlugin
+import io.github.darinc.amsdiscord.config.ConfigValidator
 import io.github.darinc.amsdiscord.exceptions.DuplicateMappingException
 import io.github.darinc.amsdiscord.exceptions.InvalidDiscordIdException
 import io.github.darinc.amsdiscord.exceptions.MappingNotFoundException
-import org.bukkit.configuration.ConfigurationSection
 
 /**
  * Manages mappings between Discord user IDs and Minecraft usernames.
@@ -28,7 +28,7 @@ class UserMappingService(private val plugin: AmsDiscordPlugin) {
      * @throws InvalidDiscordIdException if the ID format is invalid
      */
     private fun validateDiscordId(discordId: String) {
-        if (!discordId.matches(Regex("^\\d{17,19}$"))) {
+        if (!ConfigValidator.isValidDiscordIdFormat(discordId)) {
             throw InvalidDiscordIdException(discordId)
         }
     }
@@ -91,11 +91,13 @@ class UserMappingService(private val plugin: AmsDiscordPlugin) {
         validateDiscordId(discordId)
 
         // Check for duplicate if not allowing replace
-        if (!allowReplace && discordToMinecraft.containsKey(discordId)) {
-            throw DuplicateMappingException(
-                discordId = discordId,
-                existingMapping = discordToMinecraft[discordId]!!
-            )
+        if (!allowReplace) {
+            discordToMinecraft[discordId]?.let { existingMapping ->
+                throw DuplicateMappingException(
+                    discordId = discordId,
+                    existingMapping = existingMapping
+                )
+            }
         }
 
         // Remove old mapping if it exists

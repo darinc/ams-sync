@@ -18,7 +18,10 @@ class McTopCommand(private val plugin: AmsDiscordPlugin) {
 
     fun handle(event: SlashCommandInteractionEvent) {
         // Defer reply immediately to avoid timeout
-        event.deferReply().queue()
+        event.deferReply().queue(
+            null,
+            { error -> plugin.logger.warning("Failed to defer reply for /mctop: ${error.message}") }
+        )
 
         val skillName = event.getOption("skill")?.asString
 
@@ -41,7 +44,10 @@ class McTopCommand(private val plugin: AmsDiscordPlugin) {
                         event.hook.sendMessage(
                             "⏱️ **Operation Timed Out**\n\n" +
                             "The leaderboard query took too long to complete (${result.timeoutMs}ms)."
-                        ).setEphemeral(true).queue()
+                        ).setEphemeral(true).queue(
+                            null,
+                            { error -> plugin.logger.warning("Failed to send timeout message: ${error.message}") }
+                        )
                     }
                     is TimeoutManager.TimeoutResult.Failure -> {
                         handleException(event, result.exception)
@@ -89,7 +95,10 @@ class McTopCommand(private val plugin: AmsDiscordPlugin) {
                         "**Suggested actions:**\n" +
                         "• Contact an administrator to increase timeout limits\n" +
                         "• Try again in a few moments"
-                    ).setEphemeral(true).queue()
+                    ).setEphemeral(true).queue(
+                        null,
+                        { error -> plugin.logger.warning("Failed to send timeout message: ${error.message}") }
+                    )
                 }
                 is TimeoutManager.TimeoutResult.Failure -> {
                     handleException(event, result.exception)
@@ -126,7 +135,10 @@ class McTopCommand(private val plugin: AmsDiscordPlugin) {
                     "Skill **${exception.skillName}** is not valid.\n\n" +
                     "**Valid skills:**\n" +
                     exception.validSkills.joinToString(", ") + ", power"
-                ).setEphemeral(true).queue()
+                ).setEphemeral(true).queue(
+                    null,
+                    { error -> plugin.logger.warning("Failed to send invalid skill message: ${error.message}") }
+                )
             }
             else -> {
                 plugin.logger.warning("Unexpected error handling /mctop command: ${exception.message}")
@@ -135,7 +147,10 @@ class McTopCommand(private val plugin: AmsDiscordPlugin) {
                     "⚠️ **Error**\n\n" +
                     "An unexpected error occurred while fetching the leaderboard.\n" +
                     "Please try again later or contact an administrator."
-                ).setEphemeral(true).queue()
+                ).setEphemeral(true).queue(
+                    null,
+                    { error -> plugin.logger.warning("Failed to send error message: ${error.message}") }
+                )
             }
         }
     }
@@ -150,7 +165,10 @@ class McTopCommand(private val plugin: AmsDiscordPlugin) {
                 "📊 **No Data**\n\n" +
                 "No leaderboard data found for **${formatSkillName(skill.name)}**.\n\n" +
                 "Players need to gain experience in this skill first."
-            ).setEphemeral(true).queue()
+            ).setEphemeral(true).queue(
+                null,
+                { error -> plugin.logger.warning("Failed to send no data message: ${error.message}") }
+            )
             return
         }
 
@@ -174,7 +192,10 @@ class McTopCommand(private val plugin: AmsDiscordPlugin) {
         }
 
         embed.setDescription(leaderboardText)
-        event.hook.sendMessageEmbeds(embed.build()).queue()
+        event.hook.sendMessageEmbeds(embed.build()).queue(
+            null,
+            { error -> plugin.logger.warning("Failed to send skill leaderboard embed: ${error.message}") }
+        )
     }
 
     private fun handlePowerLevelLeaderboard(event: SlashCommandInteractionEvent) {
@@ -185,7 +206,10 @@ class McTopCommand(private val plugin: AmsDiscordPlugin) {
                 "📊 **No Data**\n\n" +
                 "No power level leaderboard data found.\n\n" +
                 "Players need to gain MCMMO experience first."
-            ).setEphemeral(true).queue()
+            ).setEphemeral(true).queue(
+                null,
+                { error -> plugin.logger.warning("Failed to send no data message: ${error.message}") }
+            )
             return
         }
 
@@ -209,7 +233,10 @@ class McTopCommand(private val plugin: AmsDiscordPlugin) {
         }
 
         embed.setDescription(leaderboardText)
-        event.hook.sendMessageEmbeds(embed.build()).queue()
+        event.hook.sendMessageEmbeds(embed.build()).queue(
+            null,
+            { error -> plugin.logger.warning("Failed to send power level leaderboard embed: ${error.message}") }
+        )
     }
 
     /**

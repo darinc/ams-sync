@@ -39,6 +39,7 @@ class AmsLinkCommand(private val plugin: AmsDiscordPlugin) : CommandExecutor, Ta
             "discord" -> handleDiscordList(sender, args)
             "link" -> handleLinkByNumber(sender, args)
             "quick" -> handleQuick(sender, args)
+            "metrics" -> handleMetrics(sender)
             else -> sendHelp(sender)
         }
 
@@ -452,6 +453,71 @@ class AmsLinkCommand(private val plugin: AmsDiscordPlugin) : CommandExecutor, Ta
         }
     }
 
+    private fun handleMetrics(sender: CommandSender) {
+        val snapshot = plugin.errorMetrics.getSnapshot()
+
+        sender.sendMessage("§6§l=== AMS Discord Metrics ===")
+        sender.sendMessage("§7Uptime: §f${snapshot.uptimeFormatted}")
+        sender.sendMessage("")
+
+        // Discord API stats
+        sender.sendMessage("§e§lDiscord API:")
+        sender.sendMessage("  §aSuccess: §f${snapshot.discordApiStats.successCount}")
+        sender.sendMessage("  §cFailures: §f${snapshot.discordApiStats.failureCount}")
+        sender.sendMessage("  §6Rejected: §f${snapshot.discordApiStats.rejectedCount}")
+        snapshot.discordApiStats.successRate?.let {
+            val color = when {
+                it >= 0.99 -> "§a"
+                it >= 0.95 -> "§e"
+                else -> "§c"
+            }
+            sender.sendMessage("  §7Success Rate: $color${String.format("%.1f", it * 100)}%")
+        }
+
+        // Circuit breaker stats
+        sender.sendMessage("")
+        sender.sendMessage("§e§lCircuit Breaker:")
+        sender.sendMessage("  §cTrips: §f${snapshot.circuitBreakerStats.tripCount}")
+        sender.sendMessage("  §aRecoveries: §f${snapshot.circuitBreakerStats.recoveryCount}")
+
+        // Current circuit state
+        plugin.discordApiWrapper?.getCircuitState()?.let { state ->
+            val stateColor = when (state) {
+                io.github.darinc.amsdiscord.discord.CircuitBreaker.State.CLOSED -> "§a"
+                io.github.darinc.amsdiscord.discord.CircuitBreaker.State.OPEN -> "§c"
+                io.github.darinc.amsdiscord.discord.CircuitBreaker.State.HALF_OPEN -> "§e"
+            }
+            sender.sendMessage("  §7Current State: $stateColor$state")
+        }
+
+        // Connection stats
+        sender.sendMessage("")
+        sender.sendMessage("§e§lConnections:")
+        sender.sendMessage("  §7Attempts: §f${snapshot.connectionStats.attemptCount}")
+        sender.sendMessage("  §aSuccess: §f${snapshot.connectionStats.successCount}")
+        sender.sendMessage("  §cFailures: §f${snapshot.connectionStats.failureCount}")
+
+        // Command stats (if any)
+        if (snapshot.commandStats.isNotEmpty()) {
+            sender.sendMessage("")
+            sender.sendMessage("§e§lCommands:")
+            snapshot.commandStats.forEach { (cmd, stats) ->
+                val rate = stats.successRate?.let { String.format("%.0f%%", it * 100) } ?: "N/A"
+                val latency = stats.avgLatencyMs?.let { String.format("%.0fms", it) } ?: "N/A"
+                sender.sendMessage("  §f$cmd§7: ${stats.successCount}/${stats.successCount + stats.failureCount} ($rate), avg: $latency")
+            }
+        }
+
+        // Error types (if any)
+        if (snapshot.errorStats.isNotEmpty()) {
+            sender.sendMessage("")
+            sender.sendMessage("§e§lErrors by Type:")
+            snapshot.errorStats.forEach { (type, count) ->
+                sender.sendMessage("  §c$type§7: $count")
+            }
+        }
+    }
+
     private fun sendHelp(sender: CommandSender) {
         sender.sendMessage("§6§l=== AMS Discord Link Commands ===")
         sender.sendMessage("")
@@ -463,6 +529,7 @@ class AmsLinkCommand(private val plugin: AmsDiscordPlugin) : CommandExecutor, Ta
         sender.sendMessage("  §f/amslink list §7- List all current mappings")
         sender.sendMessage("  §f/amslink players §7- Show Minecraft players only")
         sender.sendMessage("  §f/amslink discord §7- Show Discord members only")
+        sender.sendMessage("  §f/amslink metrics §7- Show plugin health metrics")
         sender.sendMessage("")
         sender.sendMessage("§e§lOther Linking Methods:")
         sender.sendMessage("  §f/amslink add <discordId> <mcUsername> §7- Link by Discord ID")
@@ -483,7 +550,7 @@ class AmsLinkCommand(private val plugin: AmsDiscordPlugin) : CommandExecutor, Ta
         }
 
         return when (args.size) {
-            1 -> listOf("quick", "add", "remove", "list", "players", "discord", "link").filter { it.startsWith(args[0].lowercase()) }
+            1 -> listOf("quick", "add", "remove", "list", "players", "discord", "link", "metrics").filter { it.startsWith(args[0].lowercase()) }
             2 -> when (args[0].lowercase()) {
                 "remove" -> plugin.userMappingService.getAllMappings().keys.toList()
                 else -> emptyList()

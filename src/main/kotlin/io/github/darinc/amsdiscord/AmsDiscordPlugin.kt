@@ -1,9 +1,11 @@
 package io.github.darinc.amsdiscord
 
 import io.github.darinc.amsdiscord.commands.AmsLinkCommand
+import io.github.darinc.amsdiscord.config.ConfigValidator
 import io.github.darinc.amsdiscord.discord.*
 import io.github.darinc.amsdiscord.linking.UserMappingService
 import io.github.darinc.amsdiscord.mcmmo.McmmoApiWrapper
+import io.github.darinc.amsdiscord.metrics.ErrorMetrics
 import org.bukkit.plugin.java.JavaPlugin
 
 class AmsDiscordPlugin : JavaPlugin() {
@@ -29,12 +31,19 @@ class AmsDiscordPlugin : JavaPlugin() {
     var playerCountPresence: PlayerCountPresence? = null
         private set
 
+    lateinit var errorMetrics: ErrorMetrics
+        private set
+
     override fun onEnable() {
         // Save default config if it doesn't exist
         saveDefaultConfig()
 
         // Initialize services
         logger.info("Initializing AMS Discord plugin...")
+
+        // Initialize error metrics
+        errorMetrics = ErrorMetrics()
+        logger.info("Error metrics initialized")
 
         // Load user mappings
         userMappingService = UserMappingService(this)
@@ -56,15 +65,30 @@ class AmsDiscordPlugin : JavaPlugin() {
         val token = config.getString("discord.token") ?: ""
         val guildId = config.getString("discord.guild-id") ?: ""
 
-        if (token.isBlank() || token == "YOUR_BOT_TOKEN_HERE") {
-            logger.severe("Discord bot token not configured! Please set 'discord.token' in config.yml")
-            logger.severe("Plugin will be disabled.")
+        // Pre-validate Discord configuration before attempting connection
+        val validationResult = ConfigValidator.validateDiscordConfig(token, guildId, logger)
+
+        if (!validationResult.valid) {
+            logger.severe("=".repeat(60))
+            logger.severe("DISCORD CONFIGURATION INVALID")
+            logger.severe("")
+            validationResult.errors.forEach { logger.severe("  • $it") }
+            logger.severe("")
+            logger.severe("Plugin will be disabled. Fix config.yml and restart.")
+            logger.severe("=".repeat(60))
             server.pluginManager.disablePlugin(this)
             return
         }
 
-        if (guildId.isBlank() || guildId == "YOUR_GUILD_ID_HERE") {
-            logger.warning("Discord guild ID not configured. Slash commands will be registered globally (may take up to 1 hour to appear).")
+        // Log any warnings (e.g., missing guild ID)
+        validationResult.warnings.forEach { warning ->
+            logger.warning(warning)
+        }
+
+        // Additional token format validation with detailed feedback
+        if (!ConfigValidator.isValidBotTokenFormat(token)) {
+            logger.warning("Bot token format may be invalid. If connection fails, verify your token.")
+            logger.warning("Expected format: [base64_id].[timestamp].[hmac] (e.g., MTIz...XXX.XXXXXX.XXX...)")
         }
 
         // Load retry configuration
@@ -107,8 +131,8 @@ class AmsDiscordPlugin : JavaPlugin() {
             logger.info("Circuit breaker enabled: failures=${circuitBreakerConfig.failureThreshold}/${circuitBreakerConfig.timeWindowSeconds}s, cooldown=${circuitBreakerConfig.cooldownSeconds}s")
         }
 
-        // Initialize Discord API wrapper with circuit breaker
-        discordApiWrapper = DiscordApiWrapper(circuitBreaker, logger)
+        // Initialize Discord API wrapper with circuit breaker and metrics
+        discordApiWrapper = DiscordApiWrapper(circuitBreaker, logger, errorMetrics)
 
         // Initialize Discord manager
         discordManager = DiscordManager(this)
@@ -118,8 +142,9 @@ class AmsDiscordPlugin : JavaPlugin() {
             val retryManager = retryConfig.toRetryManager(logger)
 
             // Wrap retry+initialization with timeout protection
-            val connectionResult = if (timeoutEnabled && timeoutManager != null) {
-                timeoutManager!!.executeWithTimeout("Discord connection with retries") {
+            val tm = timeoutManager  // Smart cast to non-null
+            val connectionResult = if (timeoutEnabled && tm != null) {
+                tm.executeWithTimeout("Discord connection with retries") {
                     retryManager.executeWithRetry("Discord connection") {
                         discordManager.initialize(token, guildId)
                     }
@@ -139,10 +164,12 @@ class AmsDiscordPlugin : JavaPlugin() {
                     // Check retry result
                     when (val retryResult = connectionResult.value) {
                         is RetryManager.RetryResult.Success -> {
+                            errorMetrics.recordConnectionAttempt(success = true)
                             logger.info("Discord bot successfully connected!")
                             initializePlayerCountPresence()
                         }
                         is RetryManager.RetryResult.Failure -> {
+                            errorMetrics.recordConnectionAttempt(success = false)
                             logger.severe("=".repeat(60))
                             logger.severe("Failed to connect to Discord after ${retryResult.attempts} attempts")
                             logger.severe("Last error: ${retryResult.lastException.message}")
@@ -157,6 +184,7 @@ class AmsDiscordPlugin : JavaPlugin() {
                     }
                 }
                 is TimeoutManager.TimeoutResult.Timeout -> {
+                    errorMetrics.recordConnectionAttempt(success = false)
                     logger.severe("=".repeat(60))
                     logger.severe("Discord connection timed out after ${connectionResult.timeoutMs}ms")
                     logger.severe("")
@@ -168,6 +196,7 @@ class AmsDiscordPlugin : JavaPlugin() {
                     logger.severe("=".repeat(60))
                 }
                 is TimeoutManager.TimeoutResult.Failure -> {
+                    errorMetrics.recordConnectionAttempt(success = false)
                     logger.severe("Discord connection failed unexpectedly: ${connectionResult.exception.message}")
                     connectionResult.exception.printStackTrace()
                 }
@@ -176,9 +205,11 @@ class AmsDiscordPlugin : JavaPlugin() {
             // Retry disabled - fail fast (original behavior)
             try {
                 discordManager.initialize(token, guildId)
+                errorMetrics.recordConnectionAttempt(success = true)
                 logger.info("Discord bot successfully connected!")
                 initializePlayerCountPresence()
             } catch (e: Exception) {
+                errorMetrics.recordConnectionAttempt(success = false)
                 logger.severe("Failed to initialize Discord bot: ${e.message}")
                 logger.severe("Retry logic is disabled. Plugin will be disabled.")
                 logger.severe("Enable retry in config.yml: discord.retry.enabled = true")

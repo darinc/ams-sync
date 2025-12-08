@@ -11,7 +11,7 @@
 
 The AMS Discord plugin is a functional Minecraft-Discord integration with solid basic implementation. Recent improvements to error handling and resilience have moved it from **prototype/MVP level** to **mid production level**, with comprehensive error handling patterns now implemented.
 
-**Current Score:** 50% (C) - Improved from 42%
+**Current Score:** 52% (C) - Improved from 50%
 **Target Score:** 89% (A-)
 **Remaining Effort:** ~180-330 hours (4.5-8.5 weeks full-time)
 
@@ -21,6 +21,9 @@ The AMS Discord plugin is a functional Minecraft-Discord integration with solid 
 - ✅ All Priority 2 (High) items completed for Error Handling
 - ✅ Production blockers eliminated: retry logic, graceful degradation, query limits, NPE safety
 - ✅ Advanced resilience patterns: circuit breaker, timeout protection, custom exception hierarchy
+- ✅ Observability & Monitoring: 35% → 55% (57% improvement)
+- ✅ Error metrics tracking system with in-game dashboard
+- ✅ Configuration validation with detailed error messages
 
 ---
 
@@ -31,7 +34,7 @@ The AMS Discord plugin is a functional Minecraft-Discord integration with solid 
 | Error Handling & Resilience | 85% (B) | 90% (A) | 5% | LOW |
 | Security | 25% (D-) | 95% (A) | 70% | CRITICAL |
 | Testing | 0% (F) | 80% (B) | 80% | CRITICAL |
-| Observability & Monitoring | 35% (D) | 90% (A) | 55% | HIGH |
+| Observability & Monitoring | 55% (C) | 90% (A) | 35% | HIGH |
 | Scalability & Performance | 50% (C-) | 85% (B) | 35% | HIGH |
 | Configuration & Deployment | 60% (C) | 85% (B) | 25% | MEDIUM |
 | Documentation | 65% (C+) | 88% (A-) | 23% | MEDIUM |
@@ -39,7 +42,7 @@ The AMS Discord plugin is a functional Minecraft-Discord integration with solid 
 | Code Quality | 75% (B-) | 90% (A-) | 15% | MEDIUM |
 | Compliance & Operations | 10% (F) | 95% (A) | 85% | CRITICAL |
 
-**Overall Production Readiness: 50% → 89% (39% gap)** - Updated 2025-12-07
+**Overall Production Readiness: 52% → 89% (37% gap)** - Updated 2025-12-07
 
 ---
 
@@ -408,13 +411,15 @@ jobs:
 
 ## 4. OBSERVABILITY & MONITORING
 
-### Current State: D (35%)
+### Current State: C (55%) - **Updated 2025-12-07**
 
-**Critical Issues:**
-- Basic logging only
-- No structured logging
-- No metrics/telemetry
-- No health checks
+**✅ Resolved Issues:**
+- ~~No metrics/telemetry~~ → **FIXED**: ErrorMetrics class with command/API tracking
+- ~~Basic logging only~~ → **IMPROVED**: Circuit breaker state context in error logs
+
+**Remaining Issues:**
+- No structured logging (partial)
+- No health check endpoint
 - No performance monitoring
 
 **Impact:**
@@ -435,25 +440,19 @@ logger.info(
 )
 ```
 
-2. **Command Metrics**
+2. **✅ COMPLETED - Command Metrics**
 ```kotlin
-class CommandMetrics {
-    private val counts = ConcurrentHashMap<String, AtomicLong>()
-    private val durations = ConcurrentHashMap<String, MutableList<Long>>()
-
-    fun recordCommand(command: String, durationMs: Long) {
-        counts.computeIfAbsent(command) { AtomicLong() }.incrementAndGet()
-        durations.computeIfAbsent(command) { mutableListOf() }.add(durationMs)
-    }
-
-    fun getMetrics(): Map<String, Any> {
-        return mapOf(
-            "counts" to counts,
-            "avg_duration" to durations.mapValues { it.value.average() }
-        )
-    }
+class ErrorMetrics {
+    // Tracks: Discord API success/failure/rejected, connection attempts,
+    // command execution stats, circuit breaker trips/recoveries
 }
 ```
+**Implementation Notes:**
+- Created `ErrorMetrics.kt` with comprehensive metrics tracking
+- Tracks Discord API calls, connection attempts, command performance, circuit breaker events
+- Added `/amslink metrics` command to view stats in-game
+- Integrated with DiscordApiWrapper for automatic recording
+- Completed: 2025-12-07
 
 3. **Health Check**
 ```kotlin

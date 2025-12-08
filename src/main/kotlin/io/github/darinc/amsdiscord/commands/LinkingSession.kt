@@ -30,14 +30,26 @@ class LinkingSessionManager(private val plugin: Plugin) {
         val key = getSenderKey(sender)
         val now = System.currentTimeMillis()
 
-        return sessions.compute(key) { _, existing ->
-            if (existing != null && !existing.isExpired(now)) {
-                existing.updateLastAccess(now)
-                existing
-            } else {
-                LinkingSession()
-            }
-        }!!
+        // Check for existing valid session first
+        val existing = sessions[key]
+        if (existing != null && !existing.isExpired(now)) {
+            existing.updateLastAccess(now)
+            return existing
+        }
+
+        // Create new session - use putIfAbsent for thread safety
+        val newSession = LinkingSession()
+        val previous = sessions.putIfAbsent(key, newSession)
+
+        // If another thread beat us to it, use their session if still valid
+        return if (previous != null && !previous.isExpired(now)) {
+            previous.updateLastAccess(now)
+            previous
+        } else {
+            // Either no previous, or previous was expired - use our new session
+            sessions[key] = newSession
+            newSession
+        }
     }
 
     /**

@@ -16,7 +16,10 @@ class McStatsCommand(private val plugin: AmsDiscordPlugin) {
 
     fun handle(event: SlashCommandInteractionEvent) {
         // Defer reply immediately to avoid timeout
-        event.deferReply().queue()
+        event.deferReply().queue(
+            null,
+            { error -> plugin.logger.warning("Failed to defer reply for /mcstats: ${error.message}") }
+        )
 
         val usernameOption = event.getOption("username")?.asString
         val skillOption = event.getOption("skill")?.asString
@@ -42,7 +45,10 @@ class McStatsCommand(private val plugin: AmsDiscordPlugin) {
                 plugin.logger.fine("Username resolution failed: ${e.message}")
                 event.hook.sendMessage(e.message ?: "Invalid username")
                     .setEphemeral(true)
-                    .queue()
+                    .queue(
+                        null,
+                        { error -> plugin.logger.warning("Failed to send error message for /mcstats: ${error.message}") }
+                    )
 
             } catch (e: PlayerDataNotFoundException) {
                 plugin.logger.fine("Player data not found: ${e.message}")
@@ -53,7 +59,10 @@ class McStatsCommand(private val plugin: AmsDiscordPlugin) {
                     "• Player has never joined the server\n" +
                     "• Player has not gained any MCMMO experience\n" +
                     "• MCMMO data file is corrupted"
-                ).setEphemeral(true).queue()
+                ).setEphemeral(true).queue(
+                    null,
+                    { error -> plugin.logger.warning("Failed to send player not found message: ${error.message}") }
+                )
 
             } catch (e: InvalidSkillException) {
                 plugin.logger.fine("Invalid skill requested: ${e.skillName}")
@@ -62,7 +71,10 @@ class McStatsCommand(private val plugin: AmsDiscordPlugin) {
                     "Skill **${e.skillName}** is not valid.\n\n" +
                     "**Valid skills:**\n" +
                     e.validSkills.joinToString(", ")
-                ).setEphemeral(true).queue()
+                ).setEphemeral(true).queue(
+                    null,
+                    { error -> plugin.logger.warning("Failed to send invalid skill message: ${error.message}") }
+                )
 
             } catch (e: Exception) {
                 plugin.logger.warning("Unexpected error handling /mcstats command: ${e.message}")
@@ -71,7 +83,10 @@ class McStatsCommand(private val plugin: AmsDiscordPlugin) {
                     "⚠️ **Error**\n\n" +
                     "An unexpected error occurred while fetching stats.\n" +
                     "Please try again later or contact an administrator."
-                ).setEphemeral(true).queue()
+                ).setEphemeral(true).queue(
+                    null,
+                    { error -> plugin.logger.warning("Failed to send error message: ${error.message}") }
+                )
             }
         })
     }
@@ -95,7 +110,10 @@ class McStatsCommand(private val plugin: AmsDiscordPlugin) {
             embed.addField(formatSkillName(skill), level.toString(), true)
         }
 
-        event.hook.sendMessageEmbeds(embed.build()).queue()
+        event.hook.sendMessageEmbeds(embed.build()).queue(
+            null,
+            { error -> plugin.logger.warning("Failed to send stats embed: ${error.message}") }
+        )
     }
 
     private fun handleSpecificSkill(event: SlashCommandInteractionEvent, mcUsername: String, skillName: String, invokerTag: String) {
@@ -112,7 +130,10 @@ class McStatsCommand(private val plugin: AmsDiscordPlugin) {
             .setTimestamp(Instant.now())
             .setFooter("Requested by $invokerTag", null)
 
-        event.hook.sendMessageEmbeds(embed.build()).queue()
+        event.hook.sendMessageEmbeds(embed.build()).queue(
+            null,
+            { error -> plugin.logger.warning("Failed to send skill stats embed: ${error.message}") }
+        )
     }
 
     /**

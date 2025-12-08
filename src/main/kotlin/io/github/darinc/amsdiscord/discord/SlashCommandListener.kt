@@ -24,7 +24,10 @@ class SlashCommandListener(private val plugin: AmsDiscordPlugin) : ListenerAdapt
             "mctop" -> mcTopCommand.handle(event)
             "amslink" -> discordLinkCommand.handle(event)
             else -> {
-                event.reply("Unknown command!").setEphemeral(true).queue()
+                event.reply("Unknown command!").setEphemeral(true).queue(
+                    null,
+                    { error -> plugin.logger.warning("Failed to reply to unknown command: ${error.message}") }
+                )
             }
         }
     }

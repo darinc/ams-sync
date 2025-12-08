@@ -244,3 +244,37 @@ class InvalidConfigurationException(
     message: String = "Invalid configuration value for $configKey: $configValue",
     cause: Throwable? = null
 ) : ConfigurationException(message, cause)
+
+/**
+ * Thrown when the Discord bot token has an invalid format.
+ *
+ * Discord bot tokens follow a specific format:
+ * - Base64-encoded user ID (variable length)
+ * - A period separator
+ * - 6-character timestamp
+ * - A period separator
+ * - 27+ character HMAC
+ *
+ * Example: MTIzNDU2Nzg5MDEyMzQ1Njc4.XXXXXX.XXXXXXXXXXXXXXXXXXXXXXXXXXX
+ *
+ * @property maskedToken First 10 chars + "..." for security
+ */
+class InvalidBotTokenException(
+    val maskedToken: String,
+    message: String = "Invalid Discord bot token format. Token appears malformed: $maskedToken... " +
+        "(expected format: [base64].[timestamp].[hmac])",
+    cause: Throwable? = null
+) : ConfigurationException(message, cause)
+
+/**
+ * Thrown when the Discord guild ID has an invalid format.
+ *
+ * Discord guild IDs (snowflakes) must be 17-19 digit numeric strings.
+ *
+ * @property guildId The invalid guild ID
+ */
+class InvalidGuildIdException(
+    val guildId: String,
+    message: String = "Invalid Discord guild ID format: '$guildId' (must be 17-19 digit snowflake)",
+    cause: Throwable? = null
+) : ConfigurationException(message, cause)
