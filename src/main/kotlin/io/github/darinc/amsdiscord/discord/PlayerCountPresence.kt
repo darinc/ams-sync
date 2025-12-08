@@ -75,25 +75,29 @@ class PlayerCountPresence(
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     fun onPlayerJoin(event: PlayerJoinEvent) {
-        scheduleUpdate()
+        scheduleUpdate(0)
     }
 
     /**
      * Handle player quit event - schedule presence update.
+     * Note: Player is still in getOnlinePlayers() when this fires, so we adjust by -1
      */
     @EventHandler(priority = EventPriority.MONITOR)
     fun onPlayerQuit(event: PlayerQuitEvent) {
-        scheduleUpdate()
+        scheduleUpdate(-1)
     }
 
     /**
      * Schedule a debounced presence update.
      * Cancels any pending update and schedules a new one after debounce delay.
+     *
+     * @param adjustment Adjustment to current player count (e.g., -1 for quit events
+     *                   where player is still in the online list)
      */
-    private fun scheduleUpdate() {
+    private fun scheduleUpdate(adjustment: Int) {
         if (!config.enabled) return
 
-        val currentCount = Bukkit.getOnlinePlayers().size
+        val currentCount = Bukkit.getOnlinePlayers().size + adjustment
 
         // Skip if count unchanged (handles rapid join/quit of same player)
         if (currentCount == lastPlayerCount.get()) {
@@ -105,19 +109,22 @@ class PlayerCountPresence(
         pendingUpdate.get()?.cancel(false)
 
         // Schedule new debounced update
+        // Note: We don't pass the adjusted count - executeUpdate() will get fresh count
+        // after the player has actually left
         val future = executor.schedule({
-            executeUpdate(currentCount)
+            executeUpdate()
         }, config.debounceMs, TimeUnit.MILLISECONDS)
 
         pendingUpdate.set(future)
-        plugin.logger.fine("Scheduled presence update in ${config.debounceMs}ms (count: $currentCount)")
+        plugin.logger.fine("Scheduled presence update in ${config.debounceMs}ms (expected count: $currentCount)")
     }
 
     /**
      * Execute a presence update with rate limiting.
      * Reschedules if minimum interval hasn't passed.
+     * Always gets fresh player count to ensure accuracy after debounce.
      */
-    private fun executeUpdate(count: Int) {
+    private fun executeUpdate() {
         val now = System.currentTimeMillis()
         val timeSinceLastUpdate = now - lastUpdateTime.get()
 
@@ -125,23 +132,23 @@ class PlayerCountPresence(
         if (timeSinceLastUpdate < config.minIntervalMs && lastUpdateTime.get() > 0) {
             val delay = config.minIntervalMs - timeSinceLastUpdate
             plugin.logger.fine("Presence update rate limited, rescheduling in ${delay}ms")
-            val future = executor.schedule({ executeUpdate(count) }, delay, TimeUnit.MILLISECONDS)
+            val future = executor.schedule({ executeUpdate() }, delay, TimeUnit.MILLISECONDS)
             pendingUpdate.set(future)
             return
         }
 
-        // Get actual current count (may have changed during debounce)
-        val actualCount = Bukkit.getOnlinePlayers().size
+        // Get current count (player should be removed from list by now after debounce)
+        val currentCount = Bukkit.getOnlinePlayers().size
 
-        // Double-check count hasn't changed back
-        if (actualCount == lastPlayerCount.get()) {
-            plugin.logger.fine("Skipping presence update - count unchanged at $actualCount")
+        // Skip if count hasn't actually changed
+        if (currentCount == lastPlayerCount.get()) {
+            plugin.logger.fine("Skipping presence update - count unchanged at $currentCount")
             return
         }
 
-        updatePresence(actualCount)
+        updatePresence(currentCount)
         lastUpdateTime.set(now)
-        lastPlayerCount.set(actualCount)
+        lastPlayerCount.set(currentCount)
     }
 
     /**
