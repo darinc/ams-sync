@@ -1,7 +1,7 @@
-package io.github.darinc.amsdiscord.config
+package io.github.darinc.amssync.config
 
-import io.github.darinc.amsdiscord.exceptions.InvalidBotTokenException
-import io.github.darinc.amsdiscord.exceptions.InvalidGuildIdException
+import io.github.darinc.amssync.exceptions.InvalidBotTokenException
+import io.github.darinc.amssync.exceptions.InvalidGuildIdException
 import java.util.logging.Logger
 
 /**

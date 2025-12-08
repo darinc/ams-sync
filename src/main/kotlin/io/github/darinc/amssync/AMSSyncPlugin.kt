@@ -1,14 +1,14 @@
-package io.github.darinc.amsdiscord
+package io.github.darinc.amssync
 
-import io.github.darinc.amsdiscord.commands.AmsLinkCommand
-import io.github.darinc.amsdiscord.config.ConfigValidator
-import io.github.darinc.amsdiscord.discord.*
-import io.github.darinc.amsdiscord.linking.UserMappingService
-import io.github.darinc.amsdiscord.mcmmo.McmmoApiWrapper
-import io.github.darinc.amsdiscord.metrics.ErrorMetrics
+import io.github.darinc.amssync.commands.AMSSyncCommand
+import io.github.darinc.amssync.config.ConfigValidator
+import io.github.darinc.amssync.discord.*
+import io.github.darinc.amssync.linking.UserMappingService
+import io.github.darinc.amssync.mcmmo.McmmoApiWrapper
+import io.github.darinc.amssync.metrics.ErrorMetrics
 import org.bukkit.plugin.java.JavaPlugin
 
-class AmsDiscordPlugin : JavaPlugin() {
+class AMSSyncPlugin : JavaPlugin() {
 
     lateinit var discordManager: DiscordManager
         private set
@@ -39,7 +39,7 @@ class AmsDiscordPlugin : JavaPlugin() {
         saveDefaultConfig()
 
         // Initialize services
-        logger.info("Initializing AMS Discord plugin...")
+        logger.info("Initializing AMSSync plugin...")
 
         // Initialize error metrics
         errorMetrics = ErrorMetrics()
@@ -57,9 +57,9 @@ class AmsDiscordPlugin : JavaPlugin() {
         logger.info("MCMMO leaderboard limits: max-scan=$maxPlayersToScan, cache-ttl=${cacheTtlSeconds}s")
 
         // Register commands
-        val linkCommand = AmsLinkCommand(this)
-        getCommand("amslink")?.setExecutor(linkCommand)
-        getCommand("amslink")?.tabCompleter = linkCommand
+        val syncCommand = AMSSyncCommand(this)
+        getCommand("amssync")?.setExecutor(syncCommand)
+        getCommand("amssync")?.tabCompleter = syncCommand
 
         // Initialize Discord with retry logic
         val token = config.getString("discord.token") ?: ""
@@ -219,11 +219,11 @@ class AmsDiscordPlugin : JavaPlugin() {
             }
         }
 
-        logger.info("AMS Discord plugin enabled successfully!")
+        logger.info("AMSSync plugin enabled successfully!")
     }
 
     override fun onDisable() {
-        logger.info("Shutting down AMS Discord plugin...")
+        logger.info("Shutting down AMSSync plugin...")
 
         // Shutdown player count presence
         playerCountPresence?.shutdown()
@@ -246,7 +246,7 @@ class AmsDiscordPlugin : JavaPlugin() {
             userMappingService.saveMappings()
         }
 
-        logger.info("AMS Discord plugin disabled")
+        logger.info("AMSSync plugin disabled")
     }
 
     /**

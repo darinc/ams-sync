@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AMS Discord is a Paper/Spigot Minecraft plugin that embeds a Discord bot directly into the server, providing MCMMO stats integration through Discord slash commands. The plugin uses JDA (Java Discord API) for Discord integration and interfaces directly with MCMMO's DatabaseManager for flatfile storage access.
+AMSSync is a Paper/Spigot Minecraft plugin that embeds a Discord bot directly into the server, providing MCMMO stats integration through Discord slash commands. The plugin uses JDA (Java Discord API) for Discord integration and interfaces directly with MCMMO's DatabaseManager for flatfile storage access.
 
 ## Build Commands
 
@@ -12,7 +12,7 @@ AMS Discord is a Paper/Spigot Minecraft plugin that embeds a Discord bot directl
 ```bash
 ./gradlew shadowJar
 ```
-Output: `build/libs/ams-discord-1.0.0-SNAPSHOT.jar` (shaded JAR with all dependencies)
+Output: `build/libs/ams-sync-*.jar` (shaded JAR with all dependencies)
 
 **Clean build:**
 ```bash
@@ -42,8 +42,8 @@ mvn install -DskipTests
 
 ### Plugin Initialization Flow
 
-1. `AmsDiscordPlugin.onEnable()` loads config and initializes services in order:
-   - `UserMappingService` - loads Discord ↔ Minecraft mappings from config
+1. `AMSSyncPlugin.onEnable()` loads config and initializes services in order:
+   - `UserMappingService` - loads Discord - Minecraft mappings from config
    - `McmmoApiWrapper` - initializes with leaderboard limits and cache settings
    - `TimeoutManager` (optional) - configurable timeout protection for operations
    - `CircuitBreaker` (optional) - prevents cascading failures during Discord outages
@@ -61,7 +61,7 @@ mvn install -DskipTests
 ### Core Services
 
 **DiscordManager** (`discord/DiscordManager.kt`)
-- JDA lifecycle management (build → awaitReady → shutdown)
+- JDA lifecycle management (build - awaitReady - shutdown)
 - Slash command registration (guild-specific or global)
 - Connection status tracking
 
@@ -72,7 +72,7 @@ mvn install -DskipTests
 - Power level calculation (sum of all non-child skills)
 
 **UserMappingService** (`linking/UserMappingService.kt`)
-- Bidirectional mapping: Discord ID ↔ Minecraft username
+- Bidirectional mapping: Discord ID - Minecraft username
 - Config persistence (saved to `config.yml` under `user-mappings`)
 - Validation: Discord IDs must be 17-19 digit snowflakes
 - Automatic replacement: prevents duplicate mappings
@@ -83,7 +83,7 @@ mvn install -DskipTests
 - Returns sealed class `TimeoutResult` (Success, Timeout, Failure)
 
 **CircuitBreaker** (`discord/CircuitBreaker.kt`)
-- States: CLOSED (normal) → OPEN (failing fast) → HALF_OPEN (testing recovery)
+- States: CLOSED (normal) - OPEN (failing fast) - HALF_OPEN (testing recovery)
 - Configurable failure threshold in time window
 - Cooldown period before attempting recovery
 
@@ -99,9 +99,9 @@ mvn install -DskipTests
 - All commands check `CircuitBreaker` state before executing
 - Uses ephemeral responses for errors
 
-**Minecraft Commands** (`commands/AmsLinkCommand.kt`)
+**Minecraft Commands** (`commands/AMSSyncCommand.kt`)
 - Session-based number mapping system (5-minute auto-expiration)
-- Quick linking workflow: `/amslink quick` shows lists, `/amslink quick 1 5` links
+- Quick linking workflow: `/amssync quick` shows lists, `/amssync quick 1 5` links
 - Per-sender session isolation using ConcurrentHashMap
 - Background cleanup task runs every minute
 
@@ -149,9 +149,9 @@ discordId.matches(Regex("^\\d{17,19}$"))
 ### Dependency Relocation
 
 The shadowJar task relocates dependencies to prevent conflicts:
-- `net.dv8tion` → `io.github.darinc.amsdiscord.libs.jda`
-- `kotlin` → `io.github.darinc.amsdiscord.libs.kotlin`
-- `kotlinx` → `io.github.darinc.amsdiscord.libs.kotlinx`
+- `net.dv8tion` - `io.github.darinc.amssync.libs.jda`
+- `kotlin` - `io.github.darinc.amssync.libs.kotlin`
+- `kotlinx` - `io.github.darinc.amssync.libs.kotlinx`
 
 **DO NOT** relocate SLF4J - JDA needs to find it in the original package.
 
@@ -166,7 +166,7 @@ All configuration lives in `src/main/resources/config.yml`:
 - `discord.circuit-breaker.*` - Circuit breaker thresholds
 - `mcmmo.leaderboard.max-players-to-scan` - Query limit to prevent timeouts (default: 1000)
 - `mcmmo.leaderboard.cache-ttl-seconds` - Leaderboard cache duration (default: 60)
-- `user-mappings` - Discord ID → Minecraft username mappings (managed by `/amslink`)
+- `user-mappings` - Discord ID - Minecraft username mappings (managed by `/amssync`)
 
 ## Common Patterns
 
@@ -179,7 +179,7 @@ All configuration lives in `src/main/resources/config.yml`:
 
 ### Error Handling
 
-- Use custom exceptions in `exceptions/AmsDiscordExceptions.kt`
+- Use custom exceptions in `exceptions/AMSSyncExceptions.kt`
 - Discord errors use ephemeral responses for privacy
 - Log levels: INFO (lifecycle), FINE (debug/cache), WARNING (recoverable), SEVERE (critical)
 - Retry/timeout/circuit breaker all have distinct error messages for debugging
@@ -194,9 +194,9 @@ All configuration lives in `src/main/resources/config.yml`:
 ## Testing Locally
 
 1. Build: `./gradlew shadowJar`
-2. Copy `build/libs/ams-discord-1.0.0-SNAPSHOT.jar` to test server's `plugins/`
+2. Copy `build/libs/ams-sync-*.jar` to test server's `plugins/`
 3. Start server to generate default config
-4. Stop server and edit `plugins/AmsDiscord/config.yml` with real bot token and guild ID
+4. Stop server and edit `plugins/AMSSync/config.yml` with real bot token and guild ID
 5. Restart server and verify Discord connection in console logs
 
 ## Code Style

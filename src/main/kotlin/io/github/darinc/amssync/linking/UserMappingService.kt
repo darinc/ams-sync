@@ -1,17 +1,17 @@
-package io.github.darinc.amsdiscord.linking
+package io.github.darinc.amssync.linking
 
-import io.github.darinc.amsdiscord.AmsDiscordPlugin
-import io.github.darinc.amsdiscord.config.ConfigValidator
-import io.github.darinc.amsdiscord.exceptions.DuplicateMappingException
-import io.github.darinc.amsdiscord.exceptions.InvalidDiscordIdException
-import io.github.darinc.amsdiscord.exceptions.MappingNotFoundException
+import io.github.darinc.amssync.AMSSyncPlugin
+import io.github.darinc.amssync.config.ConfigValidator
+import io.github.darinc.amssync.exceptions.DuplicateMappingException
+import io.github.darinc.amssync.exceptions.InvalidDiscordIdException
+import io.github.darinc.amssync.exceptions.MappingNotFoundException
 
 /**
  * Manages mappings between Discord user IDs and Minecraft usernames.
  *
  * Provides bidirectional mapping with validation and exception-based error handling.
  */
-class UserMappingService(private val plugin: AmsDiscordPlugin) {
+class UserMappingService(private val plugin: AMSSyncPlugin) {
 
     // Discord ID -> Minecraft Username
     private val discordToMinecraft = mutableMapOf<String, String>()

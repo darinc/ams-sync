@@ -1,6 +1,6 @@
-package io.github.darinc.amsdiscord.commands
+package io.github.darinc.amssync.commands
 
-import io.github.darinc.amsdiscord.AmsDiscordPlugin
+import io.github.darinc.amssync.AMSSyncPlugin
 import org.bukkit.Bukkit
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
@@ -9,9 +9,9 @@ import org.bukkit.command.TabCompleter
 import org.bukkit.entity.Player
 
 /**
- * Handles the /amslink command for managing Discord-Minecraft user mappings
+ * Handles the /amssync command for managing Discord-Minecraft user mappings
  */
-class AmsLinkCommand(private val plugin: AmsDiscordPlugin) : CommandExecutor, TabCompleter {
+class AMSSyncCommand(private val plugin: AMSSyncPlugin) : CommandExecutor, TabCompleter {
 
     private val sessionManager = LinkingSessionManager(plugin)
 
@@ -21,7 +21,7 @@ class AmsLinkCommand(private val plugin: AmsDiscordPlugin) : CommandExecutor, Ta
         label: String,
         args: Array<out String>
     ): Boolean {
-        if (!sender.hasPermission("amsdiscord.admin")) {
+        if (!sender.hasPermission("amssync.admin")) {
             sender.sendMessage("§cYou don't have permission to use this command.")
             return true
         }
@@ -48,7 +48,7 @@ class AmsLinkCommand(private val plugin: AmsDiscordPlugin) : CommandExecutor, Ta
 
     private fun handleAdd(sender: CommandSender, args: Array<out String>) {
         if (args.size < 3) {
-            sender.sendMessage("§cUsage: /amslink add <discordId> <minecraftUsername>")
+            sender.sendMessage("§cUsage: /amssync add <discordId> <minecraftUsername>")
             return
         }
 
@@ -71,7 +71,7 @@ class AmsLinkCommand(private val plugin: AmsDiscordPlugin) : CommandExecutor, Ta
 
     private fun handleRemove(sender: CommandSender, args: Array<out String>) {
         if (args.size < 2) {
-            sender.sendMessage("§cUsage: /amslink remove <discordId>")
+            sender.sendMessage("§cUsage: /amssync remove <discordId>")
             return
         }
 
@@ -90,7 +90,7 @@ class AmsLinkCommand(private val plugin: AmsDiscordPlugin) : CommandExecutor, Ta
 
         if (mappings.isEmpty()) {
             sender.sendMessage("§eNo user mappings configured yet.")
-            sender.sendMessage("§7Use §f/amslink add <discordId> <minecraftUsername> §7to add one.")
+            sender.sendMessage("§7Use §f/amssync add <discordId> <minecraftUsername> §7to add one.")
             return
         }
 
@@ -213,10 +213,10 @@ class AmsLinkCommand(private val plugin: AmsDiscordPlugin) : CommandExecutor, Ta
 
         sender.sendMessage("")
         sender.sendMessage("§e§l--- Commands ---")
-        sender.sendMessage("§7/amslink add <discordId> <mcUsername> §f- Link by Discord ID")
-        sender.sendMessage("§7/amslink discord §f- Show Discord members with numbers")
-        sender.sendMessage("§7/amslink link <player#> <discord#> §f- Link by number")
-        sender.sendMessage("§7/amslink quick [player#] [discord#] §f- Quick linking workflow")
+        sender.sendMessage("§7/amssync add <discordId> <mcUsername> §f- Link by Discord ID")
+        sender.sendMessage("§7/amssync discord §f- Show Discord members with numbers")
+        sender.sendMessage("§7/amssync link <player#> <discord#> §f- Link by number")
+        sender.sendMessage("§7/amssync quick [player#] [discord#] §f- Quick linking workflow")
         sender.sendMessage("")
         sender.sendMessage("§aSession stored for ${session.getTimeRemaining()} seconds")
     }
@@ -284,9 +284,9 @@ class AmsLinkCommand(private val plugin: AmsDiscordPlugin) : CommandExecutor, Ta
 
                 sender.sendMessage("")
                 sender.sendMessage("§e§l--- Link a Member ---")
-                sender.sendMessage("§7/amslink add <fullDiscordId> <mcUsername>")
-                sender.sendMessage("§7/amslink link <player#> <discord#> §f- Link by number")
-                sender.sendMessage("§7/amslink quick [player#] [discord#] §f- Quick linking workflow")
+                sender.sendMessage("§7/amssync add <fullDiscordId> <mcUsername>")
+                sender.sendMessage("§7/amssync link <player#> <discord#> §f- Link by number")
+                sender.sendMessage("§7/amssync quick [player#] [discord#] §f- Quick linking workflow")
                 sender.sendMessage("")
                 sender.sendMessage("§aSession stored for ${session.getTimeRemaining()} seconds")
             })
@@ -300,8 +300,8 @@ class AmsLinkCommand(private val plugin: AmsDiscordPlugin) : CommandExecutor, Ta
 
     private fun handleLinkByNumber(sender: CommandSender, args: Array<out String>) {
         if (args.size < 3) {
-            sender.sendMessage("§cUsage: /amslink link <player#> <discord#>")
-            sender.sendMessage("§7Run §f/amslink players §7and §f/amslink discord §7first to get numbers")
+            sender.sendMessage("§cUsage: /amssync link <player#> <discord#>")
+            sender.sendMessage("§7Run §f/amssync players §7and §f/amssync discord §7first to get numbers")
             return
         }
 
@@ -309,7 +309,7 @@ class AmsLinkCommand(private val plugin: AmsDiscordPlugin) : CommandExecutor, Ta
         val session = sessionManager.getSession(sender)
         if (session == null) {
             sender.sendMessage("§cNo active session found!")
-            sender.sendMessage("§7Run §f/amslink players §7and §f/amslink discord §7first")
+            sender.sendMessage("§7Run §f/amssync players §7and §f/amssync discord §7first")
             return
         }
 
@@ -331,7 +331,7 @@ class AmsLinkCommand(private val plugin: AmsDiscordPlugin) : CommandExecutor, Ta
         val playerName = session.getPlayerName(playerNum)
         if (playerName == null) {
             sender.sendMessage("§cPlayer number $playerNum not found in session")
-            sender.sendMessage("§7Run §f/amslink players §7to refresh the list")
+            sender.sendMessage("§7Run §f/amssync players §7to refresh the list")
             return
         }
 
@@ -339,7 +339,7 @@ class AmsLinkCommand(private val plugin: AmsDiscordPlugin) : CommandExecutor, Ta
         val discordData = session.getDiscordData(discordNum)
         if (discordData == null) {
             sender.sendMessage("§cDiscord number $discordNum not found in session")
-            sender.sendMessage("§7Run §f/amslink discord §7to refresh the list")
+            sender.sendMessage("§7Run §f/amssync discord §7to refresh the list")
             return
         }
 
@@ -440,8 +440,8 @@ class AmsLinkCommand(private val plugin: AmsDiscordPlugin) : CommandExecutor, Ta
 
                 sender.sendMessage("")
                 sender.sendMessage("§a§l✓ Quick link ready!")
-                sender.sendMessage("§eType: §f/amslink quick <player#> <discord#>")
-                sender.sendMessage("§7Example: §f/amslink quick 1 1 §7to link player #1 to Discord member #1")
+                sender.sendMessage("§eType: §f/amssync quick <player#> <discord#>")
+                sender.sendMessage("§7Example: §f/amssync quick 1 1 §7to link player #1 to Discord member #1")
                 sender.sendMessage("")
                 sender.sendMessage("§7Session expires in ${session.getTimeRemaining()} seconds")
             })
@@ -456,7 +456,7 @@ class AmsLinkCommand(private val plugin: AmsDiscordPlugin) : CommandExecutor, Ta
     private fun handleMetrics(sender: CommandSender) {
         val snapshot = plugin.errorMetrics.getSnapshot()
 
-        sender.sendMessage("§6§l=== AMS Discord Metrics ===")
+        sender.sendMessage("§6§l=== AMSSync Metrics ===")
         sender.sendMessage("§7Uptime: §f${snapshot.uptimeFormatted}")
         sender.sendMessage("")
 
@@ -483,9 +483,9 @@ class AmsLinkCommand(private val plugin: AmsDiscordPlugin) : CommandExecutor, Ta
         // Current circuit state
         plugin.discordApiWrapper?.getCircuitState()?.let { state ->
             val stateColor = when (state) {
-                io.github.darinc.amsdiscord.discord.CircuitBreaker.State.CLOSED -> "§a"
-                io.github.darinc.amsdiscord.discord.CircuitBreaker.State.OPEN -> "§c"
-                io.github.darinc.amsdiscord.discord.CircuitBreaker.State.HALF_OPEN -> "§e"
+                io.github.darinc.amssync.discord.CircuitBreaker.State.CLOSED -> "§a"
+                io.github.darinc.amssync.discord.CircuitBreaker.State.OPEN -> "§c"
+                io.github.darinc.amssync.discord.CircuitBreaker.State.HALF_OPEN -> "§e"
             }
             sender.sendMessage("  §7Current State: $stateColor$state")
         }
@@ -519,24 +519,24 @@ class AmsLinkCommand(private val plugin: AmsDiscordPlugin) : CommandExecutor, Ta
     }
 
     private fun sendHelp(sender: CommandSender) {
-        sender.sendMessage("§6§l=== AMS Discord Link Commands ===")
+        sender.sendMessage("§6§l=== AMSSync Commands ===")
         sender.sendMessage("")
         sender.sendMessage("§a§l⚡ Recommended:")
-        sender.sendMessage("  §f/amslink quick §7- Quick 2-step linking (shows both lists)")
-        sender.sendMessage("  §f/amslink quick <player#> <discord#> §7- Direct link with numbers")
+        sender.sendMessage("  §f/amssync quick §7- Quick 2-step linking (shows both lists)")
+        sender.sendMessage("  §f/amssync quick <player#> <discord#> §7- Direct link with numbers")
         sender.sendMessage("")
         sender.sendMessage("§e§lViewing:")
-        sender.sendMessage("  §f/amslink list §7- List all current mappings")
-        sender.sendMessage("  §f/amslink players §7- Show Minecraft players only")
-        sender.sendMessage("  §f/amslink discord §7- Show Discord members only")
-        sender.sendMessage("  §f/amslink metrics §7- Show plugin health metrics")
+        sender.sendMessage("  §f/amssync list §7- List all current mappings")
+        sender.sendMessage("  §f/amssync players §7- Show Minecraft players only")
+        sender.sendMessage("  §f/amssync discord §7- Show Discord members only")
+        sender.sendMessage("  §f/amssync metrics §7- Show plugin health metrics")
         sender.sendMessage("")
         sender.sendMessage("§e§lOther Linking Methods:")
-        sender.sendMessage("  §f/amslink add <discordId> <mcUsername> §7- Link by Discord ID")
-        sender.sendMessage("  §f/amslink link <player#> <discord#> §7- Link by number (requires session)")
-        sender.sendMessage("  §f/amslink remove <discordId> §7- Remove a link")
+        sender.sendMessage("  §f/amssync add <discordId> <mcUsername> §7- Link by Discord ID")
+        sender.sendMessage("  §f/amssync link <player#> <discord#> §7- Link by number (requires session)")
+        sender.sendMessage("  §f/amssync remove <discordId> §7- Remove a link")
         sender.sendMessage("")
-        sender.sendMessage("§7💡 Tip: Use Discord for easiest linking: §f/amslink add @user <mcUsername>")
+        sender.sendMessage("§7💡 Tip: Use Discord for easiest linking: §f/amssync add @user <mcUsername>")
     }
 
     override fun onTabComplete(
@@ -545,7 +545,7 @@ class AmsLinkCommand(private val plugin: AmsDiscordPlugin) : CommandExecutor, Ta
         alias: String,
         args: Array<out String>
     ): List<String>? {
-        if (!sender.hasPermission("amsdiscord.admin")) {
+        if (!sender.hasPermission("amssync.admin")) {
             return emptyList()
         }
 

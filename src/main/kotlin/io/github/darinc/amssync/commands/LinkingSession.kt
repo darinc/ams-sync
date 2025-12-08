@@ -1,4 +1,4 @@
-package io.github.darinc.amsdiscord.commands
+package io.github.darinc.amssync.commands
 
 import org.bukkit.command.CommandSender
 import org.bukkit.plugin.Plugin

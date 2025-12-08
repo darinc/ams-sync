@@ -1,14 +1,14 @@
-package io.github.darinc.amsdiscord.exceptions
+package io.github.darinc.amssync.exceptions
 
 /**
- * Base sealed class for all AMS Discord plugin exceptions.
+ * Base sealed class for all AMSSync plugin exceptions.
  *
  * Using a sealed hierarchy provides:
  * - Exhaustive when expressions (compiler-enforced handling)
  * - Type-safe exception categorization
  * - Better IDE support and documentation
  */
-sealed class AmsDiscordException(
+sealed class AMSSyncException(
     message: String,
     cause: Throwable? = null
 ) : Exception(message, cause)
@@ -24,7 +24,7 @@ sealed class AmsDiscordException(
 sealed class DiscordConnectionException(
     message: String,
     cause: Throwable? = null
-) : AmsDiscordException(message, cause)
+) : AMSSyncException(message, cause)
 
 /**
  * Thrown when Discord bot authentication fails.
@@ -73,7 +73,7 @@ class DiscordNetworkException(
 sealed class DiscordApiException(
     message: String,
     cause: Throwable? = null
-) : AmsDiscordException(message, cause)
+) : AMSSyncException(message, cause)
 
 /**
  * Thrown when Discord API rate limit is exceeded.
@@ -129,7 +129,7 @@ class CircuitBreakerOpenException(
 sealed class McmmoQueryException(
     message: String,
     cause: Throwable? = null
-) : AmsDiscordException(message, cause)
+) : AMSSyncException(message, cause)
 
 /**
  * Thrown when a leaderboard query exceeds the configured timeout.
@@ -174,7 +174,7 @@ class InvalidSkillException(
 sealed class UserMappingException(
     message: String,
     cause: Throwable? = null
-) : AmsDiscordException(message, cause)
+) : AMSSyncException(message, cause)
 
 /**
  * Thrown when attempting to create a duplicate mapping.
@@ -219,7 +219,7 @@ class InvalidDiscordIdException(
 sealed class ConfigurationException(
     message: String,
     cause: Throwable? = null
-) : AmsDiscordException(message, cause)
+) : AMSSyncException(message, cause)
 
 /**
  * Thrown when a required configuration value is missing.

@@ -1,4 +1,4 @@
-package io.github.darinc.amsdiscord.metrics
+package io.github.darinc.amssync.metrics
 
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
@@ -8,7 +8,7 @@ import java.time.Instant
  * Tracks error metrics and command execution statistics for monitoring.
  *
  * This provides basic observability into plugin health without external dependencies.
- * Metrics can be accessed via the `/amslink metrics` command or programmatically.
+ * Metrics can be accessed via the `/amssync metrics` command or programmatically.
  *
  * Features:
  * - Thread-safe counters using atomic operations
@@ -319,7 +319,7 @@ data class MetricsSnapshot(
      */
     fun toDisplayString(): String {
         return buildString {
-            appendLine("=== AMS Discord Metrics ===")
+            appendLine("=== AMSSync Metrics ===")
             appendLine("Uptime: $uptimeFormatted")
             appendLine()
 

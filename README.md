@@ -1,10 +1,10 @@
-# AMS Discord Plugin
+# AMSSync
 
 A Paper/Spigot Minecraft plugin that bridges Discord and MCMMO for the Amazing Minecraft Server (AMS). This plugin embeds a Discord bot directly into your Minecraft server, allowing Discord users to check MCMMO stats, view leaderboards, and interact with server data through slash commands.
 
 ## Overview
 
-The AMS Discord Plugin eliminates the need for separate bot hosting by integrating Discord functionality directly into your Minecraft server plugin. It provides a seamless experience for players to track their MCMMO progression from Discord, with intelligent user linking for easy administration.
+AMSSync eliminates the need for separate bot hosting by integrating Discord functionality directly into your Minecraft server plugin. It provides a seamless experience for players to track their MCMMO progression from Discord, with intelligent user linking for easy administration.
 
 ## Key Features
 
@@ -21,11 +21,11 @@ The AMS Discord Plugin eliminates the need for separate bot hosting by integrati
 - **Timeout Protection**: Configurable timeout manager prevents long-running queries from blocking
 
 ### User Linking System
-- **Quick Linking**: Fast 2-command workflow with `/amslink quick`
+- **Quick Linking**: Fast 2-command workflow with `/amssync quick`
 - **Number-Based Selection**: Session-based numbered lists (no copying/pasting Discord IDs)
 - **Session Management**: 5-minute auto-expiring sessions per admin
 - **Discord Name Display**: Shows Discord display names instead of IDs for better UX
-- **Discord Admin Commands**: Server admins can manage links directly from Discord using `/amslink`
+- **Discord Admin Commands**: Server admins can manage links directly from Discord using `/amssync`
 
 ## Commands
 
@@ -47,47 +47,50 @@ The AMS Discord Plugin eliminates the need for separate bot hosting by integrati
 
 #### Admin Commands
 
-**`/amslink`** - Manage Discord-to-Minecraft user links (requires Manage Server permission)
-- **`/amslink add <user> <minecraft_username>`** - Link a Discord user to Minecraft player
-- **`/amslink remove <user>`** - Remove a user's link
-- **`/amslink list`** - Show all current links
-- **`/amslink check <user>`** - Check if a user is linked
+**`/amssync`** - Manage Discord-to-Minecraft user links (requires Manage Server permission)
+- **`/amssync add <user> <minecraft_username>`** - Link a Discord user to Minecraft player
+- **`/amssync remove <user>`** - Remove a user's link
+- **`/amssync list`** - Show all current links
+- **`/amssync check <user>`** - Check if a user is linked
 
 ### Minecraft Console/In-Game Commands
 
-**`/amslink players`** - List online/whitelisted players with link status
+**`/amssync players`** - List online/whitelisted players with link status
 - Shows numbered list of players for easy reference
 - Displays which players are already linked to Discord
 - Session data expires after 5 minutes
 
-**`/amslink discord`** - List Discord server members with link status
+**`/amssync discord`** - List Discord server members with link status
 - Shows numbered list of Discord members
 - Displays which members are already linked to Minecraft
 - Session data expires after 5 minutes
 
-**`/amslink list`** - View all current Discord ↔ Minecraft mappings
+**`/amssync list`** - View all current Discord - Minecraft mappings
 - Shows Discord display names (not IDs) for better readability
 - Indicates if Discord members are no longer in the server
 
-**`/amslink quick [player#] [discord#]`** - Fast linking workflow (recommended)
+**`/amssync quick [player#] [discord#]`** - Fast linking workflow (recommended)
 - **Without numbers**: Shows both player and Discord lists side-by-side
 - **With numbers**: Immediately links the selected player and Discord member
 - Easy 2-command workflow for quick linking
 
-**`/amslink link <player#> <discord#>`** - Direct number-based linking
-- Uses session data from previous `/amslink players` or `/amslink discord` commands
+**`/amssync link <player#> <discord#>`** - Direct number-based linking
+- Uses session data from previous `/amssync players` or `/amssync discord` commands
 - Numbers reference the lists shown in those commands
 - Session expires after 5 minutes of inactivity
 
-**`/amslink add <discordId> <mcUsername>`** - Traditional linking (for advanced users)
+**`/amssync add <discordId> <mcUsername>`** - Traditional linking (for advanced users)
 - Directly link using Discord ID (18-digit number)
 - Requires copying Discord ID with Developer Mode enabled
 - Most users should use quick or link commands instead
 
-**`/amslink remove <discordId|number>`** - Remove a user link
+**`/amssync remove <discordId|number>`** - Remove a user link
 - Use Discord ID or number from session list
 
-**Command Aliases**: `/discordlink`, `/dlink`
+**`/amssync metrics`** - Show plugin health metrics
+- Discord API success/failure rates
+- Circuit breaker state
+- Connection statistics
 
 ## Requirements
 
@@ -107,25 +110,25 @@ cd /path/to/mcMMO
 mvn install -DskipTests
 ```
 
-Then build the AMS Discord plugin:
+Then build AMSSync:
 
 ```bash
 ./gradlew shadowJar
 ```
 
-The plugin JAR will be in `build/libs/ams-discord-0.1.0.jar`
+The plugin JAR will be in `build/libs/ams-sync-*.jar`
 
 ### 2. Install on Server
 
 Copy the JAR to your server's `plugins/` directory:
 
 ```bash
-cp build/libs/ams-discord-0.1.0.jar /path/to/server/plugins/
+cp build/libs/ams-sync-*.jar /path/to/server/plugins/
 ```
 
 ### 3. Configure the Plugin
 
-Start the server once to generate the default config, then edit `plugins/AmsDiscord/config.yml`:
+Start the server once to generate the default config, then edit `plugins/AMSSync/config.yml`:
 
 ```yaml
 discord:
@@ -146,10 +149,10 @@ timeout:
   default-timeout-ms: 5000
 
 user-mappings:
-  # Managed via /amslink command - no need to edit manually
+  # Managed via /amssync command - no need to edit manually
 ```
 
-**Important**: The config file in `plugins/AmsDiscord/` contains secrets. Never commit it to git!
+**Important**: The config file in `plugins/AMSSync/` contains secrets. Never commit it to git!
 
 ### 4. Discord Bot Setup
 
@@ -167,21 +170,21 @@ user-mappings:
 The easiest way to link users is with the quick command:
 
 ```
-/amslink quick              # Shows both lists
-/amslink quick 1 5          # Immediately links player #1 to Discord member #5
+/amssync quick              # Shows both lists
+/amssync quick 1 5          # Immediately links player #1 to Discord member #5
 ```
 
 This provides a fast 2-command workflow:
-1. Run `/amslink quick` to see numbered lists of players and Discord members
-2. Run `/amslink quick <player#> <discord#>` to create the link
+1. Run `/amssync quick` to see numbered lists of players and Discord members
+2. Run `/amssync quick <player#> <discord#>` to create the link
 
 #### Alternative: Manual Linking (Advanced)
 
 If you prefer the traditional method:
 
-1. Enable Developer Mode in Discord (User Settings → Advanced → Developer Mode)
-2. Right-click the user in Discord → Copy ID
-3. Run `/amslink add <pastedId> <MinecraftUsername>`
+1. Enable Developer Mode in Discord (User Settings - Advanced - Developer Mode)
+2. Right-click the user in Discord - Copy ID
+3. Run `/amssync add <pastedId> <MinecraftUsername>`
 
 All mappings are automatically saved to the config file.
 
@@ -196,7 +199,7 @@ Your Discord bot token from the Discord Developer Portal.
 ### discord.guild-id
 
 Your Discord server (guild) ID. This enables instant slash command registration.
-- Right-click your server icon → Copy ID (requires Developer Mode enabled in Discord settings)
+- Right-click your server icon - Copy ID (requires Developer Mode enabled in Discord settings)
 - If not provided, commands register globally (may take up to 1 hour to appear)
 
 **Required**: Recommended (for instant command registration)
@@ -228,17 +231,17 @@ Query timeout protection:
 
 Discord ID to Minecraft username mappings.
 
-**Management**: Automatically managed via the `/amslink` command - no manual editing needed!
+**Management**: Automatically managed via the `/amssync` command - no manual editing needed!
 
 ## Architecture
 
 ```
-AmsDiscordPlugin (Main)
+AMSSyncPlugin (Main)
 ├── DiscordManager - JDA lifecycle management & slash command registration
 │   ├── Retry logic with exponential backoff
 │   └── Connection status monitoring
 │
-├── UserMappingService - Discord ↔ Minecraft linking with config persistence
+├── UserMappingService - Discord - Minecraft linking with config persistence
 │
 ├── McmmoApiWrapper - MCMMO API integration
 │   ├── Direct DatabaseManager flatfile access
@@ -259,9 +262,9 @@ AmsDiscordPlugin (Main)
 ├── SlashCommandListener (Discord)
 │   ├── McStatsCommand - /mcstats handler
 │   ├── McTopCommand - /mctop handler
-│   └── AmsLinkCommand (Discord) - /amslink admin commands
+│   └── DiscordLinkCommand - /amssync admin commands
 │
-└── AmsLinkCommand (Minecraft) - In-game linking commands
+└── AMSSyncCommand (Minecraft) - In-game linking commands
     ├── Quick linking (2-command workflow)
     ├── Number-based linking (session references)
     └── Traditional ID-based linking
@@ -272,34 +275,33 @@ AmsDiscordPlugin (Main)
 ### Project Structure
 
 ```
-ams-discord/
+ams-sync/
 ├── build.gradle.kts
 ├── src/main/
-│   ├── kotlin/io/github/darinc/amsdiscord/
-│   │   ├── AmsDiscordPlugin.kt
+│   ├── kotlin/io/github/darinc/amssync/
+│   │   ├── AMSSyncPlugin.kt
 │   │   │
 │   │   ├── commands/
-│   │   │   ├── AmsLinkCommand.kt         # Minecraft in-game linking
-│   │   │   └── LinkingSession.kt         # Session management
+│   │   │   ├── AMSSyncCommand.kt          # Minecraft in-game linking
+│   │   │   └── LinkingSession.kt          # Session management
 │   │   │
 │   │   ├── discord/
-│   │   │   ├── DiscordManager.kt         # JDA lifecycle
-│   │   │   ├── SlashCommandListener.kt   # Command routing
-│   │   │   ├── TimeoutManager.kt         # Query timeout protection
+│   │   │   ├── DiscordManager.kt          # JDA lifecycle
+│   │   │   ├── SlashCommandListener.kt    # Command routing
+│   │   │   ├── TimeoutManager.kt          # Query timeout protection
 │   │   │   └── commands/
-│   │   │       ├── AmsLinkCommand.kt     # Discord /amslink admin
-│   │   │       ├── McStatsCommand.kt     # /mcstats handler
-│   │   │       └── McTopCommand.kt       # /mctop handler
+│   │   │       ├── DiscordLinkCommand.kt  # Discord /amssync admin
+│   │   │       ├── McStatsCommand.kt      # /mcstats handler
+│   │   │       └── McTopCommand.kt        # /mctop handler
 │   │   │
 │   │   ├── exceptions/
-│   │   │   ├── InvalidSkillException.kt
-│   │   │   └── PlayerDataNotFoundException.kt
+│   │   │   └── AMSSyncExceptions.kt       # Custom exception hierarchy
 │   │   │
 │   │   ├── linking/
-│   │   │   └── UserMappingService.kt     # Mapping persistence
+│   │   │   └── UserMappingService.kt      # Mapping persistence
 │   │   │
 │   │   └── mcmmo/
-│   │       └── McmmoApiWrapper.kt        # MCMMO API wrapper
+│   │       └── McmmoApiWrapper.kt         # MCMMO API wrapper
 │   │
 │   └── resources/
 │       ├── plugin.yml
@@ -350,8 +352,8 @@ The plugin provides robust error handling for common scenarios:
 
 ## Permissions
 
-- `amsdiscord.admin` - Administrator permissions, required for in-game `/amslink` commands (default: op)
-- `amsdiscord.link` - Link Discord account (default: true, reserved for future self-service linking)
+- `amssync.admin` - Administrator permissions, required for in-game `/amssync` commands (default: op)
+- `amssync.link` - Link Discord account (default: true, reserved for future self-service linking)
 
 ## Logging
 
@@ -364,12 +366,12 @@ The plugin provides detailed logging to the server console:
 ### Example Log Output
 
 ```
-[INFO] [AmsDiscord] Enabling AmsDiscord v0.1.0
-[INFO] [AmsDiscord] Connecting to Discord...
-[INFO] [AmsDiscord] Discord bot is ready! Connected as AMS Bot#1234
-[INFO] [AmsDiscord] Slash commands registered to guild: Amazing Minecraft Server
-[FINE] [AmsDiscord] Returning cached leaderboard for MINING
-[INFO] [AmsDiscord] Successfully linked  Steve→ darin.c#0000!
+[INFO] [AMSSync] Enabling AMSSync v0.5.0
+[INFO] [AMSSync] Connecting to Discord...
+[INFO] [AMSSync] Discord bot is ready! Connected as AMS Bot#1234
+[INFO] [AMSSync] Slash commands registered to guild: Amazing Minecraft Server
+[FINE] [AMSSync] Returning cached leaderboard for MINING
+[INFO] [AMSSync] Successfully linked  Steve- darin.c#0000!
 ```
 
 ## Technical Details
@@ -407,8 +409,8 @@ val powerLevel = PrimarySkillType.values()
 
 Potential features for future releases:
 - [ ] Self-service `/link` command with verification codes
-- [ ] MC events → Discord announcements (level-ups, achievements, deaths)
-- [ ] Discord ↔ MC chat bridge
+- [ ] MC events - Discord announcements (level-ups, achievements, deaths)
+- [ ] Discord - MC chat bridge
 - [ ] Skill-specific role assignments (e.g., "Master Miner" role at Mining 1000)
 - [ ] Database storage for mappings (MySQL/PostgreSQL support)
 - [ ] Web dashboard for link management
@@ -421,12 +423,12 @@ Potential features for future releases:
 
 In Minecraft console:
 ```
-> /amslink quick
+> /amssync quick
 [Shows both player and Discord lists side-by-side]
 
-> /amslink quick 1 5
+> /amssync quick 1 5
 Linking  Steve(#1) to  discord_user(#5)...
-Successfully linked  Steve→ darin.c!
+Successfully linked  Steve- darin.c!
 ```
 
 ### Example 2: Player Checking Stats in Discord
@@ -434,28 +436,28 @@ Successfully linked  Steve→ darin.c!
 In Discord:
 ```
 User: /mcstats
-Bot: 📊 MCMMO Stats for CtrlAltDC
+Bot: MCMMO Stats for CtrlAltDC
      Mining: 450
      Woodcutting: 320
      ... (all skills)
      Power Level: 2,450
 
 User: /mcstats mining
-Bot: ⛏️ Mining Level for CtrlAltDC
+Bot: Mining Level for CtrlAltDC
      Level: 450
 
 User: /mctop
-Bot: 🏆 Top 10 - Power Level
-     🥇  Steve- 2,450
-     🥈 NothingTV - 2,100
-     🥉 PlayerX - 1,850
+Bot: Top 10 - Power Level
+     1.  Steve- 2,450
+     2. NothingTV - 2,100
+     3. PlayerX - 1,850
      ...
 
 User: /mctop mining
-Bot: ⛏️ Top 10 - Mining
-     🥇 NothingTV - 500
-     🥈  Steve- 450
-     🥉 PlayerX - 400
+Bot: Top 10 - Mining
+     1. NothingTV - 500
+     2.  Steve- 450
+     3. PlayerX - 400
      ...
 ```
 
@@ -463,20 +465,20 @@ Bot: ⛏️ Top 10 - Mining
 
 Discord server admin (with Manage Server permission):
 ```
-Admin: /amslink list
+Admin: /amssync list
 Bot: Current Discord-Minecraft Links:
-      discord_user→ CtrlAltDC
-     otheruser → PlayerX
-     newplayer → NothingTV
+      discord_user- CtrlAltDC
+     otheruser - PlayerX
+     newplayer - NothingTV
 
-Admin: /amslink add @newuser MinecraftPlayer
-Bot: ✅ Successfully linked newuser to MinecraftPlayer
+Admin: /amssync add @newuser MinecraftPlayer
+Bot: Successfully linked newuser to MinecraftPlayer
 
-Admin: /amslink check @darin.c
-Bot: ✅  discord_useris linked to: CtrlAltDC
+Admin: /amssync check @darin.c
+Bot:  discord_useris linked to: CtrlAltDC
 
-Admin: /amslink remove @olduser
-Bot: ✅ Removed link for olduser
+Admin: /amssync remove @olduser
+Bot: Removed link for olduser
 ```
 
 ## License

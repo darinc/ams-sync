@@ -1,4 +1,4 @@
-package io.github.darinc.amsdiscord.discord
+package io.github.darinc.amssync.discord
 
 import org.bukkit.Bukkit
 import org.bukkit.plugin.Plugin
@@ -63,7 +63,7 @@ class TimeoutManager(
     private val timeoutExecutor: ScheduledExecutorService = Executors.newScheduledThreadPool(
         2,
         ThreadFactory { runnable ->
-            Thread(runnable, "AmsDiscord-Timeout").apply {
+            Thread(runnable, "AMSSync-Timeout").apply {
                 isDaemon = true
             }
         }

@@ -1,4 +1,4 @@
-package io.github.darinc.amsdiscord.discord
+package io.github.darinc.amssync.discord
 
 import org.bukkit.configuration.file.FileConfiguration
 

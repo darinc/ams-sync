@@ -5,12 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2025-12-07
+
+### Changed
+
+- Rebranded from "AMS Discord" to "AMSSync"
+- Renamed command from `/amslink` to `/amssync`
+- Updated package structure from `io.github.darinc.amsdiscord` to `io.github.darinc.amssync`
+- Plugin JAR now outputs as `ams-sync-*.jar`
+- Permission nodes renamed from `amsdiscord.*` to `amssync.*`
+
 ## [0.4.0] - 2025-12-07
 
 ### Added
 
 - Configuration validation with detailed error messages before Discord connection
-- Error metrics tracking system with `/amslink metrics` command
+- Error metrics tracking system with `/amssync metrics` command
 - Circuit breaker state context in Discord API error logs
 
 ### Changed

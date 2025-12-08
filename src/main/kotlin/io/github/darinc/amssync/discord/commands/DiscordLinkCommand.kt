@@ -1,8 +1,8 @@
-package io.github.darinc.amsdiscord.discord.commands
+package io.github.darinc.amssync.discord.commands
 
-import io.github.darinc.amsdiscord.AmsDiscordPlugin
-import io.github.darinc.amsdiscord.exceptions.InvalidDiscordIdException
-import io.github.darinc.amsdiscord.exceptions.MappingNotFoundException
+import io.github.darinc.amssync.AMSSyncPlugin
+import io.github.darinc.amssync.exceptions.InvalidDiscordIdException
+import io.github.darinc.amssync.exceptions.MappingNotFoundException
 import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.Permission
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
@@ -13,7 +13,7 @@ import java.time.Instant
 /**
  * Handles the /amslink Discord slash command for admin user linking
  */
-class DiscordLinkCommand(private val plugin: AmsDiscordPlugin) {
+class DiscordLinkCommand(private val plugin: AMSSyncPlugin) {
 
     fun handle(event: SlashCommandInteractionEvent) {
         // Check admin permission

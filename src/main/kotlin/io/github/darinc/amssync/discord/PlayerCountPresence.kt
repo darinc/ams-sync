@@ -1,6 +1,6 @@
-package io.github.darinc.amsdiscord.discord
+package io.github.darinc.amssync.discord
 
-import io.github.darinc.amsdiscord.AmsDiscordPlugin
+import io.github.darinc.amssync.AMSSyncPlugin
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.entities.Activity
 import org.bukkit.Bukkit
@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicReference
  * @property config Presence configuration
  */
 class PlayerCountPresence(
-    private val plugin: AmsDiscordPlugin,
+    private val plugin: AMSSyncPlugin,
     private val config: PresenceConfig
 ) : Listener {
 
@@ -43,7 +43,7 @@ class PlayerCountPresence(
 
     // Executor for scheduling debounced updates
     private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor { runnable ->
-        Thread(runnable, "AmsDiscord-Presence").apply { isDaemon = true }
+        Thread(runnable, "AMSSync-Presence").apply { isDaemon = true }
     }
 
     /**

@@ -1,16 +1,16 @@
-package io.github.darinc.amsdiscord.discord
+package io.github.darinc.amssync.discord
 
-import io.github.darinc.amsdiscord.AmsDiscordPlugin
-import io.github.darinc.amsdiscord.discord.commands.DiscordLinkCommand
-import io.github.darinc.amsdiscord.discord.commands.McStatsCommand
-import io.github.darinc.amsdiscord.discord.commands.McTopCommand
+import io.github.darinc.amssync.AMSSyncPlugin
+import io.github.darinc.amssync.discord.commands.DiscordLinkCommand
+import io.github.darinc.amssync.discord.commands.McStatsCommand
+import io.github.darinc.amssync.discord.commands.McTopCommand
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
 import net.dv8tion.jda.api.hooks.ListenerAdapter
 
 /**
  * Listens for Discord slash command interactions
  */
-class SlashCommandListener(private val plugin: AmsDiscordPlugin) : ListenerAdapter() {
+class SlashCommandListener(private val plugin: AMSSyncPlugin) : ListenerAdapter() {
 
     private val mcStatsCommand = McStatsCommand(plugin)
     private val mcTopCommand = McTopCommand(plugin)
@@ -22,7 +22,7 @@ class SlashCommandListener(private val plugin: AmsDiscordPlugin) : ListenerAdapt
         when (event.name) {
             "mcstats" -> mcStatsCommand.handle(event)
             "mctop" -> mcTopCommand.handle(event)
-            "amslink" -> discordLinkCommand.handle(event)
+            "amssync" -> discordLinkCommand.handle(event)
             else -> {
                 event.reply("Unknown command!").setEphemeral(true).queue(
                     null,

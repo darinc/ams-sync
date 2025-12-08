@@ -1,5 +1,5 @@
 # ENTERPRISE-GRADE PRODUCTION QUALITY PLAN
-## AMS Discord Minecraft Plugin
+## AMSSync Minecraft Plugin
 
 **Status:** Mid Production Level (50% Production Ready) - Updated 2025-12-07
 **Target:** Enterprise Grade (89%+ Production Ready)
@@ -9,7 +9,7 @@
 
 ## EXECUTIVE SUMMARY
 
-The AMS Discord plugin is a functional Minecraft-Discord integration with solid basic implementation. Recent improvements to error handling and resilience have moved it from **prototype/MVP level** to **mid production level**, with comprehensive error handling patterns now implemented.
+The AMSSync plugin is a functional Minecraft-Discord integration with solid basic implementation. Recent improvements to error handling and resilience have moved it from **prototype/MVP level** to **mid production level**, with comprehensive error handling patterns now implemented.
 
 **Current Score:** 52% (C) - Improved from 50%
 **Target Score:** 89% (A-)
@@ -106,7 +106,7 @@ private fun connectDiscordWithRetry(token: String, maxRetries: Int = 3) {
 - Created `RetryManager.kt` with production-grade exponential backoff
 - Added `discord.retry` configuration section to `config.yml`
 - Updated `DiscordManager.kt` with connection state tracking
-- Modified `AmsDiscordPlugin.kt` to use retry logic
+- Modified `AMSSyncPlugin.kt` to use retry logic
 - Completed: 2025-12-07
 
 2. **✅ COMPLETED - Add Graceful Degradation**
@@ -182,7 +182,7 @@ class CircuitBreaker(
 - Configurable failure threshold (5 failures in 60s → circuit opens)
 - Automatic recovery after 30s cooldown period
 - Added `discord.circuit-breaker` configuration section to `config.yml`
-- Integrated into `AmsDiscordPlugin.kt` with DiscordApiWrapper
+- Integrated into `AMSSyncPlugin.kt` with DiscordApiWrapper
 - Completed: 2025-12-07
 
 2. **✅ COMPLETED - Add Timeout Protection**
@@ -206,12 +206,12 @@ class TimeoutManager(
 
 3. **✅ COMPLETED - Create Custom Exception Hierarchy**
 ```kotlin
-sealed class AmsDiscordException : Exception()
-sealed class DiscordConnectionException : AmsDiscordException()
-sealed class DiscordApiException : AmsDiscordException()
-sealed class McmmoQueryException : AmsDiscordException()
-sealed class UserMappingException : AmsDiscordException()
-sealed class ConfigurationException : AmsDiscordException()
+sealed class AMSSyncException : Exception()
+sealed class DiscordConnectionException : AMSSyncException()
+sealed class DiscordApiException : AMSSyncException()
+sealed class McmmoQueryException : AMSSyncException()
+sealed class UserMappingException : AMSSyncException()
+sealed class ConfigurationException : AMSSyncException()
 
 class PlayerDataNotFoundException(val playerName: String) : McmmoQueryException()
 class InvalidSkillException(val skillName: String, val validSkills: List<String>) : McmmoQueryException()
@@ -219,7 +219,7 @@ class InvalidDiscordIdException(val discordId: String) : UserMappingException()
 // ... and more
 ```
 **Implementation Notes:**
-- Created `AmsDiscordExceptions.kt` with sealed class hierarchy
+- Created `AMSSyncExceptions.kt` with sealed class hierarchy
 - Type-safe exception handling with exhaustive when expressions
 - Enhanced error messages with specific exception properties
 - Updated all commands (`McStatsCommand`, `McTopCommand`, `DiscordLinkCommand`) with specific exception handling
@@ -663,10 +663,10 @@ fun backupMappings() {
  * and automatic persistence to config.yml.
  *
  * @property plugin The parent plugin instance
- * @see AmsDiscordPlugin
+ * @see AMSSyncPlugin
  * @since 1.0.0
  */
-class UserMappingService(private val plugin: AmsDiscordPlugin)
+class UserMappingService(private val plugin: AMSSyncPlugin)
 ```
 
 2. **Create docs/DEPLOYMENT.md**

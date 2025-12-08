@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "io.github.darinc"
-version = "0.4.0"
+version = "0.5.0"
 
 repositories {
     mavenCentral()
@@ -49,9 +49,9 @@ tasks {
     shadowJar {
         archiveClassifier.set("")
         // Relocate to avoid conflicts with other plugins
-        relocate("net.dv8tion", "io.github.darinc.amsdiscord.libs.jda")
-        relocate("kotlin", "io.github.darinc.amsdiscord.libs.kotlin")
-        relocate("kotlinx", "io.github.darinc.amsdiscord.libs.kotlinx")
+        relocate("net.dv8tion", "io.github.darinc.amssync.libs.jda")
+        relocate("kotlin", "io.github.darinc.amssync.libs.kotlin")
+        relocate("kotlinx", "io.github.darinc.amssync.libs.kotlinx")
         // Note: Don't relocate SLF4J - JDA needs to find it in original package
 
         // Exclude unnecessary files

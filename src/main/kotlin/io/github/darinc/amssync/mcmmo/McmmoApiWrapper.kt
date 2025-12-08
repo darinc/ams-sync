@@ -1,11 +1,11 @@
-package io.github.darinc.amsdiscord.mcmmo
+package io.github.darinc.amssync.mcmmo
 
 import com.gmail.nossr50.datatypes.skills.PrimarySkillType
 import com.gmail.nossr50.mcMMO
 import com.gmail.nossr50.util.player.UserManager
-import io.github.darinc.amsdiscord.AmsDiscordPlugin
-import io.github.darinc.amsdiscord.exceptions.InvalidSkillException
-import io.github.darinc.amsdiscord.exceptions.PlayerDataNotFoundException
+import io.github.darinc.amssync.AMSSyncPlugin
+import io.github.darinc.amssync.exceptions.InvalidSkillException
+import io.github.darinc.amssync.exceptions.PlayerDataNotFoundException
 import org.bukkit.Bukkit
 import org.bukkit.OfflinePlayer
 import java.util.UUID
@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap
  * @property cacheTtlMs Cache time-to-live in milliseconds for leaderboard results
  */
 class McmmoApiWrapper(
-    private val plugin: AmsDiscordPlugin,
+    private val plugin: AMSSyncPlugin,
     private val maxPlayersToScan: Int = 1000,
     private val cacheTtlMs: Long = 60000L // 60 seconds default
 ) {

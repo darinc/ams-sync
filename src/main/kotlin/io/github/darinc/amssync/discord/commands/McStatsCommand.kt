@@ -1,8 +1,8 @@
-package io.github.darinc.amsdiscord.discord.commands
+package io.github.darinc.amssync.discord.commands
 
-import io.github.darinc.amsdiscord.AmsDiscordPlugin
-import io.github.darinc.amsdiscord.exceptions.InvalidSkillException
-import io.github.darinc.amsdiscord.exceptions.PlayerDataNotFoundException
+import io.github.darinc.amssync.AMSSyncPlugin
+import io.github.darinc.amssync.exceptions.InvalidSkillException
+import io.github.darinc.amssync.exceptions.PlayerDataNotFoundException
 import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
 import org.bukkit.Bukkit
@@ -12,7 +12,7 @@ import java.time.Instant
 /**
  * Handles the /mcstats slash command
  */
-class McStatsCommand(private val plugin: AmsDiscordPlugin) {
+class McStatsCommand(private val plugin: AMSSyncPlugin) {
 
     fun handle(event: SlashCommandInteractionEvent) {
         // Defer reply immediately to avoid timeout

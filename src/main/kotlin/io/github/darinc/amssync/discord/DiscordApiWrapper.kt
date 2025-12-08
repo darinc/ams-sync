@@ -1,6 +1,6 @@
-package io.github.darinc.amsdiscord.discord
+package io.github.darinc.amssync.discord
 
-import io.github.darinc.amsdiscord.metrics.ErrorMetrics
+import io.github.darinc.amssync.metrics.ErrorMetrics
 import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.MessageEmbed
 import net.dv8tion.jda.api.interactions.InteractionHook

@@ -1,8 +1,8 @@
-package io.github.darinc.amsdiscord.discord.commands
+package io.github.darinc.amssync.discord.commands
 
-import io.github.darinc.amsdiscord.AmsDiscordPlugin
-import io.github.darinc.amsdiscord.discord.TimeoutManager
-import io.github.darinc.amsdiscord.exceptions.InvalidSkillException
+import io.github.darinc.amssync.AMSSyncPlugin
+import io.github.darinc.amssync.discord.TimeoutManager
+import io.github.darinc.amssync.exceptions.InvalidSkillException
 import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
 import org.bukkit.Bukkit
@@ -12,7 +12,7 @@ import java.time.Instant
 /**
  * Handles the /mctop slash command
  */
-class McTopCommand(private val plugin: AmsDiscordPlugin) {
+class McTopCommand(private val plugin: AMSSyncPlugin) {
 
     private val LEADERBOARD_SIZE = 10
 

@@ -1,6 +1,6 @@
-package io.github.darinc.amsdiscord.discord
+package io.github.darinc.amssync.discord
 
-import io.github.darinc.amsdiscord.exceptions.CircuitBreakerOpenException
+import io.github.darinc.amssync.exceptions.CircuitBreakerOpenException
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference

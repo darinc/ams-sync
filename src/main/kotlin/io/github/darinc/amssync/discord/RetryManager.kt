@@ -1,4 +1,4 @@
-package io.github.darinc.amsdiscord.discord
+package io.github.darinc.amssync.discord
 
 import java.util.logging.Logger
 import kotlin.math.min

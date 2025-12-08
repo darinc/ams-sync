@@ -1,8 +1,8 @@
-package io.github.darinc.amsdiscord.discord
+package io.github.darinc.amssync.discord
 
-import io.github.darinc.amsdiscord.AmsDiscordPlugin
-import io.github.darinc.amsdiscord.discord.commands.McStatsCommand
-import io.github.darinc.amsdiscord.discord.commands.McTopCommand
+import io.github.darinc.amssync.AMSSyncPlugin
+import io.github.darinc.amssync.discord.commands.McStatsCommand
+import io.github.darinc.amssync.discord.commands.McTopCommand
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions
@@ -11,7 +11,7 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData
 import net.dv8tion.jda.api.requests.GatewayIntent
 
-class DiscordManager(private val plugin: AmsDiscordPlugin) {
+class DiscordManager(private val plugin: AMSSyncPlugin) {
 
     private var jda: JDA? = null
     private var connected: Boolean = false
@@ -76,7 +76,7 @@ class DiscordManager(private val plugin: AmsDiscordPlugin) {
                 .addOption(OptionType.STRING, "skill", "Skill to show leaderboard for (leave empty for power level)", false),
 
             // Admin linking command
-            Commands.slash("amslink", "Admin: Link Discord users to Minecraft players")
+            Commands.slash("amssync", "Admin: Link Discord users to Minecraft players")
                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(net.dv8tion.jda.api.Permission.MANAGE_SERVER))
                 .setGuildOnly(true)
                 .addSubcommands(
