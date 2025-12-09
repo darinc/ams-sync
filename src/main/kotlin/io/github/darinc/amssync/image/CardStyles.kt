@@ -73,6 +73,12 @@ object CardStyles {
     val ROW_EVEN = Color(42, 42, 74)
     val ROW_ODD = Color(31, 31, 58)
 
+    // === Top Skill Panel ===
+    const val TOP_SKILL_PANEL_HEIGHT = 50
+    const val TOP_SKILL_BADGE_SIZE = 40
+    val TOP_SKILL_PANEL_BG = Color(50, 40, 80, 220)
+    val TOP_SKILL_PANEL_BORDER = Color(100, 80, 140)
+
     // === Font Definitions ===
     val FONT_TITLE = Font("SansSerif", Font.BOLD, 24)
     val FONT_PLAYER_NAME = Font("SansSerif", Font.BOLD, 20)
@@ -83,6 +89,8 @@ object CardStyles {
     val FONT_FOOTER = Font("SansSerif", Font.ITALIC, 10)
     val FONT_LEADERBOARD_RANK = Font("SansSerif", Font.BOLD, 14)
     val FONT_LEADERBOARD_NAME = Font("SansSerif", Font.PLAIN, 13)
+    val FONT_TOP_SKILL_LABEL = Font("SansSerif", Font.BOLD, 10)
+    val FONT_TOP_SKILL_NAME = Font("SansSerif", Font.BOLD, 14)
 
     /**
      * Get border color based on power level (rarity tier).

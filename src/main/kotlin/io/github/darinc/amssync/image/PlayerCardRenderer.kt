@@ -1,6 +1,9 @@
 package io.github.darinc.amssync.image
 
+import com.gmail.nossr50.datatypes.skills.PrimarySkillType
 import java.awt.Color
+import java.awt.GradientPaint
+import java.awt.Graphics2D
 import java.awt.image.BufferedImage
 import java.text.NumberFormat
 import java.util.Locale
@@ -97,6 +100,14 @@ class PlayerCardRenderer(
             g2d, "\u2666 Power: ${numberFormat.format(powerLevel)}", nameX, powerY,
             CardStyles.FONT_POWER_LEVEL, CardStyles.TEXT_GOLD
         )
+
+        // === Top Skill Panel ===
+        val topSkill = findTopSkill(stats)
+        val topSkillPanelY = powerY + 15
+        if (topSkill != null && topSkill.second > 0) {
+            val panelWidth = width - nameX - padding - 5
+            drawTopSkillPanel(g2d, topSkill, nameX, topSkillPanelY, panelWidth)
+        }
 
         // === Skills Section ===
         val skillsStartY = headerY + bodyImage.height + 25
@@ -433,5 +444,138 @@ class PlayerCardRenderer(
                 CardStyles.FONT_TITLE, CardStyles.PODIUM_DARK
             )
         }
+    }
+
+    /**
+     * Find the highest-leveled skill from the stats map.
+     */
+    private fun findTopSkill(stats: Map<String, Int>): Pair<String, Int>? {
+        return stats.maxByOrNull { it.value }?.toPair()
+    }
+
+    /**
+     * Draw the top skill panel with badge and skill info.
+     */
+    private fun drawTopSkillPanel(
+        g2d: Graphics2D,
+        topSkill: Pair<String, Int>,
+        x: Int,
+        y: Int,
+        width: Int
+    ) {
+        val (skillName, level) = topSkill
+        val panelHeight = CardStyles.TOP_SKILL_PANEL_HEIGHT
+        val badgeSize = CardStyles.TOP_SKILL_BADGE_SIZE
+        val cornerRadius = 10
+
+        // Draw panel background with gradient
+        val gradient = GradientPaint(
+            x.toFloat(), y.toFloat(), CardStyles.TOP_SKILL_PANEL_BG,
+            x.toFloat(), (y + panelHeight).toFloat(), Color(60, 50, 100, 200)
+        )
+        val oldPaint = g2d.paint
+        g2d.paint = gradient
+        g2d.fillRoundRect(x, y, width, panelHeight, cornerRadius, cornerRadius)
+        g2d.paint = oldPaint
+
+        // Draw border with category color
+        val category = SkillCategories.getCategory(skillName)
+        val borderColor = CardStyles.getCategoryHeaderColor(category)
+        g2d.color = borderColor
+        g2d.drawRoundRect(x, y, width, panelHeight, cornerRadius, cornerRadius)
+
+        // Draw skill badge on left side of panel
+        val badgeX = x + 8
+        val badgeY = y + (panelHeight - badgeSize) / 2
+        if (!tryDrawSkillBadge(g2d, skillName, badgeX, badgeY, badgeSize)) {
+            // If MCMMO not available, draw a fallback badge
+            drawFallbackBadge(g2d, badgeX, badgeY, badgeSize, category)
+        }
+
+        // Text area starts after badge
+        val textX = badgeX + badgeSize + 10
+
+        // Draw "★ TOP SKILL" label
+        val labelY = y + 18
+        GraphicsUtils.drawString(
+            g2d, "\u2605 TOP SKILL", textX, labelY,
+            CardStyles.FONT_TOP_SKILL_LABEL, CardStyles.TEXT_GOLD
+        )
+
+        // Draw skill name (with mastery indicator if applicable)
+        val displayName = SkillCategories.getDisplayName(skillName)
+        val skillNameText = if (SkillCategories.isMastered(level)) {
+            "\u2605 $displayName"
+        } else {
+            displayName
+        }
+        val nameY = y + 35
+        val nameColor = if (SkillCategories.isMastered(level)) CardStyles.TEXT_GOLD else CardStyles.TEXT_WHITE
+        GraphicsUtils.drawString(
+            g2d, skillNameText, textX, nameY,
+            CardStyles.FONT_TOP_SKILL_NAME, nameColor
+        )
+
+        // Draw level right-aligned
+        GraphicsUtils.drawRightAlignedString(
+            g2d, "Lv. ${numberFormat.format(level)}", x + width - 8, nameY,
+            CardStyles.FONT_TOP_SKILL_NAME, CardStyles.TEXT_CYAN
+        )
+    }
+
+    /**
+     * Try to draw a skill badge using MCMMO's PrimarySkillType.
+     * Returns false if MCMMO is not available.
+     */
+    @Suppress("TooGenericExceptionCaught")
+    private fun tryDrawSkillBadge(
+        g2d: Graphics2D,
+        skillName: String,
+        x: Int,
+        y: Int,
+        size: Int
+    ): Boolean {
+        return try {
+            val skillType = PrimarySkillType.valueOf(skillName.uppercase())
+            SkillBadges.drawSkillBadge(g2d, skillType, x, y, size)
+            true
+        } catch (e: Throwable) {
+            // Catch Exception for invalid skill names, Error for missing MCMMO classes
+            false
+        }
+    }
+
+    /**
+     * Draw a fallback badge when MCMMO skill types are not available.
+     */
+    private fun drawFallbackBadge(
+        g2d: Graphics2D,
+        x: Int,
+        y: Int,
+        size: Int,
+        category: SkillCategory
+    ) {
+        // Draw circular background with category color
+        val bgColor = when (category) {
+            SkillCategory.COMBAT -> Color(139, 0, 0)      // Dark red
+            SkillCategory.GATHERING -> Color(0, 100, 0)   // Dark green
+            SkillCategory.MISC -> Color(75, 0, 130)       // Indigo
+        }
+        g2d.color = bgColor
+        g2d.fillOval(x, y, size, size)
+
+        // Draw border
+        g2d.color = Color(255, 255, 255, 100)
+        g2d.drawOval(x, y, size, size)
+
+        // Draw a simple star icon in the center
+        g2d.color = Color(255, 255, 255, 230)
+        val centerX = x + size / 2
+        val centerY = y + size / 2
+        val starSize = size / 3
+        GraphicsUtils.drawString(
+            g2d, "\u2605", centerX - starSize / 2, centerY + starSize / 3,
+            CardStyles.FONT_TOP_SKILL_NAME, Color(255, 255, 255, 230)
+        )
     }
 }

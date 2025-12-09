@@ -12,6 +12,43 @@
 
 AMSSync generates Pokemon-style visual cards for player stats and leaderboards using Java's Graphics2D API. These cards are sent as image attachments to Discord.
 
+## Example Cards
+
+### Stats Card
+
+![Stats Card Example](../images/stats-card-example.png)
+
+A mid-level player's stats card showing:
+- Full body skin render
+- Power level with rarity tier (Bronze/Silver/Gold/Diamond)
+- Top Skill panel highlighting the player's highest skill with badge
+- Skills organized by category (Combat, Gathering, Misc)
+- Progress bars showing level progress toward mastery (1000)
+
+### Legendary Stats Card
+
+![Legendary Stats Card](../images/stats-card-legendary.png)
+
+A high-level player with mastered skills (level 1000+) shown with:
+- Diamond/Legendary border
+- Gold mastery stars on maxed skills
+- Top Skill panel with mastery indicator
+
+### Leaderboard Card
+
+![Leaderboard Card Example](../images/leaderboard-card-example.png)
+
+Mining skill leaderboard showing:
+- Top 3 on podium with avatars and crown for #1
+- Positions 4-10 in list format with dotted leaders
+- Gold/Silver/Bronze podium blocks
+
+### Power Level Leaderboard
+
+![Power Level Leaderboard](../images/leaderboard-power-example.png)
+
+Total power level leaderboard (sum of all skills).
+
 ## Card Types
 
 ### Stats Card (`/amsstats`)
