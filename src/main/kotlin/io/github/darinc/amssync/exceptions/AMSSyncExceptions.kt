@@ -255,7 +255,7 @@ class InvalidConfigurationException(
  * - A period separator
  * - 27+ character HMAC
  *
- * Example: MTIzNDU2Nzg5MDEyMzQ1Njc4.XXXXXX.XXXXXXXXXXXXXXXXXXXXXXXXXXX
+ * Example format: [BASE64_BOT_ID].[TIMESTAMP].[HMAC_SIGNATURE]
  *
  * @property maskedToken First 10 chars + "..." for security
  */

@@ -26,7 +26,7 @@ object ConfigValidator {
      * - Part 2: 6-character timestamp
      * - Part 3: 27+ character HMAC signature
      *
-     * Example: MTIzNDU2Nzg5MDEyMzQ1Njc4.XXXXXX.XXXXXXXXXXXXXXXXXXXXXXXXXXX
+     * Example format: [BASE64_BOT_ID].[TIMESTAMP].[HMAC_SIGNATURE]
      *
      * Note: This is a format check only - it does not validate if the token is actually valid.
      */
