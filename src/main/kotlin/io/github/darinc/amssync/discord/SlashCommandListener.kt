@@ -3,6 +3,8 @@ package io.github.darinc.amssync.discord
 import io.github.darinc.amssync.AMSSyncPlugin
 import io.github.darinc.amssync.audit.ActorType
 import io.github.darinc.amssync.audit.SecurityEvent
+import io.github.darinc.amssync.discord.commands.AmsStatsCommand
+import io.github.darinc.amssync.discord.commands.AmsTopCommand
 import io.github.darinc.amssync.discord.commands.DiscordLinkCommand
 import io.github.darinc.amssync.discord.commands.McStatsCommand
 import io.github.darinc.amssync.discord.commands.McTopCommand
@@ -12,7 +14,11 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter
 /**
  * Listens for Discord slash command interactions
  */
-class SlashCommandListener(private val plugin: AMSSyncPlugin) : ListenerAdapter() {
+class SlashCommandListener(
+    private val plugin: AMSSyncPlugin,
+    private val amsStatsCommand: AmsStatsCommand?,
+    private val amsTopCommand: AmsTopCommand?
+) : ListenerAdapter() {
 
     private val mcStatsCommand = McStatsCommand(plugin)
     private val mcTopCommand = McTopCommand(plugin)
@@ -69,6 +75,22 @@ class SlashCommandListener(private val plugin: AMSSyncPlugin) : ListenerAdapter(
         when (event.name) {
             "mcstats" -> mcStatsCommand.handle(event)
             "mctop" -> mcTopCommand.handle(event)
+            "amsstats" -> {
+                if (amsStatsCommand != null) {
+                    amsStatsCommand.handle(event)
+                } else {
+                    event.reply("Image cards are not enabled. Use `/mcstats` instead.")
+                        .setEphemeral(true).queue()
+                }
+            }
+            "amstop" -> {
+                if (amsTopCommand != null) {
+                    amsTopCommand.handle(event)
+                } else {
+                    event.reply("Image cards are not enabled. Use `/mctop` instead.")
+                        .setEphemeral(true).queue()
+                }
+            }
             "amssync" -> discordLinkCommand.handle(event)
             else -> {
                 event.reply("Unknown command!").setEphemeral(true).queue(

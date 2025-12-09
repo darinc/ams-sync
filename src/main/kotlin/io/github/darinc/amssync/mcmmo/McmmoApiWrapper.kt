@@ -279,7 +279,7 @@ class McmmoApiWrapper(
      * search by name - it creates a new OfflinePlayer with an offline-mode UUID,
      * which won't match the player's actual UUID if they haven't joined recently.
      */
-    private fun getOfflinePlayer(playerName: String): OfflinePlayer? {
+    fun getOfflinePlayer(playerName: String): OfflinePlayer? {
         plugin.logger.info("Searching for player: '$playerName'")
 
         // First check online players (most efficient)

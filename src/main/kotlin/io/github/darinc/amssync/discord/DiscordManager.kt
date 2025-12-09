@@ -1,6 +1,8 @@
 package io.github.darinc.amssync.discord
 
 import io.github.darinc.amssync.AMSSyncPlugin
+import io.github.darinc.amssync.discord.commands.AmsStatsCommand
+import io.github.darinc.amssync.discord.commands.AmsTopCommand
 import io.github.darinc.amssync.discord.commands.McStatsCommand
 import io.github.darinc.amssync.discord.commands.McTopCommand
 import net.dv8tion.jda.api.JDA
@@ -11,7 +13,11 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData
 import net.dv8tion.jda.api.requests.GatewayIntent
 
-class DiscordManager(private val plugin: AMSSyncPlugin) {
+class DiscordManager(
+    private val plugin: AMSSyncPlugin,
+    private val amsStatsCommand: AmsStatsCommand? = null,
+    private val amsTopCommand: AmsTopCommand? = null
+) {
 
     private var jda: JDA? = null
     private var connected: Boolean = false
@@ -36,7 +42,7 @@ class DiscordManager(private val plugin: AMSSyncPlugin) {
                     GatewayIntent.GUILD_MESSAGES,  // Needed for chat bridge (receive messages)
                     GatewayIntent.MESSAGE_CONTENT  // Needed for chat bridge (read message content)
                 )
-                .addEventListeners(SlashCommandListener(plugin))
+                .addEventListeners(SlashCommandListener(plugin, amsStatsCommand, amsTopCommand))
                 .build()
                 .awaitReady()
 
@@ -77,6 +83,13 @@ class DiscordManager(private val plugin: AMSSyncPlugin) {
                 .addOption(OptionType.STRING, "skill", "View stats for a specific skill (leave empty for all)", false),
 
             Commands.slash("mctop", "View MCMMO leaderboard")
+                .addOption(OptionType.STRING, "skill", "Skill to show leaderboard for (leave empty for power level)", false),
+
+            // Visual card commands
+            Commands.slash("amsstats", "View MCMMO stats as a visual player card")
+                .addOption(OptionType.STRING, "username", "Minecraft or Discord username (leave empty for your own stats)", false),
+
+            Commands.slash("amstop", "View MCMMO leaderboard as a visual podium card")
                 .addOption(OptionType.STRING, "skill", "Skill to show leaderboard for (leave empty for power level)", false),
 
             // Admin linking command

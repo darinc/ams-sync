@@ -223,6 +223,25 @@ discord:
     # Options: "mc-heads" or "crafatar"
     avatar-provider: "mc-heads"
 
+# Visual image cards for /amsstats and /amstop commands
+# Generates Pokemon-style player cards and podium leaderboards as images
+image-cards:
+  # Enable/disable image card generation
+  # When disabled, /amsstats and /amstop will show a message to use text commands instead
+  enabled: true
+  # Avatar/skin provider for player images
+  # Options: "mc-heads" or "crafatar"
+  # mc-heads: Uses player name (faster, no UUID needed)
+  # crafatar: Uses player UUID (more accurate for name changes)
+  avatar-provider: "mc-heads"
+  # Server name shown in card footer
+  server-name: "Minecraft Server"
+  # Avatar cache time-to-live in seconds
+  # Caches downloaded player avatars to reduce API calls
+  avatar-cache-ttl-seconds: 300
+  # Maximum number of cached avatars
+  avatar-cache-max-size: 100
+
 # Rate limiting for commands
 # Prevents spam and abuse of plugin commands
 rate-limiting:

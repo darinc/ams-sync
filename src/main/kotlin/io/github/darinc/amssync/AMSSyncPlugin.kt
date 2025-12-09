@@ -4,7 +4,12 @@ import io.github.darinc.amssync.audit.AuditLogger
 import io.github.darinc.amssync.commands.AMSSyncCommand
 import io.github.darinc.amssync.config.ConfigValidator
 import io.github.darinc.amssync.discord.*
+import io.github.darinc.amssync.discord.commands.AmsStatsCommand
+import io.github.darinc.amssync.discord.commands.AmsTopCommand
 import io.github.darinc.amssync.events.*
+import io.github.darinc.amssync.image.AvatarFetcher
+import io.github.darinc.amssync.image.ImageConfig
+import io.github.darinc.amssync.image.PlayerCardRenderer
 import io.github.darinc.amssync.linking.UserMappingService
 import io.github.darinc.amssync.mcmmo.AnnouncementConfig
 import io.github.darinc.amssync.mcmmo.McMMOEventListener
@@ -66,6 +71,22 @@ class AMSSyncPlugin : JavaPlugin() {
         private set
 
     var achievementListener: AchievementListener? = null
+        private set
+
+    // Image card components
+    var imageConfig: ImageConfig? = null
+        private set
+
+    var avatarFetcher: AvatarFetcher? = null
+        private set
+
+    var cardRenderer: PlayerCardRenderer? = null
+        private set
+
+    var amsStatsCommand: AmsStatsCommand? = null
+        private set
+
+    var amsTopCommand: AmsTopCommand? = null
         private set
 
     override fun onEnable() {
@@ -201,8 +222,11 @@ class AMSSyncPlugin : JavaPlugin() {
         // Initialize Discord API wrapper with circuit breaker and metrics
         discordApiWrapper = DiscordApiWrapper(circuitBreaker, logger, errorMetrics)
 
-        // Initialize Discord manager
-        discordManager = DiscordManager(this)
+        // Initialize image card components
+        initializeImageCards()
+
+        // Initialize Discord manager (passing image card commands if available)
+        discordManager = DiscordManager(this, amsStatsCommand, amsTopCommand)
 
         // Attempt connection with retry logic (if enabled)
         if (retryEnabled) {
@@ -333,6 +357,35 @@ class AMSSyncPlugin : JavaPlugin() {
         reloadConfig()
         userMappingService.loadMappings()
         logger.info("Configuration reloaded")
+    }
+
+    /**
+     * Initialize image card components for /amsstats and /amstop commands.
+     */
+    private fun initializeImageCards() {
+        imageConfig = ImageConfig.fromConfig(config)
+        val imgConfig = imageConfig!!
+
+        if (!imgConfig.enabled) {
+            logger.info("Image cards are disabled in config")
+            return
+        }
+
+        // Initialize avatar fetcher with caching
+        avatarFetcher = AvatarFetcher(
+            logger = logger,
+            cacheMaxSize = imgConfig.avatarCacheMaxSize,
+            cacheTtlMs = imgConfig.getCacheTtlMs()
+        )
+
+        // Initialize card renderer
+        cardRenderer = PlayerCardRenderer(imgConfig.serverName)
+
+        // Initialize commands
+        amsStatsCommand = AmsStatsCommand(this, imgConfig, avatarFetcher!!, cardRenderer!!)
+        amsTopCommand = AmsTopCommand(this, imgConfig, avatarFetcher!!, cardRenderer!!)
+
+        logger.info("Image cards enabled (provider=${imgConfig.avatarProvider}, cache=${imgConfig.avatarCacheTtlSeconds}s)")
     }
 
     /**
