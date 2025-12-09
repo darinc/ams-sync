@@ -328,6 +328,7 @@ class AMSSyncPlugin : JavaPlugin() {
         // Shutdown webhook managers
         webhookManager?.shutdown()
         chatWebhookManager?.shutdown()
+        mcmmoEventListener?.shutdown()
 
         // Shutdown Discord gracefully
         if (::discordManager.isInitialized) {
@@ -445,9 +446,37 @@ class AMSSyncPlugin : JavaPlugin() {
                 logger.warning("MCMMO announcements enabled but no text-channel-id configured")
                 return
             }
-            mcmmoEventListener = McMMOEventListener(this, announcementConfig)
+
+            // Initialize milestone card renderer if image cards are enabled
+            val milestoneCardRenderer = if (announcementConfig.useImageCards) {
+                val serverName = imageConfig?.serverName ?: "Minecraft Server"
+                io.github.darinc.amssync.image.MilestoneCardRenderer(serverName)
+            } else {
+                null
+            }
+
+            // Use existing avatar fetcher or create one for milestones
+            val milestoneAvatarFetcher = if (announcementConfig.useImageCards && announcementConfig.showAvatars) {
+                avatarFetcher ?: AvatarFetcher(
+                    logger,
+                    imageConfig?.avatarCacheMaxSize ?: 100,
+                    (imageConfig?.avatarCacheTtlSeconds ?: 300) * 1000L
+                )
+            } else {
+                null
+            }
+
+            mcmmoEventListener = McMMOEventListener(
+                this,
+                announcementConfig,
+                milestoneAvatarFetcher,
+                milestoneCardRenderer
+            )
             server.pluginManager.registerEvents(mcmmoEventListener!!, this)
-            logger.info("MCMMO milestone announcements enabled (skill interval=${announcementConfig.skillMilestoneInterval}, power interval=${announcementConfig.powerMilestoneInterval})")
+
+            val imageMode = if (announcementConfig.useImageCards) "image cards" else "embeds"
+            val webhookMode = if (announcementConfig.webhookUrl != null) " via webhook" else ""
+            logger.info("MCMMO milestone announcements enabled ($imageMode$webhookMode, skill=${announcementConfig.skillMilestoneInterval}, power=${announcementConfig.powerMilestoneInterval})")
         } else {
             logger.info("MCMMO announcements are disabled in config")
         }

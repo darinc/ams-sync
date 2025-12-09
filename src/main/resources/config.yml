@@ -135,6 +135,10 @@ discord:
     enabled: false
     # Text channel ID for announcements (right-click channel -> Copy ID)
     text-channel-id: ""
+    # Optional webhook URL for richer messages with custom avatars
+    # Leave empty to use standard bot messages
+    # Create a webhook: Channel Settings -> Integrations -> Webhooks -> New Webhook
+    webhook-url: ""
     # Announce when a skill reaches a multiple of this level (0 = disabled)
     # Example: 100 = announce at level 100, 200, 300, etc.
     skill-milestone-interval: 100
@@ -142,7 +146,16 @@ discord:
     # Example: 500 = announce at power level 500, 1000, 1500, etc.
     power-milestone-interval: 500
     # Use rich embeds (true) or plain text (false)
+    # Note: Ignored when use-image-cards is true
     use-embeds: true
+    # Generate visual image cards for milestone announcements
+    # When true, sends attractive celebration cards with skill badges and player avatars
+    # When false, uses standard embeds or plain text
+    use-image-cards: true
+    # Show player Minecraft avatars in milestone cards
+    show-avatars: true
+    # Avatar provider: "mc-heads" or "crafatar"
+    avatar-provider: "mc-heads"
 
   # Event announcements (server start/stop, deaths, achievements)
   # Announces various server events to a Discord channel
