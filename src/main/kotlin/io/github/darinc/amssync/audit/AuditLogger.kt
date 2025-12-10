@@ -148,7 +148,11 @@ enum class AuditAction(val displayName: String) {
     CHECK_USER("Check User"),
     PERMISSION_DENIED("Permission Denied"),
     RATE_LIMITED("Rate Limited"),
-    INVALID_INPUT("Invalid Input")
+    INVALID_INPUT("Invalid Input"),
+    WHITELIST_ADD("Whitelist Add"),
+    WHITELIST_REMOVE("Whitelist Remove"),
+    WHITELIST_LIST("Whitelist List"),
+    WHITELIST_CHECK("Whitelist Check")
 }
 
 /**

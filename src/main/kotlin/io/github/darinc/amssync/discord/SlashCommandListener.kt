@@ -6,6 +6,7 @@ import io.github.darinc.amssync.audit.SecurityEvent
 import io.github.darinc.amssync.discord.commands.AmsStatsCommand
 import io.github.darinc.amssync.discord.commands.AmsTopCommand
 import io.github.darinc.amssync.discord.commands.DiscordLinkCommand
+import io.github.darinc.amssync.discord.commands.DiscordWhitelistCommand
 import io.github.darinc.amssync.discord.commands.McStatsCommand
 import io.github.darinc.amssync.discord.commands.McTopCommand
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
@@ -23,6 +24,7 @@ class SlashCommandListener(
     private val mcStatsCommand = McStatsCommand(plugin)
     private val mcTopCommand = McTopCommand(plugin)
     private val discordLinkCommand = DiscordLinkCommand(plugin)
+    private val discordWhitelistCommand = DiscordWhitelistCommand(plugin)
 
     override fun onSlashCommandInteraction(event: SlashCommandInteractionEvent) {
         val userId = event.user.id
@@ -92,6 +94,7 @@ class SlashCommandListener(
                 }
             }
             "amssync" -> discordLinkCommand.handle(event)
+            "amswhitelist" -> discordWhitelistCommand.handle(event)
             else -> {
                 event.reply("Unknown command!").setEphemeral(true).queue(
                     null,

@@ -55,6 +55,12 @@ AMSSync eliminates the need for separate bot hosting by integrating Discord func
 - **`/amssync list`** - Show all current links
 - **`/amssync check <user>`** - Check if a user is linked
 
+**`/amswhitelist`** - Manage server whitelist (requires Manage Server permission)
+- **`/amswhitelist add <minecraft_username>`** - Add a player to the whitelist
+- **`/amswhitelist remove <minecraft_username>`** - Remove a player from the whitelist
+- **`/amswhitelist list`** - Show all whitelisted players
+- **`/amswhitelist check <minecraft_username>`** - Check if a player is whitelisted
+
 ### Minecraft Console/In-Game Commands
 
 **`/amssync players`** - List online/whitelisted players with link status
@@ -305,7 +311,8 @@ AMSSyncPlugin (Main)
 ├── SlashCommandListener (Discord)
 │   ├── McStatsCommand - /mcstats handler
 │   ├── McTopCommand - /mctop handler
-│   └── DiscordLinkCommand - /amssync admin commands
+│   ├── DiscordLinkCommand - /amssync admin commands
+│   └── DiscordWhitelistCommand - /amswhitelist admin commands
 │
 └── AMSSyncCommand (Minecraft) - In-game linking commands
     ├── Quick linking (2-command workflow)
@@ -334,9 +341,10 @@ ams-sync/
 │   │   │   ├── TimeoutManager.kt          # Query timeout protection
 │   │   │   ├── WebhookManager.kt          # Webhook/bot message handling
 │   │   │   └── commands/
-│   │   │       ├── DiscordLinkCommand.kt  # Discord /amssync admin
-│   │   │       ├── McStatsCommand.kt      # /mcstats handler
-│   │   │       └── McTopCommand.kt        # /mctop handler
+│   │   │       ├── DiscordLinkCommand.kt      # Discord /amssync admin
+│   │   │       ├── DiscordWhitelistCommand.kt # Discord /amswhitelist admin
+│   │   │       ├── McStatsCommand.kt          # /mcstats handler
+│   │   │       └── McTopCommand.kt            # /mctop handler
 │   │   │
 │   │   ├── events/
 │   │   │   ├── EventAnnouncementConfig.kt # Event configuration
@@ -527,6 +535,32 @@ Bot:  discord_useris linked to: CtrlAltDC
 
 Admin: /amssync remove @olduser
 Bot: Removed link for olduser
+```
+
+### Example 4: Managing Whitelist from Discord
+
+Discord server admin (with Manage Server permission):
+```
+Admin: /amswhitelist list
+Bot: Whitelisted Players (15 total):
+     CtrlAltDC
+     NothingTV
+     PlayerX
+     ...
+
+Admin: /amswhitelist add NewPlayer
+Bot: ✅ Player Whitelisted
+     Minecraft Username: NewPlayer
+     UUID: 12345678-1234-1234-1234-123456789abc
+
+Admin: /amswhitelist check SomePlayer
+Bot: 🔍 Whitelist Status Check
+     Minecraft Username: SomePlayer
+     Status: ✅ Whitelisted
+
+Admin: /amswhitelist remove OldPlayer
+Bot: 🔓 Player Removed from Whitelist
+     Minecraft Username: OldPlayer
 ```
 
 ## License

@@ -8,7 +8,7 @@
 
 ## Overview
 
-AMSSync provides five Discord slash commands:
+AMSSync provides six Discord slash commands:
 
 | Command | Type | Description |
 |---------|------|-------------|
@@ -17,6 +17,7 @@ AMSSync provides five Discord slash commands:
 | `/amsstats [player]` | Image | View stats as visual card |
 | `/amstop [skill]` | Image | View leaderboard as visual podium |
 | `/amssync` | Admin | Link Discord users to Minecraft |
+| `/amswhitelist` | Admin | Manage server whitelist |
 
 ## Command Registration
 
@@ -70,6 +71,7 @@ class SlashCommandListener(
     private val mcStatsCommand = McStatsCommand(plugin)
     private val mcTopCommand = McTopCommand(plugin)
     private val discordLinkCommand = DiscordLinkCommand(plugin)
+    private val discordWhitelistCommand = DiscordWhitelistCommand(plugin)
 
     override fun onSlashCommandInteraction(event: SlashCommandInteractionEvent) {
         // 1. Check rate limit
@@ -295,10 +297,10 @@ Commands.slash("mctop", "View leaderboard")
 
 | Subcommand | Permission | Description |
 |------------|------------|-------------|
-| `link <discord-id> <username>` | MANAGE_SERVER | Create mapping |
-| `unlink <discord-id>` | MANAGE_SERVER | Remove mapping |
+| `add <user> <username>` | MANAGE_SERVER | Create mapping |
+| `remove <user>` | MANAGE_SERVER | Remove mapping |
 | `list` | MANAGE_SERVER | Show all mappings |
-| `check [user]` | None | Check own/other's link |
+| `check <user>` | MANAGE_SERVER | Check user's link |
 
 ### Permission Checking
 
@@ -307,7 +309,7 @@ fun handle(event: SlashCommandInteractionEvent) {
     val subcommand = event.subcommandName
 
     // Check permission for admin subcommands
-    if (subcommand in listOf("link", "unlink", "list")) {
+    if (subcommand in listOf("add", "remove", "list")) {
         val member = event.member
         if (member == null || !member.hasPermission(Permission.MANAGE_SERVER)) {
             event.reply("You need Manage Server permission")
@@ -318,11 +320,140 @@ fun handle(event: SlashCommandInteractionEvent) {
     }
 
     when (subcommand) {
-        "link" -> handleLink(event)
-        "unlink" -> handleUnlink(event)
+        "add" -> handleAdd(event)
+        "remove" -> handleRemove(event)
         // ...
     }
 }
+```
+
+## Admin Command: /amswhitelist
+
+Manage the Minecraft server whitelist directly from Discord.
+
+### Subcommands
+
+| Subcommand | Permission | Description |
+|------------|------------|-------------|
+| `add <minecraft_username>` | MANAGE_SERVER | Add player to whitelist |
+| `remove <minecraft_username>` | MANAGE_SERVER | Remove player from whitelist |
+| `list` | MANAGE_SERVER | Show all whitelisted players |
+| `check <minecraft_username>` | MANAGE_SERVER | Check if player is whitelisted |
+
+### Implementation Pattern
+
+```kotlin
+class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) {
+
+    fun handle(event: SlashCommandInteractionEvent) {
+        val actorName = "${event.user.name} (${event.user.id})"
+
+        // Check admin permission
+        if (event.member?.hasPermission(Permission.MANAGE_SERVER) != true) {
+            plugin.auditLogger.logSecurityEvent(
+                event = SecurityEvent.PERMISSION_DENIED,
+                actor = actorName,
+                actorType = ActorType.DISCORD_USER,
+                details = mapOf("command" to "amswhitelist")
+            )
+            event.reply("⛔ This command requires **Manage Server** permission.")
+                .setEphemeral(true)
+                .queue()
+            return
+        }
+
+        when (event.subcommandName) {
+            "add" -> handleAdd(event)
+            "remove" -> handleRemove(event)
+            "list" -> handleList(event)
+            "check" -> handleCheck(event)
+        }
+    }
+
+    private fun handleAdd(event: SlashCommandInteractionEvent) {
+        event.deferReply().setEphemeral(true).queue()
+
+        val minecraftName = event.getOption("minecraft_username")?.asString ?: return
+
+        // Run on Bukkit main thread for whitelist operations
+        Bukkit.getScheduler().runTask(plugin, Runnable {
+            val offlinePlayer = findOfflinePlayerByName(minecraftName)
+
+            if (offlinePlayer == null || !offlinePlayer.hasPlayedBefore()) {
+                event.hook.sendMessage("❌ Player has never joined this server")
+                    .setEphemeral(true).queue()
+                return@Runnable
+            }
+
+            if (offlinePlayer.isWhitelisted) {
+                event.hook.sendMessage("⚠️ Player is already whitelisted")
+                    .setEphemeral(true).queue()
+                return@Runnable
+            }
+
+            // Add to whitelist
+            offlinePlayer.isWhitelisted = true
+
+            // Audit log the action
+            plugin.auditLogger.logAdminAction(
+                action = AuditAction.WHITELIST_ADD,
+                actor = actorName,
+                actorType = ActorType.DISCORD_USER,
+                target = offlinePlayer.name,
+                success = true
+            )
+
+            // Send success embed
+            val embed = EmbedBuilder()
+                .setTitle("✅ Player Whitelisted")
+                .setColor(Color.GREEN)
+                .addField("Minecraft Username", offlinePlayer.name, false)
+                .build()
+
+            event.hook.sendMessageEmbeds(embed).setEphemeral(true).queue()
+        })
+    }
+}
+```
+
+### Key Implementation Details
+
+**Thread Safety**: All Bukkit whitelist operations must run on the main thread:
+
+```kotlin
+Bukkit.getScheduler().runTask(plugin, Runnable {
+    // Whitelist operations here
+    offlinePlayer.isWhitelisted = true
+})
+```
+
+**Player Lookup**: Use proper offline player search (don't use `Bukkit.getOfflinePlayer(name)` as it creates new players):
+
+```kotlin
+private fun findOfflinePlayerByName(name: String): OfflinePlayer? {
+    // Check online players first
+    Bukkit.getOnlinePlayers().find {
+        it.name.equals(name, ignoreCase = true)
+    }?.let { return it }
+
+    // Search offline players
+    return Bukkit.getOfflinePlayers().find {
+        it.name?.equals(name, ignoreCase = true) == true
+    }
+}
+```
+
+**Audit Logging**: All whitelist operations are logged:
+
+```kotlin
+plugin.auditLogger.logAdminAction(
+    action = AuditAction.WHITELIST_ADD,  // or WHITELIST_REMOVE
+    actor = "${event.user.name} (${event.user.id})",
+    actorType = ActorType.DISCORD_USER,
+    target = playerName,
+    success = true,
+    details = mapOf("uuid" to offlinePlayer.uniqueId.toString())
+)
 ```
 
 ## Error Handling

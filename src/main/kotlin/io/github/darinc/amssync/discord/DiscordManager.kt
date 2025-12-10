@@ -108,6 +108,23 @@ class DiscordManager(
 
                     SubcommandData("check", "Check if a user is linked")
                         .addOption(OptionType.USER, "user", "Discord user to check", true)
+                ),
+
+            // Admin whitelist command
+            Commands.slash("amswhitelist", "Admin: Manage server whitelist")
+                .setDefaultPermissions(DefaultMemberPermissions.enabledFor(net.dv8tion.jda.api.Permission.MANAGE_SERVER))
+                .setGuildOnly(true)
+                .addSubcommands(
+                    SubcommandData("add", "Add a player to the whitelist")
+                        .addOption(OptionType.STRING, "minecraft_username", "Minecraft username to whitelist", true),
+
+                    SubcommandData("remove", "Remove a player from the whitelist")
+                        .addOption(OptionType.STRING, "minecraft_username", "Minecraft username to remove", true),
+
+                    SubcommandData("list", "Show all whitelisted players"),
+
+                    SubcommandData("check", "Check if a player is whitelisted")
+                        .addOption(OptionType.STRING, "minecraft_username", "Minecraft username to check", true)
                 )
         )
 
