@@ -45,7 +45,7 @@ object CardStyles {
     // === Legacy Background Colors (for leaderboard) ===
     val BACKGROUND_GRADIENT_START = Color(26, 26, 46)      // #1a1a2e
     val BACKGROUND_GRADIENT_END = Color(22, 33, 62)        // #16213e
-    val CARD_INNER_BG = Color(37, 37, 80, 230)             // Semi-transparent
+    val CARD_INNER_BG = Color(20, 20, 40, 140)             // More transparent to show gradient
 
     // === Border Colors (Rarity Tiers) ===
     val BORDER_BRONZE = Color(205, 127, 50)                // < 1000 power

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.1] - 2025-12-09
+
+### Added
+
+- Example cards for all four rarity tiers in documentation images
+- Real player avatar fetching in test card generation
+
+### Changed
+
+- Improved card inner background transparency for better gradient visibility
+
 ## [0.14.0] - 2025-12-09
 
 ### Added

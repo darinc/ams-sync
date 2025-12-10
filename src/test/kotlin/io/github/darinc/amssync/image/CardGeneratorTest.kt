@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.DescribeSpec
 import java.awt.Color
 import java.awt.image.BufferedImage
 import java.io.File
+import java.net.URI
 import javax.imageio.ImageIO
 
 /**
@@ -16,7 +17,18 @@ import javax.imageio.ImageIO
 class CardGeneratorTest : DescribeSpec({
 
     val outputDir = File("docs/images")
-    val renderer = PlayerCardRenderer("play.example.com")
+    val renderer = PlayerCardRenderer("Awesome Minecraft Server")
+
+    // Fetch real avatar for CtrlAltDC
+    fun fetchBodyImage(username: String): BufferedImage {
+        return try {
+            val url = URI("https://mc-heads.net/body/$username/128").toURL()
+            ImageIO.read(url) ?: createPlaceholderBody()
+        } catch (e: Exception) {
+            println("Failed to fetch avatar for $username: ${e.message}")
+            createPlaceholderBody()
+        }
+    }
 
     beforeSpec {
         outputDir.mkdirs()
@@ -24,42 +36,107 @@ class CardGeneratorTest : DescribeSpec({
 
     describe("Example Card Generation") {
 
-        it("generates a stats card example") {
-            // Create sample stats for a mid-level player
+        it("generates a COMMON tier stats card (Steel Gray gradient)") {
+            // Power level < 1000
             val stats = mapOf(
-                "MINING" to 847,
-                "WOODCUTTING" to 623,
-                "HERBALISM" to 412,
-                "EXCAVATION" to 289,
-                "FISHING" to 156,
-                "SWORDS" to 534,
-                "AXES" to 421,
-                "ARCHERY" to 367,
-                "UNARMED" to 198,
-                "TAMING" to 89,
-                "REPAIR" to 445,
-                "ACROBATICS" to 312,
-                "ALCHEMY" to 67
+                "MINING" to 120,
+                "WOODCUTTING" to 95,
+                "HERBALISM" to 80,
+                "EXCAVATION" to 65,
+                "FISHING" to 45,
+                "SWORDS" to 110,
+                "AXES" to 85,
+                "ARCHERY" to 70,
+                "UNARMED" to 55,
+                "TAMING" to 30,
+                "REPAIR" to 75,
+                "ACROBATICS" to 60,
+                "ALCHEMY" to 25
             )
-            val powerLevel = stats.values.sum()
+            val powerLevel = stats.values.sum() // ~915
 
-            // Create a placeholder body image (full body skin render)
-            val bodyImage = createPlaceholderBody()
+            val bodyImage = fetchBodyImage("CtrlAltDC")
 
             val card = renderer.renderStatsCard(
-                playerName = "ExamplePlayer",
+                playerName = "NewPlayer",
                 stats = stats,
                 powerLevel = powerLevel,
                 bodyImage = bodyImage
             )
 
-            val outputFile = File(outputDir, "stats-card-example.png")
+            val outputFile = File(outputDir, "stats-card-common.png")
             ImageIO.write(card, "PNG", outputFile)
-            println("Generated: ${outputFile.absolutePath}")
+            println("Generated: ${outputFile.absolutePath} (Power: $powerLevel)")
         }
 
-        it("generates a legendary stats card example") {
-            // Create sample stats for a high-level player with mastery
+        it("generates a RARE tier stats card (Ocean Blue gradient)") {
+            // Power level 1000-4999
+            val stats = mapOf(
+                "MINING" to 350,
+                "WOODCUTTING" to 280,
+                "HERBALISM" to 220,
+                "EXCAVATION" to 180,
+                "FISHING" to 120,
+                "SWORDS" to 320,
+                "AXES" to 250,
+                "ARCHERY" to 200,
+                "UNARMED" to 150,
+                "TAMING" to 90,
+                "REPAIR" to 240,
+                "ACROBATICS" to 180,
+                "ALCHEMY" to 70
+            )
+            val powerLevel = stats.values.sum() // ~2650
+
+            val bodyImage = fetchBodyImage("CtrlAltDC")
+
+            val card = renderer.renderStatsCard(
+                playerName = "RegularPlayer",
+                stats = stats,
+                powerLevel = powerLevel,
+                bodyImage = bodyImage
+            )
+
+            val outputFile = File(outputDir, "stats-card-rare.png")
+            ImageIO.write(card, "PNG", outputFile)
+            println("Generated: ${outputFile.absolutePath} (Power: $powerLevel)")
+        }
+
+        it("generates an EPIC tier stats card (Royal Purple gradient)") {
+            // Power level 5000-9999
+            val stats = mapOf(
+                "MINING" to 750,
+                "WOODCUTTING" to 680,
+                "HERBALISM" to 520,
+                "EXCAVATION" to 450,
+                "FISHING" to 320,
+                "SWORDS" to 700,
+                "AXES" to 580,
+                "ARCHERY" to 490,
+                "UNARMED" to 380,
+                "TAMING" to 250,
+                "REPAIR" to 600,
+                "ACROBATICS" to 450,
+                "ALCHEMY" to 180
+            )
+            val powerLevel = stats.values.sum() // ~6350
+
+            val bodyImage = fetchBodyImage("CtrlAltDC")
+
+            val card = renderer.renderStatsCard(
+                playerName = "VeteranPlayer",
+                stats = stats,
+                powerLevel = powerLevel,
+                bodyImage = bodyImage
+            )
+
+            val outputFile = File(outputDir, "stats-card-epic.png")
+            ImageIO.write(card, "PNG", outputFile)
+            println("Generated: ${outputFile.absolutePath} (Power: $powerLevel)")
+        }
+
+        it("generates a LEGENDARY tier stats card (Infernal gradient)") {
+            // Power level 10000+
             val stats = mapOf(
                 "MINING" to 1000,
                 "WOODCUTTING" to 1000,
@@ -75,9 +152,9 @@ class CardGeneratorTest : DescribeSpec({
                 "ACROBATICS" to 889,
                 "ALCHEMY" to 534
             )
-            val powerLevel = stats.values.sum()
+            val powerLevel = stats.values.sum() // ~11052
 
-            val bodyImage = createPlaceholderBody()
+            val bodyImage = fetchBodyImage("CtrlAltDC")
 
             val card = renderer.renderStatsCard(
                 playerName = "LegendPlayer",
@@ -88,7 +165,7 @@ class CardGeneratorTest : DescribeSpec({
 
             val outputFile = File(outputDir, "stats-card-legendary.png")
             ImageIO.write(card, "PNG", outputFile)
-            println("Generated: ${outputFile.absolutePath}")
+            println("Generated: ${outputFile.absolutePath} (Power: $powerLevel)")
         }
 
         it("generates a leaderboard card example") {
