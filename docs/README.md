@@ -1,98 +1,113 @@
 # AMSSync Documentation
 
-AMSSync is a Paper/Spigot Minecraft plugin that embeds a Discord bot directly into your server, providing MCMMO stats integration through Discord slash commands. Beyond basic functionality, this plugin demonstrates **production-grade patterns** for resilience, observability, and clean architecture.
+A Paper/Spigot Minecraft plugin that bridges Discord and MCMMO for the Amazing Minecraft Server (AMS). This plugin embeds a Discord bot directly into your server, providing MCMMO stats integration, visual player cards, bidirectional chat, and milestone announcements.
 
-> **Learning Focus**: This documentation emphasizes the *why* and *how* behind implementation choices, making it a reference for best practices in Minecraft plugin development.
+## Visual Player Cards
 
-## Quick Links
+Generate stunning player stats cards and Olympic podium leaderboards directly in Discord!
+
+<p align="center">
+  <img src="images/stats-card-legendary.png" alt="Legendary Stats Card" width="400"/>
+  <img src="images/leaderboard-power-example.png" alt="Power Leaderboard" width="400"/>
+</p>
+
+- **`/amsstats`** - Beautiful player cards with full body skin render, all skills with progress bars, and rarity classification
+- **`/amstop`** - Olympic-style podium leaderboards with player avatars and crown for 1st place
+- **Rarity System** - Cards display Common, Rare, Epic, or Legendary based on power level
+- **Mastery Stars** - Skills at level 2000+ display golden mastery stars
+
+<p align="center">
+  <img src="images/stats-card-common.png" alt="Common" width="200"/>
+  <img src="images/stats-card-rare.png" alt="Rare" width="200"/>
+  <img src="images/stats-card-epic.png" alt="Epic" width="200"/>
+  <img src="images/stats-card-legendary.png" alt="Legendary" width="200"/>
+</p>
+
+## Key Features
+
+### Bidirectional Chat Bridge
+Seamlessly connect your Minecraft server chat with Discord - messages flow both ways in real-time with optional webhook support for player avatars.
+
+### MCMMO Milestone Announcements
+Celebrate player achievements with automatic Discord announcements when players hit skill milestones with visual celebration cards.
+
+### Discord Integration
+Embedded JDA-powered Discord bot with modern slash commands, automatic reconnection with exponential backoff, and event announcements.
+
+### Whitelist Management
+Manage your server whitelist directly from Discord with `/amswhitelist` - add, remove, list, and check players without touching the console.
+
+## Quick Start
 
 - [Getting Started](getting-started.md) - Installation and basic setup
 - [Configuration Reference](configuration.md) - Complete config.yml documentation
-- [Architecture Overview](architecture/overview.md) - How the plugin is structured
 
-## Documentation Index
-
-### Core Documentation
-
-| Document | Description |
-|----------|-------------|
-| [Getting Started](getting-started.md) | Installation, prerequisites, and first run |
-| [Configuration](configuration.md) | Complete reference for all config options |
-
-### Architecture
-
-| Document | Complexity | Description |
-|----------|------------|-------------|
-| [Overview](architecture/overview.md) | Beginner | High-level architecture and component relationships |
-| [Initialization Flow](architecture/initialization.md) | Intermediate | Plugin startup sequence and service initialization |
-| [Threading & Concurrency](architecture/threading.md) | Advanced | Thread safety patterns and async operations |
-
-### Design Patterns
-
-These documents dive deep into production-grade patterns implemented in the plugin:
-
-| Document | Complexity | Description |
-|----------|------------|-------------|
-| [Circuit Breaker](patterns/circuit-breaker.md) | Advanced | Fail-fast protection during Discord outages |
-| [Retry with Backoff](patterns/retry-backoff.md) | Intermediate | Automatic retry with exponential delays |
-| [Timeout Protection](patterns/timeout-protection.md) | Advanced | Preventing hanging operations |
-| [Rate Limiting](patterns/rate-limiting.md) | Intermediate | Per-user request throttling |
-| [Sealed Results](patterns/sealed-results.md) | Intermediate | Type-safe error handling with sealed classes |
+## Documentation
 
 ### Features
 
-| Document | Complexity | Description |
-|----------|------------|-------------|
-| [Discord Commands](features/discord-commands.md) | Intermediate | Slash command registration and handling |
-| [Chat Bridge](features/chat-bridge.md) | Intermediate | Two-way Minecraft ↔ Discord messaging |
-| [Presence & Status](features/presence-status.md) | Intermediate | Bot activity and player count display |
-| [Milestone Announcements](features/milestone-announcements.md) | Intermediate | MCMMO level-up notifications |
-| [Image Cards](features/image-cards.md) | Advanced | Visual stats cards with Graphics2D |
+| Document | Description |
+|----------|-------------|
+| [Image Cards](features/image-cards.md) | Visual stats cards and leaderboard generation |
+| [Chat Bridge](features/chat-bridge.md) | Two-way Minecraft ↔ Discord messaging |
+| [Milestone Announcements](features/milestone-announcements.md) | MCMMO level-up notifications |
+| [Discord Commands](features/discord-commands.md) | Slash command registration and handling |
+| [Presence & Status](features/presence-status.md) | Bot activity and player count display |
+
+### Architecture
+
+| Document | Description |
+|----------|-------------|
+| [Overview](architecture/overview.md) | High-level architecture and component relationships |
+| [Initialization Flow](architecture/initialization.md) | Plugin startup sequence and service initialization |
+| [Threading & Concurrency](architecture/threading.md) | Thread safety patterns and async operations |
+
+### Design Patterns
+
+Production-grade patterns implemented in the plugin:
+
+| Document | Description |
+|----------|-------------|
+| [Circuit Breaker](patterns/circuit-breaker.md) | Fail-fast protection during Discord outages |
+| [Retry with Backoff](patterns/retry-backoff.md) | Automatic retry with exponential delays |
+| [Timeout Protection](patterns/timeout-protection.md) | Preventing hanging operations |
+| [Rate Limiting](patterns/rate-limiting.md) | Per-user request throttling |
+| [Sealed Results](patterns/sealed-results.md) | Type-safe error handling with sealed classes |
 
 ### Integrations
 
-| Document | Complexity | Description |
-|----------|------------|-------------|
-| [MCMMO API](integrations/mcmmo-api.md) | Intermediate | Critical patterns for MCMMO data access |
-| [JDA (Discord)](integrations/jda-discord.md) | Intermediate | JDA lifecycle and event handling |
-| [Webhooks](integrations/webhooks.md) | Beginner | Discord webhook integration |
+| Document | Description |
+|----------|-------------|
+| [MCMMO API](integrations/mcmmo-api.md) | Critical patterns for MCMMO data access |
+| [JDA (Discord)](integrations/jda-discord.md) | JDA lifecycle and event handling |
+| [Webhooks](integrations/webhooks.md) | Discord webhook integration |
 
 ### Observability
 
-| Document | Complexity | Description |
-|----------|------------|-------------|
-| [Metrics](observability/metrics.md) | Intermediate | Built-in performance tracking |
-| [Audit Logging](observability/audit-logging.md) | Beginner | Administrative action tracking |
-| [Error Handling](observability/error-handling.md) | Intermediate | Exception hierarchy and handling |
+| Document | Description |
+|----------|-------------|
+| [Metrics](observability/metrics.md) | Built-in performance tracking |
+| [Audit Logging](observability/audit-logging.md) | Administrative action tracking |
+| [Error Handling](observability/error-handling.md) | Exception hierarchy and handling |
 
 ### Development
 
-| Document | Complexity | Description |
-|----------|------------|-------------|
-| [Building](development/building.md) | Beginner | Build commands and shadow JAR |
-| [Testing](development/testing.md) | Intermediate | Kotest patterns and MockK |
-| [Contributing](development/contributing.md) | Beginner | Code style and contribution guidelines |
+| Document | Description |
+|----------|-------------|
+| [Building](development/building.md) | Build commands and shadow JAR |
+| [Testing](development/testing.md) | Kotest patterns and MockK |
+| [Contributing](development/contributing.md) | Code style and contribution guidelines |
 
-## Key Patterns Demonstrated
+## Technology Stack
 
-This plugin showcases several production-grade patterns:
-
-### Resilience Patterns
-- **Circuit Breaker**: Prevents cascading failures during Discord outages
-- **Exponential Backoff**: Graceful retry with increasing delays
-- **Timeout Protection**: Hard limits on operation duration
-- **Rate Limiting**: Per-user request throttling
-
-### Architecture Patterns
-- **Sealed Class Results**: Type-safe error handling without exceptions
-- **Factory Pattern**: Configuration loading and object creation
-- **Observer Pattern**: Event-driven Discord and Bukkit listeners
-- **Graceful Degradation**: Plugin continues if Discord fails
-
-### Concurrency Patterns
-- **Atomic Operations**: Lock-free thread safety
-- **ConcurrentHashMap**: Thread-safe caching
-- **Debouncing**: Batch rapid events before processing
+| Component | Technology |
+|-----------|------------|
+| Language | Kotlin 1.9.21 with Java 21 |
+| Server | Paper 1.21.4 (Spigot compatible) |
+| Discord | JDA 5.0.0-beta.18 |
+| Build | Gradle with Shadow plugin |
+| Testing | Kotest with MockK |
+| Analysis | Detekt |
 
 ## Source Code Reference
 
@@ -101,19 +116,13 @@ Key files for understanding the architecture:
 | File | Purpose |
 |------|---------|
 | `AMSSyncPlugin.kt` | Plugin lifecycle and initialization |
+| `image/PlayerCardRenderer.kt` | Stats and leaderboard card generation |
+| `discord/ChatBridge.kt` | Bidirectional chat relay |
 | `discord/CircuitBreaker.kt` | Circuit breaker implementation |
 | `discord/RetryManager.kt` | Exponential backoff retry logic |
-| `discord/TimeoutManager.kt` | Timeout protection |
-| `discord/RateLimiter.kt` | Request rate limiting |
 | `mcmmo/McmmoApiWrapper.kt` | MCMMO data access layer |
-| `exceptions/AMSSyncExceptions.kt` | Sealed exception hierarchy |
-| `metrics/ErrorMetrics.kt` | Built-in observability |
+| `mcmmo/McMMOEventListener.kt` | Milestone tracking |
 
-## Technology Stack
+## License
 
-- **Language**: Kotlin 1.9.21 with Java 21 toolchain
-- **Server**: Paper 1.21.4 (compatible with Spigot)
-- **Discord**: JDA 5.0.0-beta.18
-- **Build**: Gradle with Shadow plugin for dependency relocation
-- **Testing**: Kotest with MockK
-- **Analysis**: Detekt for static analysis
+MIT License - see [LICENSE](../LICENSE) for details.

@@ -248,7 +248,7 @@ whitelist:
   enabled: true
 
 # Visual image cards for /amsstats and /amstop commands
-# Generates Pokemon-style player cards and podium leaderboards as images
+# Generates visual player cards and podium leaderboards as images
 image-cards:
   # Enable/disable image card generation
   # When disabled, /amsstats and /amstop will show a message to use text commands instead

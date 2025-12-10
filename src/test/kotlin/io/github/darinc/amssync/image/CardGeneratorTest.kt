@@ -18,9 +18,9 @@ class CardGeneratorTest : DescribeSpec({
     val outputDir = File("docs/images")
     val renderer = PlayerCardRenderer("Awesome Minecraft Server")
 
-    // Load cached avatar from test resources (downloaded from mc-heads.net/body/CtrlAltDC/128)
+    // Load cached avatar from test resources
     fun loadCachedBodyImage(): BufferedImage {
-        val resourceStream = CardGeneratorTest::class.java.getResourceAsStream("/avatars/CtrlAltDC_body.png")
+        val resourceStream = CardGeneratorTest::class.java.getResourceAsStream("/avatars/Steve_body.png")
         return if (resourceStream != null) {
             ImageIO.read(resourceStream) ?: createPlaceholderBody()
         } else {
