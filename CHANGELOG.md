@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.1] - 2025-12-10
+
+### Changed
+
+- Comprehensive README update with visual player cards as hero feature
+- Added documentation for chat bridge, milestone announcements, and whitelist commands
+- Updated architecture diagram and project structure with new components
+- Added configuration reference for image-cards, chat-bridge, and announcements
+
 ## [0.16.0] - 2025-12-10
 
 ### Added

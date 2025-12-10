@@ -8,6 +8,40 @@ AMSSync eliminates the need for separate bot hosting by integrating Discord func
 
 ## Key Features
 
+### Visual Player Cards
+
+Generate stunning Pokemon-style player stats cards and Olympic podium leaderboards directly in Discord!
+
+<p align="center">
+  <img src="docs/images/stats-card-legendary.png" alt="Legendary Stats Card" width="400"/>
+  <img src="docs/images/leaderboard-power-example.png" alt="Power Leaderboard" width="400"/>
+</p>
+
+- **`/amsstats`** - Beautiful player cards with full body skin render, all skills with progress bars, and rarity classification
+- **`/amstop`** - Olympic-style podium leaderboards with player avatars and crown for 1st place
+- **Rarity System** - Cards display Common, Rare, Epic, or Legendary based on power level
+- **Mastery Stars** - Skills at level 2000+ display golden mastery stars
+- **Category Colors** - Combat (red), Gathering (green), and Misc (purple) skill groupings
+
+### Bidirectional Chat Bridge
+
+Seamlessly connect your Minecraft server chat with Discord - messages flow both ways in real-time.
+
+- **Minecraft → Discord**: Player messages appear in Discord with optional webhook support for player avatars
+- **Discord → Minecraft**: Discord messages broadcast to all online players with `[Discord]` prefix
+- **Webhook Avatars**: When enabled, messages show the player's Minecraft head as the sender
+- **Configurable Formats**: Customize how messages appear in both directions
+- **Smart Filtering**: Automatically ignores commands and sanitizes mentions
+
+### MCMMO Milestone Announcements
+
+Celebrate player achievements with automatic Discord announcements when players hit skill milestones!
+
+- **Skill Milestones**: Announce when players reach level 100, 200, 300, etc. (configurable interval)
+- **Power Level Milestones**: Celebrate total power level achievements (500, 1000, 1500, etc.)
+- **Visual Celebration Cards**: Optional image cards with tier badges and player avatars
+- **Embed Fallback**: Clean Discord embeds when image cards are disabled
+
 ### Discord Integration
 - **Embedded Discord Bot**: JDA-powered bot runs within the plugin (no separate process needed)
 - **Slash Commands**: Modern Discord slash command interface
@@ -35,13 +69,26 @@ AMSSync eliminates the need for separate bot hosting by integrating Discord func
 
 #### Player Commands
 
-**`/mcstats [skill]`** - View your MCMMO stats
+**`/amsstats [player]`** - Generate a visual stats card (image)
+- **Without player**: Shows your own stats (requires linked account)
+- **With player**: Shows stats for any Minecraft player (e.g., `/amsstats CtrlAltDC`)
+- Generates a Pokemon-style card with full body skin, all skills, progress bars
+- Rarity classification based on power level (Common → Legendary)
+- Mastery stars for skills at level 2000+
+
+**`/amstop [skill]`** - Generate a visual leaderboard card (image)
+- **Without skill**: Shows top 10 by power level with Olympic podium
+- **With skill**: Shows top 10 for specific skill (e.g., `/amstop mining`)
+- Features crown icon for 1st place, player avatars for top 3
+- Positions 4-10 listed below the podium
+
+**`/mcstats [skill]`** - View your MCMMO stats (text embed)
 - **Without skill**: Shows all skill levels and total power level
 - **With skill**: Shows specific skill level (e.g., `/mcstats mining`)
 - Requires your Discord account to be linked to a Minecraft username
 - Works for both online and offline players
 
-**`/mctop [skill]`** - View MCMMO leaderboards
+**`/mctop [skill]`** - View MCMMO leaderboards (text embed)
 - **Without skill**: Shows top 10 players by power level (sum of all skills)
 - **With skill**: Shows top 10 players for specific skill (e.g., `/mctop mining`)
 - Displays leaderboard with medal emojis for top 3 places
@@ -55,11 +102,19 @@ AMSSync eliminates the need for separate bot hosting by integrating Discord func
 - **`/amssync list`** - Show all current links
 - **`/amssync check <user>`** - Check if a user is linked
 
-**`/amswhitelist`** - Manage server whitelist (requires Manage Server permission)
+**`/amswhitelist`** - Manage server whitelist from Discord (requires Manage Server permission)
 - **`/amswhitelist add <minecraft_username>`** - Add a player to the whitelist
+  - Validates username format (3-16 chars, alphanumeric + underscore)
+  - Player must have joined the server at least once
+  - Returns player UUID on success
 - **`/amswhitelist remove <minecraft_username>`** - Remove a player from the whitelist
+  - Case-insensitive name matching
+  - Logs removal to audit trail
 - **`/amswhitelist list`** - Show all whitelisted players
-- **`/amswhitelist check <minecraft_username>`** - Check if a player is whitelisted
+  - Displays total count and up to 50 players
+  - Sorted alphabetically
+- **`/amswhitelist check <minecraft_username>`** - Check whitelist status
+  - Shows UUID if whitelisted
 
 ### Minecraft Console/In-Game Commands
 
@@ -99,6 +154,118 @@ AMSSync eliminates the need for separate bot hosting by integrating Discord func
 - Discord API success/failure rates
 - Circuit breaker state
 - Connection statistics
+
+## Feature Details
+
+### Visual Player Cards
+
+The visual card system generates high-quality PNG images for stats and leaderboards, providing a much richer experience than text embeds.
+
+#### Stats Cards (`/amsstats`)
+
+<p align="center">
+  <img src="docs/images/stats-card-common.png" alt="Common Stats Card" width="220"/>
+  <img src="docs/images/stats-card-rare.png" alt="Rare Stats Card" width="220"/>
+  <img src="docs/images/stats-card-epic.png" alt="Epic Stats Card" width="220"/>
+  <img src="docs/images/stats-card-legendary.png" alt="Legendary Stats Card" width="220"/>
+</p>
+
+**Card Features:**
+- **Full Body Render**: Player's Minecraft skin displayed on the left side
+- **Power Level Badge**: Total power level with diamond icon and rarity label
+- **Top Skill Panel**: Highlighted panel showing the player's highest skill with badge
+- **Skill Grid**: Three-column layout organized by category (Combat, Gathering, Misc)
+- **Progress Bars**: Visual bars showing progress toward max level (2000)
+- **Mastery Stars**: Golden stars appear next to skills at level 2000+
+- **Dynamic Styling**: Background gradient and border colors change based on power level
+
+**Rarity Tiers:**
+| Rarity | Power Level | Card Style |
+|--------|-------------|------------|
+| Common | 0 - 999 | Gray gradient, subtle border |
+| Rare | 1,000 - 4,999 | Blue gradient, enhanced glow |
+| Epic | 5,000 - 9,999 | Purple gradient, prominent effects |
+| Legendary | 10,000+ | Gold gradient, maximum visual impact |
+
+#### Leaderboard Cards (`/amstop`)
+
+<p align="center">
+  <img src="docs/images/leaderboard-card-example.png" alt="Skill Leaderboard" width="400"/>
+  <img src="docs/images/leaderboard-power-example.png" alt="Power Leaderboard" width="400"/>
+</p>
+
+**Podium Features:**
+- **Olympic Layout**: 1st place center (highest), 2nd place left, 3rd place right
+- **Crown Icon**: Golden crown above the 1st place winner
+- **Player Avatars**: Minecraft heads for top 3 players
+- **Gold/Silver/Bronze Blocks**: Colored podium blocks with rank numbers
+- **Extended Rankings**: Positions 4-10 listed below with dotted leaders
+- **Alternating Rows**: Subtle background alternation for readability
+
+### Chat Bridge
+
+The bidirectional chat bridge connects your Minecraft server chat with a Discord text channel, allowing players on both platforms to communicate seamlessly.
+
+#### Minecraft → Discord
+
+When a player sends a chat message in Minecraft:
+1. Message is captured via Paper's `AsyncChatEvent`
+2. Commands (messages starting with `/`) are filtered out
+3. Message is sanitized to prevent `@everyone` and `@here` mentions
+4. Sent to Discord via webhook (with player avatar) or bot message
+
+**With Webhook (Recommended):**
+```
+[Player's Minecraft head as avatar]
+CtrlAltDC: Hello from Minecraft!
+```
+
+**Without Webhook:**
+```
+**CtrlAltDC**: Hello from Minecraft!
+```
+
+#### Discord → Minecraft
+
+When a user sends a message in the configured Discord channel:
+1. Message is received via JDA's `MessageReceivedEvent`
+2. Bot messages are ignored (prevents loops)
+3. Color codes are sanitized to prevent format exploits
+4. Broadcast to all online players with configurable format
+
+**In Minecraft:**
+```
+[Discord] username: Hello from Discord!
+```
+
+### Milestone Announcements
+
+Automatically celebrate player achievements when they reach MCMMO milestones!
+
+#### Skill Milestones
+
+When a player reaches a configurable level interval (e.g., every 100 levels), an announcement is posted to Discord:
+
+- **Level 100, 200, 300...** - Configurable interval via `skill-milestone-interval`
+- **Visual Cards**: When enabled, generates a celebration card with:
+  - Skill badge icon with category-specific color
+  - Player's Minecraft head avatar
+  - "SKILL MILESTONE!" title with tier label
+  - Achievement text showing skill name and level
+  - Progress bar showing mastery progress (0-2000)
+- **Embed Fallback**: Rich Discord embed with skill information when image cards are disabled
+
+#### Power Level Milestones
+
+When a player's total power level crosses a threshold (e.g., every 500 power levels):
+
+- **500, 1000, 1500...** - Configurable interval via `power-milestone-interval`
+- **Visual Cards**: Celebration card with:
+  - Lightning bolt icons flanking the title
+  - "POWER LEVEL MILESTONE!" centered title
+  - Player avatar and achievement text
+  - Tier badge showing power level classification
+- **Tracking**: Per-player power level tracking to detect milestone crossings
 
 ## Requirements
 
@@ -266,6 +433,96 @@ When `webhook-url` is empty (default):
 
 To create a webhook: Channel Settings → Integrations → Webhooks → New Webhook
 
+### image-cards
+
+Visual player card generation settings:
+
+```yaml
+image-cards:
+  enabled: true                    # Enable /amsstats and /amstop image commands
+  avatar-provider: "mc-heads"      # "mc-heads" or "crafatar"
+  server-name: "Minecraft Server"  # Footer text on cards
+  avatar-cache-ttl-seconds: 300    # How long to cache player avatars (5 min)
+  avatar-cache-max-size: 100       # Maximum cached avatars
+```
+
+- **enabled**: Master toggle for visual card commands (default: true)
+- **avatar-provider**: Service for fetching player skins
+  - `mc-heads` - Uses player name, simpler but may be outdated after name change
+  - `crafatar` - Uses UUID, always current but requires UUID lookup
+- **server-name**: Text displayed in the footer of generated cards
+- **avatar-cache-ttl-seconds**: Duration to cache downloaded avatars
+- **avatar-cache-max-size**: LRU cache size limit for avatars
+
+### discord.chat-bridge
+
+Bidirectional chat relay settings:
+
+```yaml
+discord:
+  chat-bridge:
+    enabled: false                              # Enable chat bridge
+    channel-id: ""                              # Discord channel ID for chat
+    minecraft-to-discord: true                  # Relay MC → Discord
+    discord-to-minecraft: true                  # Relay Discord → MC
+    mc-format: "&7[Discord] &b{author}&7: {message}"  # Format in Minecraft
+    discord-format: "**{player}**: {message}"   # Format in Discord
+    ignore-prefixes:
+      - "/"                                     # Ignore commands
+    suppress-notifications: true                # Don't ping @everyone
+    use-webhook: false                          # Use webhook for MC→Discord
+    webhook-url: ""                             # Webhook URL (if enabled)
+    avatar-provider: "mc-heads"                 # Avatar service for webhooks
+```
+
+- **enabled**: Master toggle for chat bridge (default: false)
+- **channel-id**: Discord text channel ID for chat relay (required)
+- **minecraft-to-discord/discord-to-minecraft**: Enable each direction independently
+- **mc-format**: Minecraft color code format for Discord messages (`{author}`, `{message}`)
+- **discord-format**: Markdown format for Minecraft messages (`{player}`, `{message}`)
+- **ignore-prefixes**: List of prefixes to skip (e.g., `/` for commands)
+- **suppress-notifications**: Prevent `@everyone` and `@here` mentions
+- **use-webhook**: When true, uses webhook for player avatar display
+- **webhook-url**: Discord webhook URL (create via Channel Settings → Integrations)
+
+### discord.announcements
+
+MCMMO milestone announcement settings:
+
+```yaml
+discord:
+  announcements:
+    enabled: false                           # Enable milestone announcements
+    text-channel-id: ""                      # Channel for announcements
+    webhook-url: ""                          # Optional webhook for images
+    skill-milestone-interval: 100            # Announce every N skill levels (0=disabled)
+    power-milestone-interval: 500            # Announce every N power levels (0=disabled)
+    use-embeds: true                         # Use rich embeds
+    use-image-cards: true                    # Use visual celebration cards
+    show-avatars: true                       # Include player heads
+    avatar-provider: "mc-heads"              # Avatar service
+```
+
+- **enabled**: Master toggle for milestone announcements (default: false)
+- **text-channel-id**: Discord channel ID for announcements (required)
+- **webhook-url**: Optional webhook for image card delivery
+- **skill-milestone-interval**: Announce at this level interval (e.g., 100 = level 100, 200, 300...)
+- **power-milestone-interval**: Announce at this power level interval (e.g., 500 = 500, 1000, 1500...)
+- **use-embeds**: Use rich Discord embeds (fallback when image cards disabled)
+- **use-image-cards**: Generate visual celebration cards (recommended)
+- **show-avatars**: Include player Minecraft head in announcements
+
+### whitelist
+
+Whitelist command settings:
+
+```yaml
+whitelist:
+  enabled: true                              # Enable /amswhitelist command
+```
+
+- **enabled**: Toggle the `/amswhitelist` Discord command (default: true)
+
 ### user-mappings
 
 Discord ID to Minecraft username mappings.
@@ -303,14 +560,27 @@ AMSSyncPlugin (Main)
 │   ├── Fallback to standard bot messages
 │   └── Circuit breaker integration
 │
+├── ChatBridge - Bidirectional Minecraft ↔ Discord chat relay
+│   ├── Minecraft → Discord (webhook or bot messages)
+│   ├── Discord → Minecraft (broadcast to players)
+│   └── Message sanitization and filtering
+│
+├── Image Card System
+│   ├── PlayerCardRenderer - Stats cards and leaderboard podiums
+│   ├── MilestoneCardRenderer - Skill/power milestone celebration cards
+│   └── AvatarFetcher - Player skin/head downloading with LRU cache
+│
 ├── Event Listeners
 │   ├── ServerEventListener - Server start/stop announcements
 │   ├── PlayerDeathListener - Death announcements with avatars
-│   └── AchievementListener - Advancement announcements
+│   ├── AchievementListener - Advancement announcements
+│   └── McMMOEventListener - MCMMO milestone tracking
 │
 ├── SlashCommandListener (Discord)
-│   ├── McStatsCommand - /mcstats handler
-│   ├── McTopCommand - /mctop handler
+│   ├── AmsStatsCommand - /amsstats visual card handler
+│   ├── AmsTopCommand - /amstop visual leaderboard handler
+│   ├── McStatsCommand - /mcstats text embed handler
+│   ├── McTopCommand - /mctop text embed handler
 │   ├── DiscordLinkCommand - /amssync admin commands
 │   └── DiscordWhitelistCommand - /amswhitelist admin commands
 │
@@ -327,6 +597,10 @@ AMSSyncPlugin (Main)
 ```
 ams-sync/
 ├── build.gradle.kts
+├── docs/
+│   └── images/                            # Screenshot assets for README
+│       ├── stats-card-*.png               # Player stats card examples
+│       └── leaderboard-*.png              # Leaderboard card examples
 ├── src/main/
 │   ├── kotlin/io/github/darinc/amssync/
 │   │   ├── AMSSyncPlugin.kt
@@ -338,13 +612,16 @@ ams-sync/
 │   │   ├── discord/
 │   │   │   ├── DiscordManager.kt          # JDA lifecycle
 │   │   │   ├── SlashCommandListener.kt    # Command routing
+│   │   │   ├── ChatBridge.kt              # Bidirectional chat relay
 │   │   │   ├── TimeoutManager.kt          # Query timeout protection
 │   │   │   ├── WebhookManager.kt          # Webhook/bot message handling
 │   │   │   └── commands/
+│   │   │       ├── AmsStatsCommand.kt         # /amsstats visual card
+│   │   │       ├── AmsTopCommand.kt           # /amstop visual leaderboard
 │   │   │       ├── DiscordLinkCommand.kt      # Discord /amssync admin
 │   │   │       ├── DiscordWhitelistCommand.kt # Discord /amswhitelist admin
-│   │   │       ├── McStatsCommand.kt          # /mcstats handler
-│   │   │       └── McTopCommand.kt            # /mctop handler
+│   │   │       ├── McStatsCommand.kt          # /mcstats text embed
+│   │   │       └── McTopCommand.kt            # /mctop text embed
 │   │   │
 │   │   ├── events/
 │   │   │   ├── EventAnnouncementConfig.kt # Event configuration
@@ -355,11 +632,17 @@ ams-sync/
 │   │   ├── exceptions/
 │   │   │   └── AMSSyncExceptions.kt       # Custom exception hierarchy
 │   │   │
+│   │   ├── image/
+│   │   │   ├── PlayerCardRenderer.kt      # Stats & leaderboard card generation
+│   │   │   ├── MilestoneCardRenderer.kt   # Milestone celebration cards
+│   │   │   └── AvatarFetcher.kt           # Player skin/head fetching + cache
+│   │   │
 │   │   ├── linking/
 │   │   │   └── UserMappingService.kt      # Mapping persistence
 │   │   │
 │   │   └── mcmmo/
-│   │       └── McmmoApiWrapper.kt         # MCMMO API wrapper
+│   │       ├── McmmoApiWrapper.kt         # MCMMO API wrapper
+│   │       └── McMMOEventListener.kt      # MCMMO milestone tracking
 │   │
 │   └── resources/
 │       ├── plugin.yml
