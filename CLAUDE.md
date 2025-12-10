@@ -118,7 +118,7 @@ mvn install -DskipTests
 ### Image Card System
 
 **PlayerCardRenderer** (`image/PlayerCardRenderer.kt`)
-- Generates Pokemon-style stats cards for `/amsstats`
+- Generates visual stats cards for `/amsstats`
 - Creates podium leaderboard images for `/amstop`
 - Uses Graphics2D for image generation
 

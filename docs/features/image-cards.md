@@ -10,7 +10,7 @@
 
 ## Overview
 
-AMSSync generates Pokemon-style visual cards for player stats and leaderboards using Java's Graphics2D API. These cards are sent as image attachments to Discord.
+AMSSync generates visual cards for player stats and leaderboards using Java's Graphics2D API. These cards are sent as image attachments to Discord.
 
 ## Example Cards
 

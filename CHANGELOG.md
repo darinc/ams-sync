@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2025-12-10
+
+### Added
+
+- GitHub Actions workflow for automated releases on version tags
+- GitHub Actions CI workflow for tests and static analysis on PRs
+
+### Changed
+
+- Updated docs landing page with visual player cards showcase
+- Replaced personal identifiers with generic names in documentation
+
 ## [0.16.1] - 2025-12-10
 
 ### Changed
@@ -118,7 +130,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Visual `/amsstats` command generates Pokemon-style player stat cards with full body skin render
+- Visual `/amsstats` command generates player stat cards with full body skin render
 - Visual `/amstop` command generates podium-style leaderboards with top 3 on podium
 - Avatar caching system with configurable TTL and provider selection
 - Rarity border tiers based on power level (Bronze/Silver/Gold/Diamond)

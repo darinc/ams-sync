@@ -10,7 +10,7 @@ AMSSync eliminates the need for separate bot hosting by integrating Discord func
 
 ### Visual Player Cards
 
-Generate stunning Pokemon-style player stats cards and Olympic podium leaderboards directly in Discord!
+Generate stunning player stats cards and Olympic podium leaderboards directly in Discord!
 
 <p align="center">
   <img src="docs/images/stats-card-legendary.png" alt="Legendary Stats Card" width="400"/>
@@ -71,8 +71,8 @@ Celebrate player achievements with automatic Discord announcements when players 
 
 **`/amsstats [player]`** - Generate a visual stats card (image)
 - **Without player**: Shows your own stats (requires linked account)
-- **With player**: Shows stats for any Minecraft player (e.g., `/amsstats CtrlAltDC`)
-- Generates a Pokemon-style card with full body skin, all skills, progress bars
+- **With player**: Shows stats for any Minecraft player (e.g., `/amsstats Steve`)
+- Generates a visual card with full body skin, all skills, progress bars
 - Rarity classification based on power level (Common → Legendary)
 - Mastery stars for skills at level 2000+
 
@@ -217,12 +217,12 @@ When a player sends a chat message in Minecraft:
 **With Webhook (Recommended):**
 ```
 [Player's Minecraft head as avatar]
-CtrlAltDC: Hello from Minecraft!
+Steve: Hello from Minecraft!
 ```
 
 **Without Webhook:**
 ```
-**CtrlAltDC**: Hello from Minecraft!
+**Steve**: Hello from Minecraft!
 ```
 
 #### Discord → Minecraft
@@ -666,6 +666,22 @@ ams-sync/
 
 The shaded JAR with all dependencies will be in `build/libs/`.
 
+### Releasing
+
+Releases are automated via GitHub Actions. To create a new release:
+
+1. Update version in `build.gradle.kts`
+2. Update `CHANGELOG.md` with release notes
+3. Commit changes: `git commit -m "Release version X.Y.Z"`
+4. Create a version tag: `git tag vX.Y.Z`
+5. Push with tags: `git push && git push --tags`
+
+GitHub Actions will automatically:
+- Run tests and static analysis
+- Build the shadowJar
+- Create a GitHub Release with the JAR attached
+- Generate release notes from commit history
+
 ## Error Handling
 
 The plugin provides robust error handling for common scenarios:
@@ -712,7 +728,7 @@ The plugin provides detailed logging to the server console:
 [INFO] [AMSSync] Discord bot is ready! Connected as AMS Bot#1234
 [INFO] [AMSSync] Slash commands registered to guild: Amazing Minecraft Server
 [FINE] [AMSSync] Returning cached leaderboard for MINING
-[INFO] [AMSSync] Successfully linked  Steve- darin.c#0000!
+[INFO] [AMSSync] Successfully linked Steve - discord_user#0000!
 ```
 
 ## Technical Details
@@ -766,8 +782,8 @@ In Minecraft console:
 [Shows both player and Discord lists side-by-side]
 
 > /amssync quick 1 5
-Linking  Steve(#1) to  discord_user(#5)...
-Successfully linked  Steve- darin.c!
+Linking Steve (#1) to discord_user (#5)...
+Successfully linked Steve - discord_user!
 ```
 
 ### Example 2: Player Checking Stats in Discord
@@ -775,19 +791,19 @@ Successfully linked  Steve- darin.c!
 In Discord:
 ```
 User: /mcstats
-Bot: MCMMO Stats for CtrlAltDC
+Bot: MCMMO Stats for Steve
      Mining: 450
      Woodcutting: 320
      ... (all skills)
      Power Level: 2,450
 
 User: /mcstats mining
-Bot: Mining Level for CtrlAltDC
+Bot: Mining Level for Steve
      Level: 450
 
 User: /mctop
 Bot: Top 10 - Power Level
-     1.  Steve- 2,450
+     1. Steve - 2,450
      2. NothingTV - 2,100
      3. PlayerX - 1,850
      ...
@@ -795,7 +811,7 @@ Bot: Top 10 - Power Level
 User: /mctop mining
 Bot: Top 10 - Mining
      1. NothingTV - 500
-     2.  Steve- 450
+     2. Steve - 450
      3. PlayerX - 400
      ...
 ```
@@ -806,15 +822,15 @@ Discord server admin (with Manage Server permission):
 ```
 Admin: /amssync list
 Bot: Current Discord-Minecraft Links:
-      discord_user- CtrlAltDC
+     discord_user - Steve
      otheruser - PlayerX
      newplayer - NothingTV
 
 Admin: /amssync add @newuser MinecraftPlayer
 Bot: Successfully linked newuser to MinecraftPlayer
 
-Admin: /amssync check @darin.c
-Bot:  discord_useris linked to: CtrlAltDC
+Admin: /amssync check @discord_user
+Bot: discord_user is linked to: Steve
 
 Admin: /amssync remove @olduser
 Bot: Removed link for olduser
@@ -826,7 +842,7 @@ Discord server admin (with Manage Server permission):
 ```
 Admin: /amswhitelist list
 Bot: Whitelisted Players (15 total):
-     CtrlAltDC
+     Steve
      NothingTV
      PlayerX
      ...
