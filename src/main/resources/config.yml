@@ -1,3 +1,7 @@
+# Configuration version - DO NOT MODIFY
+# Used internally to detect when new config options are available
+config-version: 1
+
 # AMSSync Plugin Configuration
 #
 # IMPORTANT: Add this file to .gitignore to protect your bot token!
@@ -235,6 +239,13 @@ discord:
     # Avatar provider for player heads in webhook messages
     # Options: "mc-heads" or "crafatar"
     avatar-provider: "mc-heads"
+
+# Whitelist management via Discord
+# Allows Discord admins to add/remove players from the server whitelist
+whitelist:
+  # Enable/disable the /amswhitelist Discord command
+  # When disabled, the command will not be registered with Discord
+  enabled: true
 
 # Visual image cards for /amsstats and /amstop commands
 # Generates Pokemon-style player cards and podium leaderboards as images

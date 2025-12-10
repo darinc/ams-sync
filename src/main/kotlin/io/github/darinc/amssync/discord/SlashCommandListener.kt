@@ -18,13 +18,18 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter
 class SlashCommandListener(
     private val plugin: AMSSyncPlugin,
     private val amsStatsCommand: AmsStatsCommand?,
-    private val amsTopCommand: AmsTopCommand?
+    private val amsTopCommand: AmsTopCommand?,
+    private val whitelistEnabled: Boolean = true
 ) : ListenerAdapter() {
 
     private val mcStatsCommand = McStatsCommand(plugin)
     private val mcTopCommand = McTopCommand(plugin)
     private val discordLinkCommand = DiscordLinkCommand(plugin)
-    private val discordWhitelistCommand = DiscordWhitelistCommand(plugin)
+    private val discordWhitelistCommand: DiscordWhitelistCommand? = if (whitelistEnabled) {
+        DiscordWhitelistCommand(plugin)
+    } else {
+        null
+    }
 
     override fun onSlashCommandInteraction(event: SlashCommandInteractionEvent) {
         val userId = event.user.id
@@ -94,7 +99,14 @@ class SlashCommandListener(
                 }
             }
             "amssync" -> discordLinkCommand.handle(event)
-            "amswhitelist" -> discordWhitelistCommand.handle(event)
+            "amswhitelist" -> {
+                if (discordWhitelistCommand != null) {
+                    discordWhitelistCommand.handle(event)
+                } else {
+                    event.reply("Whitelist management is not enabled.")
+                        .setEphemeral(true).queue()
+                }
+            }
             else -> {
                 event.reply("Unknown command!").setEphemeral(true).queue(
                     null,

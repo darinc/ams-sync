@@ -10,13 +10,15 @@ import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions
 import net.dv8tion.jda.api.interactions.commands.OptionType
 import net.dv8tion.jda.api.interactions.commands.build.Commands
+import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData
 import net.dv8tion.jda.api.requests.GatewayIntent
 
 class DiscordManager(
     private val plugin: AMSSyncPlugin,
     private val amsStatsCommand: AmsStatsCommand? = null,
-    private val amsTopCommand: AmsTopCommand? = null
+    private val amsTopCommand: AmsTopCommand? = null,
+    private val whitelistEnabled: Boolean = true
 ) {
 
     private var jda: JDA? = null
@@ -42,7 +44,7 @@ class DiscordManager(
                     GatewayIntent.GUILD_MESSAGES,  // Needed for chat bridge (receive messages)
                     GatewayIntent.MESSAGE_CONTENT  // Needed for chat bridge (read message content)
                 )
-                .addEventListeners(SlashCommandListener(plugin, amsStatsCommand, amsTopCommand))
+                .addEventListeners(SlashCommandListener(plugin, amsStatsCommand, amsTopCommand, whitelistEnabled))
                 .build()
                 .awaitReady()
 
@@ -76,7 +78,7 @@ class DiscordManager(
      * Register slash commands to Discord
      */
     private fun registerSlashCommands(guildId: String) {
-        val commands = listOf(
+        val commands = mutableListOf<SlashCommandData>(
             // Player commands
             Commands.slash("mcstats", "View MCMMO stats for yourself or another player")
                 .addOption(OptionType.STRING, "username", "Minecraft or Discord username (leave empty for your own stats)", false)
@@ -108,25 +110,29 @@ class DiscordManager(
 
                     SubcommandData("check", "Check if a user is linked")
                         .addOption(OptionType.USER, "user", "Discord user to check", true)
-                ),
-
-            // Admin whitelist command
-            Commands.slash("amswhitelist", "Admin: Manage server whitelist")
-                .setDefaultPermissions(DefaultMemberPermissions.enabledFor(net.dv8tion.jda.api.Permission.MANAGE_SERVER))
-                .setGuildOnly(true)
-                .addSubcommands(
-                    SubcommandData("add", "Add a player to the whitelist")
-                        .addOption(OptionType.STRING, "minecraft_username", "Minecraft username to whitelist", true),
-
-                    SubcommandData("remove", "Remove a player from the whitelist")
-                        .addOption(OptionType.STRING, "minecraft_username", "Minecraft username to remove", true),
-
-                    SubcommandData("list", "Show all whitelisted players"),
-
-                    SubcommandData("check", "Check if a player is whitelisted")
-                        .addOption(OptionType.STRING, "minecraft_username", "Minecraft username to check", true)
                 )
         )
+
+        // Conditionally add whitelist command
+        if (whitelistEnabled) {
+            commands.add(
+                Commands.slash("amswhitelist", "Admin: Manage server whitelist")
+                    .setDefaultPermissions(DefaultMemberPermissions.enabledFor(net.dv8tion.jda.api.Permission.MANAGE_SERVER))
+                    .setGuildOnly(true)
+                    .addSubcommands(
+                        SubcommandData("add", "Add a player to the whitelist")
+                            .addOption(OptionType.STRING, "minecraft_username", "Minecraft username to whitelist", true),
+
+                        SubcommandData("remove", "Remove a player from the whitelist")
+                            .addOption(OptionType.STRING, "minecraft_username", "Minecraft username to remove", true),
+
+                        SubcommandData("list", "Show all whitelisted players"),
+
+                        SubcommandData("check", "Check if a player is whitelisted")
+                            .addOption(OptionType.STRING, "minecraft_username", "Minecraft username to check", true)
+                    )
+            )
+        }
 
         if (guildId.isNotBlank() && guildId != "YOUR_GUILD_ID_HERE") {
             // Register to specific guild (instant)

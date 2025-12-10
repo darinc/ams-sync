@@ -2,6 +2,7 @@ package io.github.darinc.amssync
 
 import io.github.darinc.amssync.audit.AuditLogger
 import io.github.darinc.amssync.commands.AMSSyncCommand
+import io.github.darinc.amssync.config.ConfigMigrator
 import io.github.darinc.amssync.config.ConfigValidator
 import io.github.darinc.amssync.discord.ChatBridge
 import io.github.darinc.amssync.discord.ChatBridgeConfig
@@ -109,6 +110,33 @@ class AMSSyncPlugin : JavaPlugin() {
         private set
 
     override fun onEnable() {
+        // Ensure data folder exists for migration
+        if (!dataFolder.exists()) {
+            dataFolder.mkdirs()
+        }
+
+        // Migrate config if needed (before saveDefaultConfig)
+        val migrator = ConfigMigrator(this, logger)
+        when (val result = migrator.migrateIfNeeded()) {
+            is ConfigMigrator.MigrationResult.FreshInstall -> {
+                logger.info("First-time setup - creating default config")
+            }
+            is ConfigMigrator.MigrationResult.UpToDate -> {
+                logger.fine("Config is up to date")
+            }
+            is ConfigMigrator.MigrationResult.Migrated -> {
+                logger.info("Config migrated from v${result.fromVersion} to v${result.toVersion}")
+                logger.info("Backup saved as: ${result.backupPath}")
+                if (result.addedKeys.isNotEmpty()) {
+                    logger.info("Added ${result.addedKeys.size} new config option(s)")
+                }
+            }
+            is ConfigMigrator.MigrationResult.Failed -> {
+                logger.warning("Config migration failed: ${result.reason}")
+                logger.warning("Using existing config - some new options may use defaults")
+            }
+        }
+
         // Save default config if it doesn't exist
         saveDefaultConfig()
 
@@ -247,8 +275,16 @@ class AMSSyncPlugin : JavaPlugin() {
         // Initialize image card components
         initializeImageCards()
 
+        // Check if whitelist management is enabled
+        val whitelistEnabled = config.getBoolean("whitelist.enabled", true)
+        if (whitelistEnabled) {
+            logger.info("Whitelist management enabled")
+        } else {
+            logger.info("Whitelist management disabled in config")
+        }
+
         // Initialize Discord manager (passing image card commands if available)
-        discordManager = DiscordManager(this, amsStatsCommand, amsTopCommand)
+        discordManager = DiscordManager(this, amsStatsCommand, amsTopCommand, whitelistEnabled)
 
         // Attempt connection with retry logic (if enabled)
         if (retryEnabled) {
