@@ -4,7 +4,6 @@ import io.kotest.core.spec.style.DescribeSpec
 import java.awt.Color
 import java.awt.image.BufferedImage
 import java.io.File
-import java.net.URI
 import javax.imageio.ImageIO
 
 /**
@@ -19,13 +18,13 @@ class CardGeneratorTest : DescribeSpec({
     val outputDir = File("docs/images")
     val renderer = PlayerCardRenderer("Awesome Minecraft Server")
 
-    // Fetch real avatar for CtrlAltDC
-    fun fetchBodyImage(username: String): BufferedImage {
-        return try {
-            val url = URI("https://mc-heads.net/body/$username/128").toURL()
-            ImageIO.read(url) ?: createPlaceholderBody()
-        } catch (e: Exception) {
-            println("Failed to fetch avatar for $username: ${e.message}")
+    // Load cached avatar from test resources (downloaded from mc-heads.net/body/CtrlAltDC/128)
+    fun loadCachedBodyImage(): BufferedImage {
+        val resourceStream = CardGeneratorTest::class.java.getResourceAsStream("/avatars/CtrlAltDC_body.png")
+        return if (resourceStream != null) {
+            ImageIO.read(resourceStream) ?: createPlaceholderBody()
+        } else {
+            println("Warning: Cached avatar not found, using placeholder")
             createPlaceholderBody()
         }
     }
@@ -55,7 +54,7 @@ class CardGeneratorTest : DescribeSpec({
             )
             val powerLevel = stats.values.sum() // ~915
 
-            val bodyImage = fetchBodyImage("CtrlAltDC")
+            val bodyImage = loadCachedBodyImage()
 
             val card = renderer.renderStatsCard(
                 playerName = "NewPlayer",
@@ -88,7 +87,7 @@ class CardGeneratorTest : DescribeSpec({
             )
             val powerLevel = stats.values.sum() // ~2650
 
-            val bodyImage = fetchBodyImage("CtrlAltDC")
+            val bodyImage = loadCachedBodyImage()
 
             val card = renderer.renderStatsCard(
                 playerName = "RegularPlayer",
@@ -121,7 +120,7 @@ class CardGeneratorTest : DescribeSpec({
             )
             val powerLevel = stats.values.sum() // ~6350
 
-            val bodyImage = fetchBodyImage("CtrlAltDC")
+            val bodyImage = loadCachedBodyImage()
 
             val card = renderer.renderStatsCard(
                 playerName = "VeteranPlayer",
@@ -154,7 +153,7 @@ class CardGeneratorTest : DescribeSpec({
             )
             val powerLevel = stats.values.sum() // ~11052
 
-            val bodyImage = fetchBodyImage("CtrlAltDC")
+            val bodyImage = loadCachedBodyImage()
 
             val card = renderer.renderStatsCard(
                 playerName = "LegendPlayer",
