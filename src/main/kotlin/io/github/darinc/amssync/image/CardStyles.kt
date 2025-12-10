@@ -29,7 +29,20 @@ object CardStyles {
     const val SKILL_BAR_HEIGHT = 8
     const val SKILL_BAR_RADIUS = 4
 
-    // === Background Colors ===
+    // === Background Gradients by Power Level (Diagonal) ===
+    val BG_COMMON_START = Color(44, 62, 80)                // Steel Gray #2c3e50
+    val BG_COMMON_END = Color(26, 37, 47)                  // #1a252f
+
+    val BG_RARE_START = Color(30, 60, 114)                 // Ocean Blue #1e3c72
+    val BG_RARE_END = Color(42, 82, 152)                   // #2a5298
+
+    val BG_EPIC_START = Color(65, 41, 90)                  // Royal Purple #41295a
+    val BG_EPIC_END = Color(47, 7, 67)                     // #2f0743
+
+    val BG_LEGENDARY_START = Color(32, 1, 34)              // Infernal #200122
+    val BG_LEGENDARY_END = Color(111, 0, 0)                // #6f0000
+
+    // === Legacy Background Colors (for leaderboard) ===
     val BACKGROUND_GRADIENT_START = Color(26, 26, 46)      // #1a1a2e
     val BACKGROUND_GRADIENT_END = Color(22, 33, 62)        // #16213e
     val CARD_INNER_BG = Color(37, 37, 80, 230)             // Semi-transparent
@@ -135,6 +148,19 @@ object CardStyles {
             SkillCategory.COMBAT -> HEADER_COMBAT
             SkillCategory.GATHERING -> HEADER_GATHERING
             SkillCategory.MISC -> HEADER_MISC
+        }
+    }
+
+    /**
+     * Get background gradient colors based on power level (rarity tier).
+     * Returns (startColor, endColor) for diagonal gradient.
+     */
+    fun getBackgroundGradient(powerLevel: Int): Pair<Color, Color> {
+        return when {
+            powerLevel >= 10000 -> BG_LEGENDARY_START to BG_LEGENDARY_END
+            powerLevel >= 5000 -> BG_EPIC_START to BG_EPIC_END
+            powerLevel >= 1000 -> BG_RARE_START to BG_RARE_END
+            else -> BG_COMMON_START to BG_COMMON_END
         }
     }
 }

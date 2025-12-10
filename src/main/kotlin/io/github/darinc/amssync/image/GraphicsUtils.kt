@@ -188,6 +188,26 @@ object GraphicsUtils {
     }
 
     /**
+     * Fill the entire image with a diagonal gradient (top-left to bottom-right).
+     */
+    fun fillDiagonalGradient(
+        g2d: Graphics2D,
+        width: Int,
+        height: Int,
+        startColor: Color,
+        endColor: Color
+    ) {
+        val gradient = GradientPaint(
+            0f, 0f, startColor,
+            width.toFloat(), height.toFloat(), endColor
+        )
+        val oldPaint = g2d.paint
+        g2d.paint = gradient
+        g2d.fillRect(0, 0, width, height)
+        g2d.paint = oldPaint
+    }
+
+    /**
      * Draw an image scaled to fit within the given bounds.
      */
     fun drawScaledImage(

@@ -39,11 +39,12 @@ class PlayerCardRenderer(
         val g2d = image.createGraphics()
         GraphicsUtils.enableAntialiasing(g2d)
 
-        // Draw background gradient
-        GraphicsUtils.fillGradientBackground(
+        // Draw diagonal background gradient based on power level
+        val (gradientStart, gradientEnd) = CardStyles.getBackgroundGradient(powerLevel)
+        GraphicsUtils.fillDiagonalGradient(
             g2d, width, height,
-            CardStyles.BACKGROUND_GRADIENT_START,
-            CardStyles.BACKGROUND_GRADIENT_END
+            gradientStart,
+            gradientEnd
         )
 
         val padding = CardStyles.CARD_PADDING
