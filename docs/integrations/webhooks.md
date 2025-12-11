@@ -104,14 +104,14 @@ fun sendMessage(
 webhookManager.sendEmbed(
     embed = deathEmbed,
     username = "Death Tracker",
-    avatarUrl = "https://mc-heads.net/avatar/$playerName"
+    avatarUrl = "https://mc-heads.net/avatar/$playerName/64"
 )
 
 // Chat bridge with player's identity
 webhookManager.sendMessage(
     content = message,
     username = playerName,
-    avatarUrl = "https://mc-heads.net/avatar/$playerName"
+    avatarUrl = "https://mc-heads.net/avatar/$playerName/64"
 )
 ```
 

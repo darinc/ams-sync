@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.3] - 2025-12-11
+
+### Fixed
+
+- Player death and achievement announcements now display correct player head images
+- Fixed mc-heads URL format (path-based size instead of query parameter)
+- Fixed crafatar URL format (UUID now properly stripped of dashes)
+- Updated documentation with correct avatar URL patterns
+
 ## [0.17.2] - 2025-12-11
 
 ### Fixed

@@ -202,8 +202,8 @@ CompletableFuture.supplyAsync {
 
 | Provider | URL Pattern |
 |----------|-------------|
-| `mc-heads` | `https://mc-heads.net/avatar/{uuid}/{size}` |
-| `crafatar` | `https://crafatar.com/avatars/{uuid}?size={size}` |
+| `mc-heads` | `https://mc-heads.net/avatar/{playerName}/{size}` |
+| `crafatar` | `https://crafatar.com/avatars/{uuid-no-dashes}?size={size}&overlay` |
 
 ## Circuit Breaker Integration
 

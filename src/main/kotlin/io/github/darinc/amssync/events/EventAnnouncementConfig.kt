@@ -73,8 +73,12 @@ data class EventAnnouncementConfig(
          */
         fun getAvatarUrl(playerName: String, uuid: UUID, provider: String): String {
             return when (provider.lowercase()) {
-                "crafatar" -> "https://crafatar.com/avatars/$uuid?size=64&overlay"
-                else -> "https://mc-heads.net/avatar/$playerName?size=64"
+                "crafatar" -> {
+                    // Crafatar requires UUID without dashes
+                    val id = uuid.toString().replace("-", "")
+                    "https://crafatar.com/avatars/$id?size=64&overlay"
+                }
+                else -> "https://mc-heads.net/avatar/$playerName/64"
             }
         }
     }
