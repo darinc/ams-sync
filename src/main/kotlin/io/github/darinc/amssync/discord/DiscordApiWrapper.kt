@@ -3,10 +3,12 @@ package io.github.darinc.amssync.discord
 import io.github.darinc.amssync.metrics.ErrorMetrics
 import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.MessageEmbed
+import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
 import net.dv8tion.jda.api.interactions.InteractionHook
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction
 import net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction
 import net.dv8tion.jda.api.requests.restaction.WebhookMessageEditAction
+import net.dv8tion.jda.api.utils.FileUpload
 import java.util.concurrent.CompletableFuture
 import java.util.logging.Logger
 
@@ -250,6 +252,86 @@ class DiscordApiWrapper(
                     Exception("Circuit breaker rejected request: ${circuitResult.message}")
                 )
             }
+        }
+    }
+
+    /**
+     * Send file(s) using InteractionHook with circuit breaker protection.
+     *
+     * @param hook The interaction hook
+     * @param files The file uploads to send
+     * @return CompletableFuture<Message> that completes when message is sent
+     */
+    fun sendFiles(
+        hook: InteractionHook,
+        vararg files: FileUpload
+    ): CompletableFuture<Message> {
+        return executeWithCircuitBreaker("Discord sendFiles") {
+            val future = CompletableFuture<Message>()
+
+            hook.sendFiles(*files).queue(
+                { msg -> future.complete(msg) },
+                { error ->
+                    logWithCircuitState("Discord API error (sendFiles)", error.message ?: "Unknown error")
+                    future.completeExceptionally(error)
+                }
+            )
+
+            future
+        }
+    }
+
+    /**
+     * Defer a reply to a slash command with circuit breaker protection.
+     *
+     * @param event The slash command event
+     * @param ephemeral Whether the deferred reply should be ephemeral
+     * @return CompletableFuture<InteractionHook> that completes when deferred
+     */
+    fun deferReply(
+        event: SlashCommandInteractionEvent,
+        ephemeral: Boolean = false
+    ): CompletableFuture<InteractionHook> {
+        return executeWithCircuitBreaker("Discord deferReply") {
+            val future = CompletableFuture<InteractionHook>()
+
+            event.deferReply().setEphemeral(ephemeral).queue(
+                { hook -> future.complete(hook) },
+                { error ->
+                    logWithCircuitState("Discord API error (deferReply)", error.message ?: "Unknown error")
+                    future.completeExceptionally(error)
+                }
+            )
+
+            future
+        }
+    }
+
+    /**
+     * Reply to a slash command with circuit breaker protection.
+     *
+     * @param event The slash command event
+     * @param message The message content
+     * @param ephemeral Whether the reply should be ephemeral
+     * @return CompletableFuture<InteractionHook> that completes when reply is sent
+     */
+    fun reply(
+        event: SlashCommandInteractionEvent,
+        message: String,
+        ephemeral: Boolean = false
+    ): CompletableFuture<InteractionHook> {
+        return executeWithCircuitBreaker("Discord reply") {
+            val future = CompletableFuture<InteractionHook>()
+
+            event.reply(message).setEphemeral(ephemeral).queue(
+                { hook -> future.complete(hook) },
+                { error ->
+                    logWithCircuitState("Discord API error (reply)", error.message ?: "Unknown error")
+                    future.completeExceptionally(error)
+                }
+            )
+
+            future
         }
     }
 

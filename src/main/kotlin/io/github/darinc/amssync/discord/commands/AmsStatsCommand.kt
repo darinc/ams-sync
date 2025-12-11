@@ -1,12 +1,14 @@
 package io.github.darinc.amssync.discord.commands
 
 import io.github.darinc.amssync.AMSSyncPlugin
+import io.github.darinc.amssync.discord.DiscordApiWrapper
 import io.github.darinc.amssync.exceptions.PlayerDataNotFoundException
 import io.github.darinc.amssync.image.AvatarFetcher
 import io.github.darinc.amssync.image.ImageConfig
 import io.github.darinc.amssync.image.PlayerCardRenderer
 import io.github.darinc.amssync.validation.Validators
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
+import net.dv8tion.jda.api.interactions.InteractionHook
 import net.dv8tion.jda.api.utils.FileUpload
 import org.bukkit.Bukkit
 import java.io.ByteArrayOutputStream
@@ -22,9 +24,15 @@ class AmsStatsCommand(
     private val cardRenderer: PlayerCardRenderer
 ) {
 
+    private val discordApi: DiscordApiWrapper?
+        get() = plugin.discordApiWrapper
+
     fun handle(event: SlashCommandInteractionEvent) {
         // Defer reply immediately to avoid timeout (image generation takes time)
-        event.deferReply().queue(
+        discordApi?.deferReply(event)?.exceptionally { error ->
+            plugin.logger.warning("Failed to defer reply for /amsstats: ${error.message}")
+            null
+        } ?: event.deferReply().queue(
             null,
             { error -> plugin.logger.warning("Failed to defer reply for /amsstats: ${error.message}") }
         )
@@ -67,44 +75,51 @@ class AmsStatsCommand(
                 val imageBytes = baos.toByteArray()
 
                 // Send as file attachment
-                event.hook.sendFiles(
-                    FileUpload.fromData(imageBytes, "${mcUsername}_stats.png")
-                ).queue(
-                    { plugin.logger.fine("Sent stats card for $mcUsername") },
-                    { error -> plugin.logger.warning("Failed to send stats card: ${error.message}") }
-                )
+                sendFiles(event.hook, FileUpload.fromData(imageBytes, "${mcUsername}_stats.png"))
+                plugin.logger.fine("Sent stats card for $mcUsername")
 
             } catch (e: IllegalArgumentException) {
                 plugin.logger.fine("Username resolution failed: ${e.message}")
-                event.hook.sendMessage(e.message ?: "Invalid username")
-                    .setEphemeral(true)
-                    .queue(
-                        null,
-                        { error -> plugin.logger.warning("Failed to send error message: ${error.message}") }
-                    )
+                sendEphemeralMessage(event.hook, e.message ?: "Invalid username")
 
             } catch (e: PlayerDataNotFoundException) {
                 plugin.logger.fine("Player data not found: ${e.message}")
-                event.hook.sendMessage(
+                sendEphemeralMessage(
+                    event.hook,
                     "Player **${e.playerName}** has no MCMMO data.\n" +
                     "They may have never joined or haven't gained any XP yet."
-                ).setEphemeral(true).queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send error message: ${error.message}") }
                 )
 
             } catch (e: Exception) {
                 plugin.logger.warning("Error handling /amsstats: ${e.message}")
                 e.printStackTrace()
-                event.hook.sendMessage(
+                sendEphemeralMessage(
+                    event.hook,
                     "An error occurred while generating the stats card.\n" +
                     "Please try again later."
-                ).setEphemeral(true).queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send error message: ${error.message}") }
                 )
             }
         })
+    }
+
+    private fun sendEphemeralMessage(hook: InteractionHook, message: String) {
+        discordApi?.sendMessage(hook, message, ephemeral = true)?.exceptionally { error ->
+            plugin.logger.warning("Failed to send message: ${error.message}")
+            null
+        } ?: hook.sendMessage(message).setEphemeral(true).queue(
+            null,
+            { error -> plugin.logger.warning("Failed to send message: ${error.message}") }
+        )
+    }
+
+    private fun sendFiles(hook: InteractionHook, vararg files: FileUpload) {
+        discordApi?.sendFiles(hook, *files)?.exceptionally { error ->
+            plugin.logger.warning("Failed to send files: ${error.message}")
+            null
+        } ?: hook.sendFiles(*files).queue(
+            null,
+            { error -> plugin.logger.warning("Failed to send files: ${error.message}") }
+        )
     }
 
     /**

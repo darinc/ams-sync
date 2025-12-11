@@ -4,10 +4,13 @@ import io.github.darinc.amssync.AMSSyncPlugin
 import io.github.darinc.amssync.audit.ActorType
 import io.github.darinc.amssync.audit.AuditAction
 import io.github.darinc.amssync.audit.SecurityEvent
+import io.github.darinc.amssync.discord.DiscordApiWrapper
 import io.github.darinc.amssync.validation.Validators
 import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.Permission
+import net.dv8tion.jda.api.entities.MessageEmbed
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
+import net.dv8tion.jda.api.interactions.InteractionHook
 import org.bukkit.Bukkit
 import java.awt.Color
 import java.time.Instant
@@ -16,6 +19,9 @@ import java.time.Instant
  * Handles the /amswhitelist Discord slash command for server whitelist management
  */
 class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) {
+
+    private val discordApi: DiscordApiWrapper?
+        get() = plugin.discordApiWrapper
 
     fun handle(event: SlashCommandInteractionEvent) {
         val actorName = "${event.user.name} (${event.user.id})"
@@ -28,12 +34,7 @@ class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) {
                 actorType = ActorType.DISCORD_USER,
                 details = mapOf("command" to "amswhitelist", "subcommand" to (event.subcommandName ?: "none"))
             )
-            event.reply("⛔ This command requires **Manage Server** permission.")
-                .setEphemeral(true)
-                .queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send permission error: ${error.message}") }
-                )
+            reply(event, "⛔ This command requires **Manage Server** permission.", ephemeral = true)
             return
         }
 
@@ -43,33 +44,80 @@ class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) {
             "list" -> handleList(event)
             "check" -> handleCheck(event)
             else -> {
-                event.reply("Unknown subcommand.")
-                    .setEphemeral(true)
-                    .queue(
-                        null,
-                        { error -> plugin.logger.warning("Failed to send unknown subcommand error: ${error.message}") }
-                    )
+                reply(event, "Unknown subcommand.", ephemeral = true)
             }
         }
+    }
+
+    private fun reply(event: SlashCommandInteractionEvent, message: String, ephemeral: Boolean = false) {
+        discordApi?.reply(event, message, ephemeral)?.exceptionally { error ->
+            plugin.logger.warning("Failed to send reply: ${error.message}")
+            null
+        } ?: event.reply(message).setEphemeral(ephemeral).queue(
+            null,
+            { error -> plugin.logger.warning("Failed to send reply: ${error.message}") }
+        )
+    }
+
+    private fun deferReply(event: SlashCommandInteractionEvent, ephemeral: Boolean = false) {
+        discordApi?.deferReply(event, ephemeral)?.exceptionally { error ->
+            plugin.logger.warning("Failed to defer reply: ${error.message}")
+            null
+        } ?: event.deferReply().setEphemeral(ephemeral).queue(
+            null,
+            { error -> plugin.logger.warning("Failed to defer reply: ${error.message}") }
+        )
+    }
+
+    private fun sendEphemeralMessage(hook: InteractionHook, message: String) {
+        discordApi?.sendMessage(hook, message, ephemeral = true)?.exceptionally { error ->
+            plugin.logger.warning("Failed to send message: ${error.message}")
+            null
+        } ?: hook.sendMessage(message).setEphemeral(true).queue(
+            null,
+            { error -> plugin.logger.warning("Failed to send message: ${error.message}") }
+        )
+    }
+
+    private fun sendMessage(hook: InteractionHook, message: String) {
+        discordApi?.sendMessage(hook, message, ephemeral = false)?.exceptionally { error ->
+            plugin.logger.warning("Failed to send message: ${error.message}")
+            null
+        } ?: hook.sendMessage(message).queue(
+            null,
+            { error -> plugin.logger.warning("Failed to send message: ${error.message}") }
+        )
+    }
+
+    private fun sendEphemeralEmbed(hook: InteractionHook, embed: MessageEmbed) {
+        discordApi?.sendMessageEmbed(hook, embed, ephemeral = true)?.exceptionally { error ->
+            plugin.logger.warning("Failed to send embed: ${error.message}")
+            null
+        } ?: hook.sendMessageEmbeds(embed).setEphemeral(true).queue(
+            null,
+            { error -> plugin.logger.warning("Failed to send embed: ${error.message}") }
+        )
+    }
+
+    private fun sendEmbed(hook: InteractionHook, embed: MessageEmbed) {
+        discordApi?.sendMessageEmbed(hook, embed, ephemeral = false)?.exceptionally { error ->
+            plugin.logger.warning("Failed to send embed: ${error.message}")
+            null
+        } ?: hook.sendMessageEmbeds(embed).queue(
+            null,
+            { error -> plugin.logger.warning("Failed to send embed: ${error.message}") }
+        )
     }
 
     private fun handleAdd(event: SlashCommandInteractionEvent) {
         val actorName = "${event.user.name} (${event.user.id})"
 
-        event.deferReply().setEphemeral(true).queue(
-            null,
-            { error -> plugin.logger.warning("Failed to defer reply for /amswhitelist add: ${error.message}") }
-        )
+        deferReply(event, ephemeral = true)
 
         val minecraftName = event.getOption("minecraft_username")?.asString
 
         if (minecraftName == null) {
-            event.hook.sendMessage("❌ Missing required parameter: minecraft_username")
-                .setEphemeral(true)
-                .queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send missing params error: ${error.message}") }
-                )
+            sendEphemeralMessage(event.hook, "❌ Missing required parameter: minecraft_username")
             return
         }
 
@@ -85,13 +133,11 @@ class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) {
                     "error" to Validators.getMinecraftUsernameError(minecraftName)
                 )
             )
-            event.hook.sendMessage(
+            sendEphemeralMessage(
+                event.hook,
                 "❌ **Invalid Minecraft Username**\n\n" +
                 "${Validators.getMinecraftUsernameError(minecraftName)}\n\n" +
                 "Minecraft usernames must be 3-16 characters and contain only letters, numbers, and underscores."
-            ).setEphemeral(true).queue(
-                null,
-                { error -> plugin.logger.warning("Failed to send validation error: ${error.message}") }
             )
             return
         }
@@ -111,24 +157,20 @@ class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) {
                         success = false,
                         details = mapOf("reason" to "player_never_joined")
                     )
-                    event.hook.sendMessage(
+                    sendEphemeralMessage(
+                        event.hook,
                         "❌ **Player Not Found**\n\n" +
                         "Player `$minecraftName` has never joined this server.\n" +
                         "Only players who have previously joined can be whitelisted."
-                    ).setEphemeral(true).queue(
-                        null,
-                        { error -> plugin.logger.warning("Failed to send player not found error: ${error.message}") }
                     )
                     return@Runnable
                 }
 
                 // Check if already whitelisted
                 if (offlinePlayer.isWhitelisted) {
-                    event.hook.sendMessage(
+                    sendEphemeralMessage(
+                        event.hook,
                         "⚠️ **${offlinePlayer.name}** is already whitelisted."
-                    ).setEphemeral(true).queue(
-                        null,
-                        { error -> plugin.logger.warning("Failed to send already whitelisted message: ${error.message}") }
                     )
                     return@Runnable
                 }
@@ -153,24 +195,17 @@ class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) {
                     .setFooter("Amazing Minecraft Server", null)
                     .setTimestamp(Instant.now())
 
-                event.hook.sendMessageEmbeds(embed.build())
-                    .setEphemeral(true)
-                    .queue(
-                        null,
-                        { error -> plugin.logger.warning("Failed to send whitelist success embed: ${error.message}") }
-                    )
+                sendEphemeralEmbed(event.hook, embed.build())
 
                 plugin.logger.info("Whitelisted ${offlinePlayer.name} via Discord command by ${event.user.name}")
 
             } catch (e: Exception) {
                 plugin.logger.warning("Unexpected error in Discord /amswhitelist add: ${e.message}")
                 e.printStackTrace()
-                event.hook.sendMessage(
+                sendEphemeralMessage(
+                    event.hook,
                     "⚠️ **Error**\n\n" +
                     "An unexpected error occurred: ${e.message}"
-                ).setEphemeral(true).queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send error message: ${error.message}") }
                 )
             }
         })
@@ -179,20 +214,12 @@ class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) {
     private fun handleRemove(event: SlashCommandInteractionEvent) {
         val actorName = "${event.user.name} (${event.user.id})"
 
-        event.deferReply().setEphemeral(true).queue(
-            null,
-            { error -> plugin.logger.warning("Failed to defer reply for /amswhitelist remove: ${error.message}") }
-        )
+        deferReply(event, ephemeral = true)
 
         val minecraftName = event.getOption("minecraft_username")?.asString
 
         if (minecraftName == null) {
-            event.hook.sendMessage("❌ Missing required parameter: minecraft_username")
-                .setEphemeral(true)
-                .queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send missing params error: ${error.message}") }
-                )
+            sendEphemeralMessage(event.hook, "❌ Missing required parameter: minecraft_username")
             return
         }
 
@@ -212,11 +239,9 @@ class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) {
                         success = false,
                         details = mapOf("reason" to "not_whitelisted")
                     )
-                    event.hook.sendMessage(
+                    sendEphemeralMessage(
+                        event.hook,
                         "⚠️ **$minecraftName** is not currently whitelisted."
-                    ).setEphemeral(true).queue(
-                        null,
-                        { error -> plugin.logger.warning("Failed to send not whitelisted message: ${error.message}") }
                     )
                     return@Runnable
                 }
@@ -241,34 +266,24 @@ class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) {
                     .setFooter("Amazing Minecraft Server", null)
                     .setTimestamp(Instant.now())
 
-                event.hook.sendMessageEmbeds(embed.build())
-                    .setEphemeral(true)
-                    .queue(
-                        null,
-                        { error -> plugin.logger.warning("Failed to send remove success embed: ${error.message}") }
-                    )
+                sendEphemeralEmbed(event.hook, embed.build())
 
                 plugin.logger.info("Removed ${whitelistedPlayer.name} from whitelist via Discord command by ${event.user.name}")
 
             } catch (e: Exception) {
                 plugin.logger.warning("Unexpected error in Discord /amswhitelist remove: ${e.message}")
                 e.printStackTrace()
-                event.hook.sendMessage(
+                sendEphemeralMessage(
+                    event.hook,
                     "⚠️ **Error**\n\n" +
                     "An unexpected error occurred: ${e.message}"
-                ).setEphemeral(true).queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send error message: ${error.message}") }
                 )
             }
         })
     }
 
     private fun handleList(event: SlashCommandInteractionEvent) {
-        event.deferReply().queue(
-            null,
-            { error -> plugin.logger.warning("Failed to defer reply for /amswhitelist list: ${error.message}") }
-        )
+        deferReply(event, ephemeral = false)
 
         Bukkit.getScheduler().runTask(plugin, Runnable {
             try {
@@ -277,10 +292,7 @@ class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) {
                     .sortedBy { it.name?.lowercase() }
 
                 if (whitelistedPlayers.isEmpty()) {
-                    event.hook.sendMessage("📋 No players are currently whitelisted.").queue(
-                        null,
-                        { error -> plugin.logger.warning("Failed to send empty whitelist message: ${error.message}") }
-                    )
+                    sendMessage(event.hook, "📋 No players are currently whitelisted.")
                     return@Runnable
                 }
 
@@ -304,40 +316,27 @@ class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) {
                     embed.appendDescription("\n\n*Showing first 50 of ${whitelistedPlayers.size} players*")
                 }
 
-                event.hook.sendMessageEmbeds(embed.build()).queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send whitelist embed: ${error.message}") }
-                )
+                sendEmbed(event.hook, embed.build())
 
             } catch (e: Exception) {
                 plugin.logger.warning("Unexpected error in Discord /amswhitelist list: ${e.message}")
                 e.printStackTrace()
-                event.hook.sendMessage(
+                sendMessage(
+                    event.hook,
                     "⚠️ **Error**\n\n" +
                     "An unexpected error occurred while fetching the whitelist."
-                ).queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send error message: ${error.message}") }
                 )
             }
         })
     }
 
     private fun handleCheck(event: SlashCommandInteractionEvent) {
-        event.deferReply().setEphemeral(true).queue(
-            null,
-            { error -> plugin.logger.warning("Failed to defer reply for /amswhitelist check: ${error.message}") }
-        )
+        deferReply(event, ephemeral = true)
 
         val minecraftName = event.getOption("minecraft_username")?.asString
 
         if (minecraftName == null) {
-            event.hook.sendMessage("❌ Missing required parameter: minecraft_username")
-                .setEphemeral(true)
-                .queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send missing params error: ${error.message}") }
-                )
+            sendEphemeralMessage(event.hook, "❌ Missing required parameter: minecraft_username")
             return
         }
 
@@ -362,22 +361,15 @@ class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) {
                     embed.addField("Status", "❌ Not Whitelisted", true)
                 }
 
-                event.hook.sendMessageEmbeds(embed.build())
-                    .setEphemeral(true)
-                    .queue(
-                        null,
-                        { error -> plugin.logger.warning("Failed to send check status embed: ${error.message}") }
-                    )
+                sendEphemeralEmbed(event.hook, embed.build())
 
             } catch (e: Exception) {
                 plugin.logger.warning("Unexpected error in Discord /amswhitelist check: ${e.message}")
                 e.printStackTrace()
-                event.hook.sendMessage(
+                sendEphemeralMessage(
+                    event.hook,
                     "⚠️ **Error**\n\n" +
                     "An unexpected error occurred while checking whitelist status."
-                ).setEphemeral(true).queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send error message: ${error.message}") }
                 )
             }
         })

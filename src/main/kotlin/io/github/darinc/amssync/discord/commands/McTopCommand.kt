@@ -1,10 +1,12 @@
 package io.github.darinc.amssync.discord.commands
 
 import io.github.darinc.amssync.AMSSyncPlugin
+import io.github.darinc.amssync.discord.DiscordApiWrapper
 import io.github.darinc.amssync.discord.TimeoutManager
 import io.github.darinc.amssync.exceptions.InvalidSkillException
 import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
+import net.dv8tion.jda.api.interactions.InteractionHook
 import org.bukkit.Bukkit
 import java.awt.Color
 import java.time.Instant
@@ -16,9 +18,15 @@ class McTopCommand(private val plugin: AMSSyncPlugin) {
 
     private val leaderboardSize = 10
 
+    private val discordApi: DiscordApiWrapper?
+        get() = plugin.discordApiWrapper
+
     fun handle(event: SlashCommandInteractionEvent) {
         // Defer reply immediately to avoid timeout
-        event.deferReply().queue(
+        discordApi?.deferReply(event)?.exceptionally { error ->
+            plugin.logger.warning("Failed to defer reply for /mctop: ${error.message}")
+            null
+        } ?: event.deferReply().queue(
             null,
             { error -> plugin.logger.warning("Failed to defer reply for /mctop: ${error.message}") }
         )
@@ -41,12 +49,10 @@ class McTopCommand(private val plugin: AMSSyncPlugin) {
                 when (result) {
                     is TimeoutManager.TimeoutResult.Success -> {}
                     is TimeoutManager.TimeoutResult.Timeout -> {
-                        event.hook.sendMessage(
+                        sendEphemeralMessage(
+                            event.hook,
                             "⏱️ **Operation Timed Out**\n\n" +
                             "The leaderboard query took too long to complete (${result.timeoutMs}ms)."
-                        ).setEphemeral(true).queue(
-                            null,
-                            { error -> plugin.logger.warning("Failed to send timeout message: ${error.message}") }
                         )
                     }
                     is TimeoutManager.TimeoutResult.Failure -> {
@@ -86,7 +92,8 @@ class McTopCommand(private val plugin: AMSSyncPlugin) {
                     // Success - result already sent by handler methods
                 }
                 is TimeoutManager.TimeoutResult.Timeout -> {
-                    event.hook.sendMessage(
+                    sendEphemeralMessage(
+                        event.hook,
                         "⏱️ **Operation Timed Out**\n\n" +
                         "The leaderboard query took too long to complete (${result.timeoutMs}ms).\n\n" +
                         "**Possible causes:**\n" +
@@ -95,9 +102,6 @@ class McTopCommand(private val plugin: AMSSyncPlugin) {
                         "**Suggested actions:**\n" +
                         "• Contact an administrator to increase timeout limits\n" +
                         "• Try again in a few moments"
-                    ).setEphemeral(true).queue(
-                        null,
-                        { error -> plugin.logger.warning("Failed to send timeout message: ${error.message}") }
                     )
                 }
                 is TimeoutManager.TimeoutResult.Failure -> {
@@ -130,29 +134,45 @@ class McTopCommand(private val plugin: AMSSyncPlugin) {
         when (exception) {
             is InvalidSkillException -> {
                 plugin.logger.fine("Invalid skill requested: ${exception.skillName}")
-                event.hook.sendMessage(
+                sendEphemeralMessage(
+                    event.hook,
                     "❌ **Invalid Skill**\n\n" +
                     "Skill **${exception.skillName}** is not valid.\n\n" +
                     "**Valid skills:**\n" +
                     exception.validSkills.joinToString(", ") + ", power"
-                ).setEphemeral(true).queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send invalid skill message: ${error.message}") }
                 )
             }
             else -> {
                 plugin.logger.warning("Unexpected error handling /mctop command: ${exception.message}")
                 exception.printStackTrace()
-                event.hook.sendMessage(
+                sendEphemeralMessage(
+                    event.hook,
                     "⚠️ **Error**\n\n" +
                     "An unexpected error occurred while fetching the leaderboard.\n" +
                     "Please try again later or contact an administrator."
-                ).setEphemeral(true).queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send error message: ${error.message}") }
                 )
             }
         }
+    }
+
+    private fun sendEphemeralMessage(hook: InteractionHook, message: String) {
+        discordApi?.sendMessage(hook, message, ephemeral = true)?.exceptionally { error ->
+            plugin.logger.warning("Failed to send message: ${error.message}")
+            null
+        } ?: hook.sendMessage(message).setEphemeral(true).queue(
+            null,
+            { error -> plugin.logger.warning("Failed to send message: ${error.message}") }
+        )
+    }
+
+    private fun sendEmbed(hook: InteractionHook, embed: net.dv8tion.jda.api.entities.MessageEmbed) {
+        discordApi?.sendMessageEmbed(hook, embed)?.exceptionally { error ->
+            plugin.logger.warning("Failed to send embed: ${error.message}")
+            null
+        } ?: hook.sendMessageEmbeds(embed).queue(
+            null,
+            { error -> plugin.logger.warning("Failed to send embed: ${error.message}") }
+        )
     }
 
     private fun handleSkillLeaderboard(event: SlashCommandInteractionEvent, skillName: String) {
@@ -161,13 +181,11 @@ class McTopCommand(private val plugin: AMSSyncPlugin) {
         val leaderboard = plugin.mcmmoApi.getLeaderboard(skill.name, leaderboardSize)
 
         if (leaderboard.isEmpty()) {
-            event.hook.sendMessage(
+            sendEphemeralMessage(
+                event.hook,
                 "📊 **No Data**\n\n" +
                 "No leaderboard data found for **${formatSkillName(skill.name)}**.\n\n" +
                 "Players need to gain experience in this skill first."
-            ).setEphemeral(true).queue(
-                null,
-                { error -> plugin.logger.warning("Failed to send no data message: ${error.message}") }
             )
             return
         }
@@ -192,23 +210,18 @@ class McTopCommand(private val plugin: AMSSyncPlugin) {
         }
 
         embed.setDescription(leaderboardText)
-        event.hook.sendMessageEmbeds(embed.build()).queue(
-            null,
-            { error -> plugin.logger.warning("Failed to send skill leaderboard embed: ${error.message}") }
-        )
+        sendEmbed(event.hook, embed.build())
     }
 
     private fun handlePowerLevelLeaderboard(event: SlashCommandInteractionEvent) {
         val leaderboard = plugin.mcmmoApi.getPowerLevelLeaderboard(leaderboardSize)
 
         if (leaderboard.isEmpty()) {
-            event.hook.sendMessage(
+            sendEphemeralMessage(
+                event.hook,
                 "📊 **No Data**\n\n" +
                 "No power level leaderboard data found.\n\n" +
                 "Players need to gain MCMMO experience first."
-            ).setEphemeral(true).queue(
-                null,
-                { error -> plugin.logger.warning("Failed to send no data message: ${error.message}") }
             )
             return
         }
@@ -233,10 +246,7 @@ class McTopCommand(private val plugin: AMSSyncPlugin) {
         }
 
         embed.setDescription(leaderboardText)
-        event.hook.sendMessageEmbeds(embed.build()).queue(
-            null,
-            { error -> plugin.logger.warning("Failed to send power level leaderboard embed: ${error.message}") }
-        )
+        sendEmbed(event.hook, embed.build())
     }
 
     /**

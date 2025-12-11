@@ -31,6 +31,9 @@ class SlashCommandListener(
         null
     }
 
+    private val discordApi: DiscordApiWrapper?
+        get() = plugin.discordApiWrapper
+
     override fun onSlashCommandInteraction(event: SlashCommandInteractionEvent) {
         val userId = event.user.id
         val userName = event.user.name
@@ -52,9 +55,7 @@ class SlashCommandListener(
                             "remainingMs" to result.remainingMs
                         )
                     )
-                    event.reply("Please wait ${String.format("%.1f", result.remainingSeconds)} seconds before using another command.")
-                        .setEphemeral(true)
-                        .queue()
+                    reply(event, "Please wait ${String.format("%.1f", result.remainingSeconds)} seconds before using another command.", ephemeral = true)
                     return
                 }
                 is RateLimitResult.BurstLimited -> {
@@ -68,9 +69,8 @@ class SlashCommandListener(
                             "retryAfterMs" to result.retryAfterMs
                         )
                     )
-                    event.reply("You've made too many requests. Please try again in ${String.format("%.0f", result.retryAfterSeconds)} seconds.")
-                        .setEphemeral(true)
-                        .queue()
+                    val seconds = String.format("%.0f", result.retryAfterSeconds)
+                    reply(event, "You've made too many requests. Please try again in $seconds seconds.", ephemeral = true)
                     return
                 }
                 is RateLimitResult.Allowed -> {
@@ -86,16 +86,14 @@ class SlashCommandListener(
                 if (amsStatsCommand != null) {
                     amsStatsCommand.handle(event)
                 } else {
-                    event.reply("Image cards are not enabled. Use `/mcstats` instead.")
-                        .setEphemeral(true).queue()
+                    reply(event, "Image cards are not enabled. Use `/mcstats` instead.", ephemeral = true)
                 }
             }
             "amstop" -> {
                 if (amsTopCommand != null) {
                     amsTopCommand.handle(event)
                 } else {
-                    event.reply("Image cards are not enabled. Use `/mctop` instead.")
-                        .setEphemeral(true).queue()
+                    reply(event, "Image cards are not enabled. Use `/mctop` instead.", ephemeral = true)
                 }
             }
             "amssync" -> discordLinkCommand.handle(event)
@@ -103,16 +101,22 @@ class SlashCommandListener(
                 if (discordWhitelistCommand != null) {
                     discordWhitelistCommand.handle(event)
                 } else {
-                    event.reply("Whitelist management is not enabled.")
-                        .setEphemeral(true).queue()
+                    reply(event, "Whitelist management is not enabled.", ephemeral = true)
                 }
             }
             else -> {
-                event.reply("Unknown command!").setEphemeral(true).queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to reply to unknown command: ${error.message}") }
-                )
+                reply(event, "Unknown command!", ephemeral = true)
             }
         }
+    }
+
+    private fun reply(event: SlashCommandInteractionEvent, message: String, ephemeral: Boolean = false) {
+        discordApi?.reply(event, message, ephemeral)?.exceptionally { error ->
+            plugin.logger.warning("Failed to send reply: ${error.message}")
+            null
+        } ?: event.reply(message).setEphemeral(ephemeral).queue(
+            null,
+            { error -> plugin.logger.warning("Failed to send reply: ${error.message}") }
+        )
     }
 }

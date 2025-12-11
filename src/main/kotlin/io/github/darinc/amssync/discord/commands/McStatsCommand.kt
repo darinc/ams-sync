@@ -1,11 +1,13 @@
 package io.github.darinc.amssync.discord.commands
 
 import io.github.darinc.amssync.AMSSyncPlugin
+import io.github.darinc.amssync.discord.DiscordApiWrapper
 import io.github.darinc.amssync.exceptions.InvalidSkillException
 import io.github.darinc.amssync.exceptions.PlayerDataNotFoundException
 import io.github.darinc.amssync.validation.Validators
 import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
+import net.dv8tion.jda.api.interactions.InteractionHook
 import org.bukkit.Bukkit
 import java.awt.Color
 import java.time.Instant
@@ -15,9 +17,15 @@ import java.time.Instant
  */
 class McStatsCommand(private val plugin: AMSSyncPlugin) {
 
+    private val discordApi: DiscordApiWrapper?
+        get() = plugin.discordApiWrapper
+
     fun handle(event: SlashCommandInteractionEvent) {
         // Defer reply immediately to avoid timeout
-        event.deferReply().queue(
+        discordApi?.deferReply(event)?.exceptionally { error ->
+            plugin.logger.warning("Failed to defer reply for /mcstats: ${error.message}")
+            null
+        } ?: event.deferReply().queue(
             null,
             { error -> plugin.logger.warning("Failed to defer reply for /mcstats: ${error.message}") }
         )
@@ -44,52 +52,61 @@ class McStatsCommand(private val plugin: AMSSyncPlugin) {
             } catch (e: IllegalArgumentException) {
                 // Username resolution errors (not linked, Discord user not found, etc.)
                 plugin.logger.fine("Username resolution failed: ${e.message}")
-                event.hook.sendMessage(e.message ?: "Invalid username")
-                    .setEphemeral(true)
-                    .queue(
-                        null,
-                        { error -> plugin.logger.warning("Failed to send error message for /mcstats: ${error.message}") }
-                    )
+                sendEphemeralMessage(event.hook, e.message ?: "Invalid username")
 
             } catch (e: PlayerDataNotFoundException) {
                 plugin.logger.fine("Player data not found: ${e.message}")
-                event.hook.sendMessage(
+                sendEphemeralMessage(
+                    event.hook,
                     "❌ **Player Not Found**\n\n" +
                     "Player **${e.playerName}** has no MCMMO data.\n\n" +
                     "**Possible reasons:**\n" +
                     "• Player has never joined the server\n" +
                     "• Player has not gained any MCMMO experience\n" +
                     "• MCMMO data file is corrupted"
-                ).setEphemeral(true).queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send player not found message: ${error.message}") }
                 )
 
             } catch (e: InvalidSkillException) {
                 plugin.logger.fine("Invalid skill requested: ${e.skillName}")
-                event.hook.sendMessage(
+                sendEphemeralMessage(
+                    event.hook,
                     "❌ **Invalid Skill**\n\n" +
                     "Skill **${e.skillName}** is not valid.\n\n" +
                     "**Valid skills:**\n" +
                     e.validSkills.joinToString(", ")
-                ).setEphemeral(true).queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send invalid skill message: ${error.message}") }
                 )
 
             } catch (e: Exception) {
                 plugin.logger.warning("Unexpected error handling /mcstats command: ${e.message}")
                 e.printStackTrace()
-                event.hook.sendMessage(
+                sendEphemeralMessage(
+                    event.hook,
                     "⚠️ **Error**\n\n" +
                     "An unexpected error occurred while fetching stats.\n" +
                     "Please try again later or contact an administrator."
-                ).setEphemeral(true).queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send error message: ${error.message}") }
                 )
             }
         })
+    }
+
+    private fun sendEphemeralMessage(hook: InteractionHook, message: String) {
+        discordApi?.sendMessage(hook, message, ephemeral = true)?.exceptionally { error ->
+            plugin.logger.warning("Failed to send message: ${error.message}")
+            null
+        } ?: hook.sendMessage(message).setEphemeral(true).queue(
+            null,
+            { error -> plugin.logger.warning("Failed to send message: ${error.message}") }
+        )
+    }
+
+    private fun sendEmbed(hook: InteractionHook, embed: net.dv8tion.jda.api.entities.MessageEmbed) {
+        discordApi?.sendMessageEmbed(hook, embed)?.exceptionally { error ->
+            plugin.logger.warning("Failed to send embed: ${error.message}")
+            null
+        } ?: hook.sendMessageEmbeds(embed).queue(
+            null,
+            { error -> plugin.logger.warning("Failed to send embed: ${error.message}") }
+        )
     }
 
     private fun handleAllSkills(event: SlashCommandInteractionEvent, mcUsername: String, invokerTag: String) {
@@ -111,10 +128,7 @@ class McStatsCommand(private val plugin: AMSSyncPlugin) {
             embed.addField(formatSkillName(skill), level.toString(), true)
         }
 
-        event.hook.sendMessageEmbeds(embed.build()).queue(
-            null,
-            { error -> plugin.logger.warning("Failed to send stats embed: ${error.message}") }
-        )
+        sendEmbed(event.hook, embed.build())
     }
 
     private fun handleSpecificSkill(event: SlashCommandInteractionEvent, mcUsername: String, skillName: String, invokerTag: String) {
@@ -131,10 +145,7 @@ class McStatsCommand(private val plugin: AMSSyncPlugin) {
             .setTimestamp(Instant.now())
             .setFooter("Requested by $invokerTag", null)
 
-        event.hook.sendMessageEmbeds(embed.build()).queue(
-            null,
-            { error -> plugin.logger.warning("Failed to send skill stats embed: ${error.message}") }
-        )
+        sendEmbed(event.hook, embed.build())
     }
 
     /**

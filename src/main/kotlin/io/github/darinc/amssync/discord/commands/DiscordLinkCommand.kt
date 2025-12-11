@@ -4,12 +4,15 @@ import io.github.darinc.amssync.AMSSyncPlugin
 import io.github.darinc.amssync.audit.ActorType
 import io.github.darinc.amssync.audit.AuditAction
 import io.github.darinc.amssync.audit.SecurityEvent
+import io.github.darinc.amssync.discord.DiscordApiWrapper
 import io.github.darinc.amssync.exceptions.InvalidDiscordIdException
 import io.github.darinc.amssync.exceptions.MappingNotFoundException
 import io.github.darinc.amssync.validation.Validators
 import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.Permission
+import net.dv8tion.jda.api.entities.MessageEmbed
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
+import net.dv8tion.jda.api.interactions.InteractionHook
 import org.bukkit.Bukkit
 import java.awt.Color
 import java.time.Instant
@@ -18,6 +21,9 @@ import java.time.Instant
  * Handles the /amslink Discord slash command for admin user linking
  */
 class DiscordLinkCommand(private val plugin: AMSSyncPlugin) {
+
+    private val discordApi: DiscordApiWrapper?
+        get() = plugin.discordApiWrapper
 
     fun handle(event: SlashCommandInteractionEvent) {
         val actorName = "${event.user.name} (${event.user.id})"
@@ -30,12 +36,7 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) {
                 actorType = ActorType.DISCORD_USER,
                 details = mapOf("command" to "amssync", "subcommand" to (event.subcommandName ?: "none"))
             )
-            event.reply("⛔ This command requires **Manage Server** permission.")
-                .setEphemeral(true)
-                .queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send permission error: ${error.message}") }
-                )
+            reply(event, "⛔ This command requires **Manage Server** permission.", ephemeral = true)
             return
         }
 
@@ -45,34 +46,81 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) {
             "list" -> handleList(event)
             "check" -> handleCheck(event)
             else -> {
-                event.reply("Unknown subcommand.")
-                    .setEphemeral(true)
-                    .queue(
-                        null,
-                        { error -> plugin.logger.warning("Failed to send unknown subcommand error: ${error.message}") }
-                    )
+                reply(event, "Unknown subcommand.", ephemeral = true)
             }
         }
+    }
+
+    private fun reply(event: SlashCommandInteractionEvent, message: String, ephemeral: Boolean = false) {
+        discordApi?.reply(event, message, ephemeral)?.exceptionally { error ->
+            plugin.logger.warning("Failed to send reply: ${error.message}")
+            null
+        } ?: event.reply(message).setEphemeral(ephemeral).queue(
+            null,
+            { error -> plugin.logger.warning("Failed to send reply: ${error.message}") }
+        )
+    }
+
+    private fun deferReply(event: SlashCommandInteractionEvent, ephemeral: Boolean = false) {
+        discordApi?.deferReply(event, ephemeral)?.exceptionally { error ->
+            plugin.logger.warning("Failed to defer reply: ${error.message}")
+            null
+        } ?: event.deferReply().setEphemeral(ephemeral).queue(
+            null,
+            { error -> plugin.logger.warning("Failed to defer reply: ${error.message}") }
+        )
+    }
+
+    private fun sendEphemeralMessage(hook: InteractionHook, message: String) {
+        discordApi?.sendMessage(hook, message, ephemeral = true)?.exceptionally { error ->
+            plugin.logger.warning("Failed to send message: ${error.message}")
+            null
+        } ?: hook.sendMessage(message).setEphemeral(true).queue(
+            null,
+            { error -> plugin.logger.warning("Failed to send message: ${error.message}") }
+        )
+    }
+
+    private fun sendMessage(hook: InteractionHook, message: String) {
+        discordApi?.sendMessage(hook, message, ephemeral = false)?.exceptionally { error ->
+            plugin.logger.warning("Failed to send message: ${error.message}")
+            null
+        } ?: hook.sendMessage(message).queue(
+            null,
+            { error -> plugin.logger.warning("Failed to send message: ${error.message}") }
+        )
+    }
+
+    private fun sendEphemeralEmbed(hook: InteractionHook, embed: MessageEmbed) {
+        discordApi?.sendMessageEmbed(hook, embed, ephemeral = true)?.exceptionally { error ->
+            plugin.logger.warning("Failed to send embed: ${error.message}")
+            null
+        } ?: hook.sendMessageEmbeds(embed).setEphemeral(true).queue(
+            null,
+            { error -> plugin.logger.warning("Failed to send embed: ${error.message}") }
+        )
+    }
+
+    private fun sendEmbed(hook: InteractionHook, embed: MessageEmbed) {
+        discordApi?.sendMessageEmbed(hook, embed, ephemeral = false)?.exceptionally { error ->
+            plugin.logger.warning("Failed to send embed: ${error.message}")
+            null
+        } ?: hook.sendMessageEmbeds(embed).queue(
+            null,
+            { error -> plugin.logger.warning("Failed to send embed: ${error.message}") }
+        )
     }
 
     private fun handleAdd(event: SlashCommandInteractionEvent) {
         val actorName = "${event.user.name} (${event.user.id})"
 
-        event.deferReply().setEphemeral(true).queue(
-            null,
-            { error -> plugin.logger.warning("Failed to defer reply for /amslink add: ${error.message}") }
-        )
+        deferReply(event, ephemeral = true)
 
         val targetUser = event.getOption("user")?.asUser
         val minecraftName = event.getOption("minecraft_username")?.asString
 
         if (targetUser == null || minecraftName == null) {
-            event.hook.sendMessage("❌ Missing required parameters.")
-                .setEphemeral(true)
-                .queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send missing params error: ${error.message}") }
-                )
+            sendEphemeralMessage(event.hook, "❌ Missing required parameters.")
             return
         }
 
@@ -84,13 +132,11 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) {
                 actorType = ActorType.DISCORD_USER,
                 details = mapOf("field" to "minecraftUsername", "value" to minecraftName, "error" to Validators.getMinecraftUsernameError(minecraftName))
             )
-            event.hook.sendMessage(
+            sendEphemeralMessage(
+                event.hook,
                 "❌ **Invalid Minecraft Username**\n\n" +
                 "${Validators.getMinecraftUsernameError(minecraftName)}\n\n" +
                 "Minecraft usernames must be 3-16 characters and contain only letters, numbers, and underscores."
-            ).setEphemeral(true).queue(
-                null,
-                { error -> plugin.logger.warning("Failed to send validation error: ${error.message}") }
             )
             return
         }
@@ -103,12 +149,10 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) {
                 // Check if already linked
                 val existingLink = plugin.userMappingService.getMinecraftUsername(discordId)
                 if (existingLink != null) {
-                    event.hook.sendMessage(
+                    sendEphemeralMessage(
+                        event.hook,
                         "⚠️ **${targetUser.name}** is already linked to `$existingLink`.\n" +
                         "Use `/amssync remove` first to unlink."
-                    ).setEphemeral(true).queue(
-                        null,
-                        { error -> plugin.logger.warning("Failed to send already linked message: ${error.message}") }
                     )
                     return@Runnable
                 }
@@ -134,36 +178,27 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) {
                     .setFooter("Amazing Minecraft Server", null)
                     .setTimestamp(Instant.now())
 
-                event.hook.sendMessageEmbeds(embed.build())
-                    .setEphemeral(true)
-                    .queue(
-                        null,
-                        { error -> plugin.logger.warning("Failed to send link success embed: ${error.message}") }
-                    )
+                sendEphemeralEmbed(event.hook, embed.build())
 
                 plugin.logger.info("Linked Discord ${targetUser.name} (${discordId}) to Minecraft $minecraftName via Discord command")
 
             } catch (e: InvalidDiscordIdException) {
                 plugin.logger.warning("Invalid Discord ID format: ${e.discordId}")
-                event.hook.sendMessage(
+                sendEphemeralMessage(
+                    event.hook,
                     "❌ **Invalid Discord ID**\n\n" +
                     "The Discord ID `${e.discordId}` has an invalid format.\n\n" +
                     "Discord IDs must be 17-19 digit numbers."
-                ).setEphemeral(true).queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send invalid ID error: ${error.message}") }
                 )
 
             } catch (e: Exception) {
                 plugin.logger.warning("Unexpected error in Discord /amslink add: ${e.message}")
                 e.printStackTrace()
-                event.hook.sendMessage(
+                sendEphemeralMessage(
+                    event.hook,
                     "⚠️ **Error**\n\n" +
                     "An unexpected error occurred: ${e.message}\n\n" +
                     "Please contact an administrator."
-                ).setEphemeral(true).queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send error message: ${error.message}") }
                 )
             }
         })
@@ -172,20 +207,12 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) {
     private fun handleRemove(event: SlashCommandInteractionEvent) {
         val actorName = "${event.user.name} (${event.user.id})"
 
-        event.deferReply().setEphemeral(true).queue(
-            null,
-            { error -> plugin.logger.warning("Failed to defer reply for /amslink remove: ${error.message}") }
-        )
+        deferReply(event, ephemeral = true)
 
         val targetUser = event.getOption("user")?.asUser
 
         if (targetUser == null) {
-            event.hook.sendMessage("❌ Missing user parameter.")
-                .setEphemeral(true)
-                .queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send missing user error: ${error.message}") }
-                )
+            sendEphemeralMessage(event.hook, "❌ Missing user parameter.")
             return
         }
 
@@ -203,11 +230,9 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) {
                         success = false,
                         details = mapOf("discordId" to discordId, "reason" to "not_linked")
                     )
-                    event.hook.sendMessage(
+                    sendEphemeralMessage(
+                        event.hook,
                         "⚠️ **${targetUser.name}** is not currently linked to any Minecraft account."
-                    ).setEphemeral(true).queue(
-                        null,
-                        { error -> plugin.logger.warning("Failed to send not linked message: ${error.message}") }
                     )
                     return@Runnable
                 }
@@ -232,54 +257,39 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) {
                     .setFooter("Amazing Minecraft Server", null)
                     .setTimestamp(Instant.now())
 
-                event.hook.sendMessageEmbeds(embed.build())
-                    .setEphemeral(true)
-                    .queue(
-                        null,
-                        { error -> plugin.logger.warning("Failed to send unlink success embed: ${error.message}") }
-                    )
+                sendEphemeralEmbed(event.hook, embed.build())
 
                 plugin.logger.info("Unlinked Discord ${targetUser.name} (${discordId}) from Minecraft $minecraftName via Discord command")
 
             } catch (e: InvalidDiscordIdException) {
                 plugin.logger.warning("Invalid Discord ID format: ${e.discordId}")
-                event.hook.sendMessage(
+                sendEphemeralMessage(
+                    event.hook,
                     "❌ **Invalid Discord ID**\n\n" +
                     "The Discord ID `${e.discordId}` has an invalid format."
-                ).setEphemeral(true).queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send invalid ID error: ${error.message}") }
                 )
 
             } catch (e: Exception) {
                 plugin.logger.warning("Unexpected error in Discord /amslink remove: ${e.message}")
                 e.printStackTrace()
-                event.hook.sendMessage(
+                sendEphemeralMessage(
+                    event.hook,
                     "⚠️ **Error**\n\n" +
                     "An unexpected error occurred: ${e.message}"
-                ).setEphemeral(true).queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send error message: ${error.message}") }
                 )
             }
         })
     }
 
     private fun handleList(event: SlashCommandInteractionEvent) {
-        event.deferReply().queue(
-            null,
-            { error -> plugin.logger.warning("Failed to defer reply for /amslink list: ${error.message}") }
-        )
+        deferReply(event, ephemeral = false)
 
         Bukkit.getScheduler().runTask(plugin, Runnable {
             try {
                 val mappings = plugin.userMappingService.getAllMappings()
 
                 if (mappings.isEmpty()) {
-                    event.hook.sendMessage("📋 No user mappings configured yet.").queue(
-                        null,
-                        { error -> plugin.logger.warning("Failed to send no mappings message: ${error.message}") }
-                    )
+                    sendMessage(event.hook, "📋 No user mappings configured yet.")
                     return@Runnable
                 }
 
@@ -308,40 +318,27 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) {
                     embed.appendDescription("\n\n*Showing first 25 of ${mappings.size} mappings*")
                 }
 
-                event.hook.sendMessageEmbeds(embed.build()).queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send mappings list embed: ${error.message}") }
-                )
+                sendEmbed(event.hook, embed.build())
 
             } catch (e: Exception) {
                 plugin.logger.warning("Unexpected error in Discord /amslink list: ${e.message}")
                 e.printStackTrace()
-                event.hook.sendMessage(
+                sendMessage(
+                    event.hook,
                     "⚠️ **Error**\n\n" +
                     "An unexpected error occurred while fetching the list."
-                ).queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send error message: ${error.message}") }
                 )
             }
         })
     }
 
     private fun handleCheck(event: SlashCommandInteractionEvent) {
-        event.deferReply().setEphemeral(true).queue(
-            null,
-            { error -> plugin.logger.warning("Failed to defer reply for /amslink check: ${error.message}") }
-        )
+        deferReply(event, ephemeral = true)
 
         val targetUser = event.getOption("user")?.asUser
 
         if (targetUser == null) {
-            event.hook.sendMessage("❌ Missing user parameter.")
-                .setEphemeral(true)
-                .queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send missing user error: ${error.message}") }
-                )
+            sendEphemeralMessage(event.hook, "❌ Missing user parameter.")
             return
         }
 
@@ -366,32 +363,23 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) {
                     embed.addField("Minecraft Username", "None", true)
                 }
 
-                event.hook.sendMessageEmbeds(embed.build())
-                    .setEphemeral(true)
-                    .queue(
-                        null,
-                        { error -> plugin.logger.warning("Failed to send check status embed: ${error.message}") }
-                    )
+                sendEphemeralEmbed(event.hook, embed.build())
 
             } catch (e: InvalidDiscordIdException) {
                 plugin.logger.warning("Invalid Discord ID format: ${e.discordId}")
-                event.hook.sendMessage(
+                sendEphemeralMessage(
+                    event.hook,
                     "❌ **Invalid Discord ID**\n\n" +
                     "The Discord ID `${e.discordId}` has an invalid format."
-                ).setEphemeral(true).queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send invalid ID error: ${error.message}") }
                 )
 
             } catch (e: Exception) {
                 plugin.logger.warning("Unexpected error in Discord /amslink check: ${e.message}")
                 e.printStackTrace()
-                event.hook.sendMessage(
+                sendEphemeralMessage(
+                    event.hook,
                     "⚠️ **Error**\n\n" +
                     "An unexpected error occurred while checking link status."
-                ).setEphemeral(true).queue(
-                    null,
-                    { error -> plugin.logger.warning("Failed to send error message: ${error.message}") }
                 )
             }
         })
