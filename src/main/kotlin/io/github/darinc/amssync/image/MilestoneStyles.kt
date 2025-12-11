@@ -19,7 +19,7 @@ object MilestoneStyles {
     const val SKILL_CARD_WIDTH = 400
 
     /** Skill milestone card height */
-    const val SKILL_CARD_HEIGHT = 200
+    const val SKILL_CARD_HEIGHT = 220
 
     /** Power milestone card width */
     const val POWER_CARD_WIDTH = 400

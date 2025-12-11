@@ -193,8 +193,8 @@ class MilestoneCardRenderer(
 
     private fun drawProgressBar(g2d: Graphics2D, level: Int) {
         val padding = MilestoneStyles.PADDING
-        val barY = MilestoneStyles.SKILL_CARD_HEIGHT - 50
-        val barWidth = MilestoneStyles.SKILL_CARD_WIDTH - (padding * 2) - 80
+        val barY = MilestoneStyles.SKILL_CARD_HEIGHT - 70
+        val barWidth = MilestoneStyles.SKILL_CARD_WIDTH - (padding * 2) - MilestoneStyles.HEAD_SIZE - 16
         val barHeight = 16
         val barX = padding + MilestoneStyles.HEAD_SIZE + 16
 
@@ -213,29 +213,26 @@ class MilestoneCardRenderer(
             g2d.paint = fillGradient
             g2d.fillRoundRect(barX, barY, fillWidth, barHeight, 8, 8)
         }
-
-        // Level text
-        g2d.color = MilestoneStyles.TEXT_SECONDARY
-        g2d.font = MilestoneStyles.FONT_SMALL
-        val levelText = "${level}/${MilestoneStyles.MAX_SKILL_LEVEL}"
-        g2d.drawString(levelText, barX + barWidth + 8, barY + 12)
     }
 
     private fun drawFooter(g2d: Graphics2D, width: Int, height: Int, level: Int) {
         val padding = MilestoneStyles.PADDING
         val footerY = height - padding
 
-        // Mastery message (left)
+        // Mastery message (above footer line)
         g2d.font = MilestoneStyles.FONT_SMALL
         g2d.color = MilestoneStyles.TEXT_ACCENT
         val masteryMsg = MilestoneStyles.getMasteryMessage(level)
-        g2d.drawString(masteryMsg, padding, footerY)
+        g2d.drawString(masteryMsg, padding, footerY - 14)
 
-        // Server name (right)
+        // Server name (left-aligned)
         g2d.font = MilestoneStyles.FONT_FOOTER
         g2d.color = MilestoneStyles.TEXT_SECONDARY
-        val serverWidth = g2d.fontMetrics.stringWidth(serverName)
-        g2d.drawString(serverName, width - padding - serverWidth, footerY)
+        g2d.drawString(serverName, padding, footerY)
+
+        // AMS Sync branding (right-aligned)
+        val brandingWidth = g2d.fontMetrics.stringWidth(CardStyles.BRANDING_TEXT)
+        g2d.drawString(CardStyles.BRANDING_TEXT, width - padding - brandingWidth, footerY)
     }
 
     private fun drawPowerHeader(g2d: Graphics2D, tier: MilestoneStyles.PowerTier) {
@@ -299,12 +296,16 @@ class MilestoneCardRenderer(
 
     private fun drawPowerFooter(g2d: Graphics2D, width: Int, height: Int) {
         val padding = MilestoneStyles.PADDING
+        val footerY = height - padding
 
-        // Server name (centered)
+        // Server name (left-aligned)
         g2d.font = MilestoneStyles.FONT_FOOTER
         g2d.color = MilestoneStyles.TEXT_SECONDARY
-        val serverWidth = g2d.fontMetrics.stringWidth(serverName)
-        g2d.drawString(serverName, (width - serverWidth) / 2, height - padding)
+        g2d.drawString(serverName, padding, footerY)
+
+        // AMS Sync branding (right-aligned)
+        val brandingWidth = g2d.fontMetrics.stringWidth(CardStyles.BRANDING_TEXT)
+        g2d.drawString(CardStyles.BRANDING_TEXT, width - padding - brandingWidth, footerY)
     }
 
     private fun drawLightningBolt(g2d: Graphics2D, x: Int, y: Int, size: Int) {

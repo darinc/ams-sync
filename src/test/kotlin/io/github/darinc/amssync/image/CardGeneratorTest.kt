@@ -4,6 +4,8 @@ import io.kotest.core.spec.style.DescribeSpec
 import java.awt.Color
 import java.awt.image.BufferedImage
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
 import javax.imageio.ImageIO
 
 /**
@@ -12,20 +14,66 @@ import javax.imageio.ImageIO
  * Run with: ./gradlew test --tests "CardGeneratorTest"
  *
  * Generated images are saved to docs/images/
+ *
+ * Uses mallowqueen's Minecraft skin for realistic avatars but displays
+ * made-up player names in the cards.
  */
 class CardGeneratorTest : DescribeSpec({
 
     val outputDir = File("docs/images")
     val renderer = PlayerCardRenderer("Awesome Minecraft Server")
+    val milestoneRenderer = MilestoneCardRenderer("Awesome Minecraft Server")
 
-    // Load cached avatar from test resources
-    fun loadCachedBodyImage(): BufferedImage {
-        val resourceStream = CardGeneratorTest::class.java.getResourceAsStream("/avatars/Steve_body.png")
-        return if (resourceStream != null) {
-            ImageIO.read(resourceStream) ?: createPlaceholderBody()
-        } else {
-            println("Warning: Cached avatar not found, using placeholder")
+    // Player skins for card examples
+    val COMMON_PLAYER = "silver_parallax"      // Common tier stats card
+    val RARE_PLAYER = "gyarados"               // Rare tier stats card
+    val EPIC_PLAYER = "Noaln_"                 // Epic tier stats card
+    val LEGENDARY_PLAYER = "mallowqueen"       // Legendary tier & milestones
+    val FIRST_PLACE = "NothingTV"              // 1st place on leaderboards
+
+    // Fetch body render from mc-heads.net for a specific player
+    fun fetchBodyImage(player: String): BufferedImage {
+        return try {
+            val url = URL("https://mc-heads.net/body/$player/128")
+            val connection = url.openConnection() as HttpURLConnection
+            connection.connectTimeout = 5000
+            connection.readTimeout = 5000
+            connection.setRequestProperty("User-Agent", "AMSSync-Test")
+
+            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                val image = ImageIO.read(connection.inputStream)
+                connection.disconnect()
+                image ?: createPlaceholderBody()
+            } else {
+                println("Warning: Failed to fetch body image for $player (${connection.responseCode}), using placeholder")
+                createPlaceholderBody()
+            }
+        } catch (e: Exception) {
+            println("Warning: Failed to fetch body image for $player (${e.message}), using placeholder")
             createPlaceholderBody()
+        }
+    }
+
+    // Fetch head avatar from mc-heads.net for a specific player
+    fun fetchHeadImage(player: String, size: Int = 64): BufferedImage {
+        return try {
+            val url = URL("https://mc-heads.net/avatar/$player/$size")
+            val connection = url.openConnection() as HttpURLConnection
+            connection.connectTimeout = 5000
+            connection.readTimeout = 5000
+            connection.setRequestProperty("User-Agent", "AMSSync-Test")
+
+            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                val image = ImageIO.read(connection.inputStream)
+                connection.disconnect()
+                image ?: createPlaceholderAvatar(size)
+            } else {
+                println("Warning: Failed to fetch head image for $player (${connection.responseCode}), using placeholder")
+                createPlaceholderAvatar(size)
+            }
+        } catch (e: Exception) {
+            println("Warning: Failed to fetch head image for $player (${e.message}), using placeholder")
+            createPlaceholderAvatar(size)
         }
     }
 
@@ -35,7 +83,7 @@ class CardGeneratorTest : DescribeSpec({
 
     describe("Example Card Generation") {
 
-        it("generates a COMMON tier stats card (Steel Gray gradient)") {
+        it("generates a COMMON tier stats card (Steel Gray gradient) - silver_parallax") {
             // Power level < 1000
             val stats = mapOf(
                 "MINING" to 120,
@@ -54,10 +102,10 @@ class CardGeneratorTest : DescribeSpec({
             )
             val powerLevel = stats.values.sum() // ~915
 
-            val bodyImage = loadCachedBodyImage()
+            val bodyImage = fetchBodyImage(COMMON_PLAYER)
 
             val card = renderer.renderStatsCard(
-                playerName = "NewPlayer",
+                playerName = COMMON_PLAYER,
                 stats = stats,
                 powerLevel = powerLevel,
                 bodyImage = bodyImage
@@ -65,10 +113,10 @@ class CardGeneratorTest : DescribeSpec({
 
             val outputFile = File(outputDir, "stats-card-common.png")
             ImageIO.write(card, "PNG", outputFile)
-            println("Generated: ${outputFile.absolutePath} (Power: $powerLevel)")
+            println("Generated: ${outputFile.absolutePath} (Power: $powerLevel) - ${COMMON_PLAYER}")
         }
 
-        it("generates a RARE tier stats card (Ocean Blue gradient)") {
+        it("generates a RARE tier stats card (Ocean Blue gradient) - gyarados") {
             // Power level 1000-4999
             val stats = mapOf(
                 "MINING" to 350,
@@ -87,10 +135,10 @@ class CardGeneratorTest : DescribeSpec({
             )
             val powerLevel = stats.values.sum() // ~2650
 
-            val bodyImage = loadCachedBodyImage()
+            val bodyImage = fetchBodyImage(RARE_PLAYER)
 
             val card = renderer.renderStatsCard(
-                playerName = "RegularPlayer",
+                playerName = RARE_PLAYER,
                 stats = stats,
                 powerLevel = powerLevel,
                 bodyImage = bodyImage
@@ -98,10 +146,10 @@ class CardGeneratorTest : DescribeSpec({
 
             val outputFile = File(outputDir, "stats-card-rare.png")
             ImageIO.write(card, "PNG", outputFile)
-            println("Generated: ${outputFile.absolutePath} (Power: $powerLevel)")
+            println("Generated: ${outputFile.absolutePath} (Power: $powerLevel) - ${RARE_PLAYER}")
         }
 
-        it("generates an EPIC tier stats card (Royal Purple gradient)") {
+        it("generates an EPIC tier stats card (Royal Purple gradient) - Noaln_") {
             // Power level 5000-9999
             val stats = mapOf(
                 "MINING" to 750,
@@ -120,10 +168,10 @@ class CardGeneratorTest : DescribeSpec({
             )
             val powerLevel = stats.values.sum() // ~6350
 
-            val bodyImage = loadCachedBodyImage()
+            val bodyImage = fetchBodyImage(EPIC_PLAYER)
 
             val card = renderer.renderStatsCard(
-                playerName = "VeteranPlayer",
+                playerName = EPIC_PLAYER,
                 stats = stats,
                 powerLevel = powerLevel,
                 bodyImage = bodyImage
@@ -131,10 +179,10 @@ class CardGeneratorTest : DescribeSpec({
 
             val outputFile = File(outputDir, "stats-card-epic.png")
             ImageIO.write(card, "PNG", outputFile)
-            println("Generated: ${outputFile.absolutePath} (Power: $powerLevel)")
+            println("Generated: ${outputFile.absolutePath} (Power: $powerLevel) - ${EPIC_PLAYER}")
         }
 
-        it("generates a LEGENDARY tier stats card (Infernal gradient)") {
+        it("generates a LEGENDARY tier stats card (Infernal gradient) - mallowqueen") {
             // Power level 10000+
             val stats = mapOf(
                 "MINING" to 1000,
@@ -153,10 +201,10 @@ class CardGeneratorTest : DescribeSpec({
             )
             val powerLevel = stats.values.sum() // ~11052
 
-            val bodyImage = loadCachedBodyImage()
+            val bodyImage = fetchBodyImage(LEGENDARY_PLAYER)
 
             val card = renderer.renderStatsCard(
-                playerName = "LegendPlayer",
+                playerName = LEGENDARY_PLAYER,
                 stats = stats,
                 powerLevel = powerLevel,
                 bodyImage = bodyImage
@@ -164,14 +212,15 @@ class CardGeneratorTest : DescribeSpec({
 
             val outputFile = File(outputDir, "stats-card-legendary.png")
             ImageIO.write(card, "PNG", outputFile)
-            println("Generated: ${outputFile.absolutePath} (Power: $powerLevel)")
+            println("Generated: ${outputFile.absolutePath} (Power: $powerLevel) - ${LEGENDARY_PLAYER}")
         }
 
-        it("generates a leaderboard card example") {
+        it("generates a leaderboard card example - NothingTV, mallowqueen, Noaln_ podium") {
+            // Top 3: NothingTV (1st), mallowqueen (2nd), Noaln_ (3rd)
             val leaderboard = listOf(
-                "MiningKing" to 1000,
-                "DiamondDig" to 945,
-                "StoneBreaker" to 887,
+                FIRST_PLACE to 1000,
+                LEGENDARY_PLAYER to 945,
+                EPIC_PLAYER to 887,
                 "CaveDweller" to 812,
                 "PickaxePro" to 756,
                 "OreMaster" to 701,
@@ -181,10 +230,12 @@ class CardGeneratorTest : DescribeSpec({
                 "IronWill" to 489
             )
 
-            // Create placeholder avatar images
-            val avatars = leaderboard.take(3).associate { (name, _) ->
-                name to createPlaceholderAvatar()
-            }
+            // Fetch real avatars for top 3
+            val avatars = mapOf(
+                FIRST_PLACE to fetchHeadImage(FIRST_PLACE, CardStyles.PODIUM_HEAD_SIZE),
+                LEGENDARY_PLAYER to fetchHeadImage(LEGENDARY_PLAYER, CardStyles.PODIUM_HEAD_SIZE),
+                EPIC_PLAYER to fetchHeadImage(EPIC_PLAYER, CardStyles.PODIUM_HEAD_SIZE)
+            )
 
             val card = renderer.renderLeaderboardCard(
                 title = "Mining Leaderboard",
@@ -194,14 +245,15 @@ class CardGeneratorTest : DescribeSpec({
 
             val outputFile = File(outputDir, "leaderboard-card-example.png")
             ImageIO.write(card, "PNG", outputFile)
-            println("Generated: ${outputFile.absolutePath}")
+            println("Generated: ${outputFile.absolutePath} - Podium: ${FIRST_PLACE}, ${LEGENDARY_PLAYER}, ${EPIC_PLAYER}")
         }
 
         it("generates a power level leaderboard example") {
+            // Top 3: NothingTV (1st), mallowqueen (2nd), Noaln_ (3rd)
             val leaderboard = listOf(
-                "LegendPlayer" to 11052,
-                "ProGamer" to 9845,
-                "SkillMaster" to 8721,
+                FIRST_PLACE to 11052,
+                LEGENDARY_PLAYER to 9845,
+                EPIC_PLAYER to 8721,
                 "VeteranMC" to 7654,
                 "ElitePlayer" to 6543,
                 "Dedicated" to 5432,
@@ -211,9 +263,11 @@ class CardGeneratorTest : DescribeSpec({
                 "Newbie" to 1098
             )
 
-            val avatars = leaderboard.take(3).associate { (name, _) ->
-                name to createPlaceholderAvatar()
-            }
+            val avatars = mapOf(
+                FIRST_PLACE to fetchHeadImage(FIRST_PLACE, CardStyles.PODIUM_HEAD_SIZE),
+                LEGENDARY_PLAYER to fetchHeadImage(LEGENDARY_PLAYER, CardStyles.PODIUM_HEAD_SIZE),
+                EPIC_PLAYER to fetchHeadImage(EPIC_PLAYER, CardStyles.PODIUM_HEAD_SIZE)
+            )
 
             val card = renderer.renderLeaderboardCard(
                 title = "Power Level",
@@ -224,6 +278,82 @@ class CardGeneratorTest : DescribeSpec({
             val outputFile = File(outputDir, "leaderboard-power-example.png")
             ImageIO.write(card, "PNG", outputFile)
             println("Generated: ${outputFile.absolutePath}")
+        }
+    }
+
+    describe("Milestone Card Generation - mallowqueen") {
+
+        it("generates a skill milestone card (Beginner tier - level 100)") {
+            val headImage = fetchHeadImage(LEGENDARY_PLAYER, MilestoneStyles.HEAD_SIZE)
+
+            val card = milestoneRenderer.renderSkillMilestoneCard(
+                playerName = LEGENDARY_PLAYER,
+                skill = com.gmail.nossr50.datatypes.skills.PrimarySkillType.MINING,
+                level = 100,
+                headImage = headImage
+            )
+
+            val outputFile = File(outputDir, "milestone-skill-beginner.png")
+            ImageIO.write(card, "PNG", outputFile)
+            println("Generated: ${outputFile.absolutePath} - ${LEGENDARY_PLAYER}")
+        }
+
+        it("generates a skill milestone card (Expert tier - level 500)") {
+            val headImage = fetchHeadImage(LEGENDARY_PLAYER, MilestoneStyles.HEAD_SIZE)
+
+            val card = milestoneRenderer.renderSkillMilestoneCard(
+                playerName = LEGENDARY_PLAYER,
+                skill = com.gmail.nossr50.datatypes.skills.PrimarySkillType.SWORDS,
+                level = 500,
+                headImage = headImage
+            )
+
+            val outputFile = File(outputDir, "milestone-skill-expert.png")
+            ImageIO.write(card, "PNG", outputFile)
+            println("Generated: ${outputFile.absolutePath} - ${LEGENDARY_PLAYER}")
+        }
+
+        it("generates a skill milestone card (Legendary tier - level 1000)") {
+            val headImage = fetchHeadImage(LEGENDARY_PLAYER, MilestoneStyles.HEAD_SIZE)
+
+            val card = milestoneRenderer.renderSkillMilestoneCard(
+                playerName = LEGENDARY_PLAYER,
+                skill = com.gmail.nossr50.datatypes.skills.PrimarySkillType.SWORDS,
+                level = 1000,
+                headImage = headImage
+            )
+
+            val outputFile = File(outputDir, "milestone-skill-legendary.png")
+            ImageIO.write(card, "PNG", outputFile)
+            println("Generated: ${outputFile.absolutePath} - ${LEGENDARY_PLAYER}")
+        }
+
+        it("generates a power level milestone card (Warrior tier - 1000)") {
+            val headImage = fetchHeadImage(LEGENDARY_PLAYER, MilestoneStyles.HEAD_SIZE)
+
+            val card = milestoneRenderer.renderPowerMilestoneCard(
+                playerName = LEGENDARY_PLAYER,
+                powerLevel = 1000,
+                headImage = headImage
+            )
+
+            val outputFile = File(outputDir, "milestone-power-warrior.png")
+            ImageIO.write(card, "PNG", outputFile)
+            println("Generated: ${outputFile.absolutePath} - ${LEGENDARY_PLAYER}")
+        }
+
+        it("generates a power level milestone card (Mythic tier - 20000)") {
+            val headImage = fetchHeadImage(LEGENDARY_PLAYER, MilestoneStyles.HEAD_SIZE)
+
+            val card = milestoneRenderer.renderPowerMilestoneCard(
+                playerName = LEGENDARY_PLAYER,
+                powerLevel = 20000,
+                headImage = headImage
+            )
+
+            val outputFile = File(outputDir, "milestone-power-mythic.png")
+            ImageIO.write(card, "PNG", outputFile)
+            println("Generated: ${outputFile.absolutePath} - ${LEGENDARY_PLAYER}")
         }
     }
 })
@@ -281,8 +411,7 @@ private fun createPlaceholderBody(): BufferedImage {
 /**
  * Create a placeholder avatar (simple head).
  */
-private fun createPlaceholderAvatar(): BufferedImage {
-    val size = CardStyles.PODIUM_HEAD_SIZE
+private fun createPlaceholderAvatar(size: Int = CardStyles.PODIUM_HEAD_SIZE): BufferedImage {
     val image = BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB)
     val g2d = image.createGraphics()
 

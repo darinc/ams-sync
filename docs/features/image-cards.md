@@ -14,40 +14,93 @@ AMSSync generates visual cards for player stats and leaderboards using Java's Gr
 
 ## Example Cards
 
-### Stats Card
+All example images are generated using the `CardGeneratorTest` test class, which fetches real player skins from mc-heads.net. The examples feature the following players:
 
-![Stats Card Example](../images/stats-card-example.png)
+- **silver_parallax** - Common tier stats card
+- **gyarados** - Rare tier stats card
+- **Noaln_** - Epic tier stats card
+- **mallowqueen** - Legendary tier stats card & milestones
+- **NothingTV** - 1st place on leaderboards
 
-A mid-level player's stats card showing:
-- Full body skin render
-- Power level with rarity tier (Bronze/Silver/Gold/Diamond)
-- Top Skill panel highlighting the player's highest skill with badge
-- Skills organized by category (Combat, Gathering, Misc)
-- Progress bars showing level progress toward mastery (1000)
+### Stats Cards by Tier
 
-### Legendary Stats Card
+Stats cards display a player's MCMMO skills with tier-based visual styling based on power level.
+
+#### Common Tier (Power < 1000) - silver_parallax
+
+![Common Stats Card](../images/stats-card-common.png)
+
+Steel gray gradient background with bronze border.
+
+#### Rare Tier (Power 1000-4999) - gyarados
+
+![Rare Stats Card](../images/stats-card-rare.png)
+
+Ocean blue gradient background with silver border.
+
+#### Epic Tier (Power 5000-9999) - Noaln_
+
+![Epic Stats Card](../images/stats-card-epic.png)
+
+Royal purple gradient background with gold border.
+
+#### Legendary Tier (Power 10000+) - mallowqueen
 
 ![Legendary Stats Card](../images/stats-card-legendary.png)
 
-A high-level player with mastered skills (level 1000+) shown with:
-- Diamond/Legendary border
-- Gold mastery stars on maxed skills
-- Top Skill panel with mastery indicator
+Infernal gradient background with diamond/cyan border. Shows mastered skills (level 1000) with gold mastery stars.
 
-### Leaderboard Card
+### Leaderboard Cards
 
-![Leaderboard Card Example](../images/leaderboard-card-example.png)
+#### Skill Leaderboard - NothingTV, mallowqueen, Noaln_
+
+![Mining Leaderboard](../images/leaderboard-card-example.png)
 
 Mining skill leaderboard showing:
-- Top 3 on podium with avatars and crown for #1
+- Top 3 on podium: NothingTV (1st), mallowqueen (2nd), Noaln_ (3rd)
 - Positions 4-10 in list format with dotted leaders
 - Gold/Silver/Bronze podium blocks
+- Server name on bottom-left, "AMS Sync" on bottom-right
 
-### Power Level Leaderboard
+#### Power Level Leaderboard
 
 ![Power Level Leaderboard](../images/leaderboard-power-example.png)
 
 Total power level leaderboard (sum of all skills).
+
+### Milestone Cards - mallowqueen
+
+Milestone cards celebrate player achievements and are posted to Discord when configured. All milestone examples feature mallowqueen.
+
+#### Skill Milestone - Beginner (Level 100)
+
+![Skill Milestone Beginner](../images/milestone-skill-beginner.png)
+
+Green-themed card for reaching level 100 in Mining.
+
+#### Skill Milestone - Expert (Level 500)
+
+![Skill Milestone Expert](../images/milestone-skill-expert.png)
+
+Purple-themed card for reaching level 500 in Swords.
+
+#### Skill Milestone - Legendary (Level 1000)
+
+![Skill Milestone Legendary](../images/milestone-skill-legendary.png)
+
+Gold-themed card for mastering Swords at level 1000.
+
+#### Power Level Milestone - Warrior (1000)
+
+![Power Milestone Warrior](../images/milestone-power-warrior.png)
+
+Celebrates reaching 1000 total power level.
+
+#### Power Level Milestone - Mythic (20000)
+
+![Power Milestone Mythic](../images/milestone-power-mythic.png)
+
+Gold-themed celebration for reaching 20000 total power level.
 
 ## Card Types
 

@@ -8,6 +8,9 @@ import java.awt.Font
  */
 object CardStyles {
 
+    // === Branding ===
+    const val BRANDING_TEXT = "AMS Sync"
+
     // === Card Dimensions ===
     const val STATS_CARD_WIDTH = 450
     const val STATS_CARD_HEIGHT = 600

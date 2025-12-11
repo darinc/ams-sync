@@ -153,8 +153,14 @@ class PlayerCardRenderer(
 
         // === Footer Section ===
         val footerY = height - padding - 15
-        GraphicsUtils.drawCenteredString(
-            g2d, serverName, width / 2, footerY,
+        // Server name (left-aligned)
+        GraphicsUtils.drawString(
+            g2d, serverName, padding + 5, footerY,
+            CardStyles.FONT_FOOTER, CardStyles.TEXT_GRAY
+        )
+        // AMS Sync branding (right-aligned)
+        GraphicsUtils.drawRightAlignedString(
+            g2d, CardStyles.BRANDING_TEXT, width - padding - 5, footerY,
             CardStyles.FONT_FOOTER, CardStyles.TEXT_GRAY
         )
 
@@ -256,8 +262,14 @@ class PlayerCardRenderer(
 
         // === Footer ===
         val footerY = height - padding - 10
-        GraphicsUtils.drawCenteredString(
-            g2d, serverName, width / 2, footerY,
+        // Server name (left-aligned)
+        GraphicsUtils.drawString(
+            g2d, serverName, padding + 10, footerY,
+            CardStyles.FONT_FOOTER, CardStyles.TEXT_GRAY
+        )
+        // AMS Sync branding (right-aligned)
+        GraphicsUtils.drawRightAlignedString(
+            g2d, CardStyles.BRANDING_TEXT, width - padding - 10, footerY,
             CardStyles.FONT_FOOTER, CardStyles.TEXT_GRAY
         )
 
