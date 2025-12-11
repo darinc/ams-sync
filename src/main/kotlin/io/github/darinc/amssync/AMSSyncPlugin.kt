@@ -39,9 +39,14 @@ import io.github.darinc.amssync.mcmmo.AnnouncementConfig
 import io.github.darinc.amssync.mcmmo.McMMOEventListener
 import io.github.darinc.amssync.mcmmo.McmmoApiWrapper
 import io.github.darinc.amssync.metrics.ErrorMetrics
+import io.github.darinc.amssync.progression.ProgressionDatabase
+import io.github.darinc.amssync.progression.ProgressionRetentionTask
+import io.github.darinc.amssync.progression.ProgressionSnapshotTask
+import io.github.darinc.amssync.progression.ProgressionTrackingConfig
 import io.github.darinc.amssync.services.DiscordServices
 import io.github.darinc.amssync.services.EventServices
 import io.github.darinc.amssync.services.ImageServices
+import io.github.darinc.amssync.services.ProgressionServices
 import io.github.darinc.amssync.services.ResilienceServices
 import io.github.darinc.amssync.services.ServiceRegistry
 import org.bukkit.plugin.java.JavaPlugin
@@ -66,6 +71,9 @@ class AMSSyncPlugin : JavaPlugin() {
         // Initialize core services
         logger.info("Initializing AMSSync plugin...")
         initializeCoreServices()
+
+        // Initialize progression tracking (SQLite-based)
+        initializeProgressionTracking()
 
         // Load and validate Discord configuration
         val discordConfig = loadDiscordConfig() ?: return
@@ -135,6 +143,58 @@ class AMSSyncPlugin : JavaPlugin() {
         val syncCommand = AMSSyncCommand(this)
         getCommand("amssync")?.setExecutor(syncCommand)
         getCommand("amssync")?.tabCompleter = syncCommand
+    }
+
+    private fun initializeProgressionTracking() {
+        val progressionConfig = ProgressionTrackingConfig.fromConfig(config)
+
+        if (!progressionConfig.enabled) {
+            logger.info("Progression tracking disabled in config")
+            services.progression = ProgressionServices.disabled()
+            return
+        }
+
+        // Initialize the SQLite database
+        val database = ProgressionDatabase(dataFolder, progressionConfig.databaseFile, logger)
+        if (!database.initialize()) {
+            logger.warning("Failed to initialize progression database - feature disabled")
+            services.progression = ProgressionServices.disabled()
+            return
+        }
+
+        // Initialize snapshot task if enabled
+        val snapshotTask = if (progressionConfig.snapshots.enabled) {
+            ProgressionSnapshotTask(this, progressionConfig.snapshots, database).also { it.start() }
+        } else {
+            null
+        }
+
+        // Initialize retention task if enabled
+        val retentionTask = if (progressionConfig.retention.enabled) {
+            ProgressionRetentionTask(this, progressionConfig.retention, database).also { it.start() }
+        } else {
+            null
+        }
+
+        services.progression = ProgressionServices(
+            config = progressionConfig,
+            database = database,
+            snapshotTask = snapshotTask,
+            retentionTask = retentionTask
+        )
+
+        val features = mutableListOf<String>()
+        if (progressionConfig.events.enabled) features.add("events")
+        if (progressionConfig.snapshots.enabled) {
+            features.add("snapshots (${progressionConfig.snapshots.intervalMinutes}min)")
+        }
+        if (progressionConfig.retention.enabled) {
+            val tiers = progressionConfig.retention.tiers
+            features.add("retention (${tiers.rawDays}d raw, ${tiers.hourlyDays}d hourly, " +
+                "${tiers.dailyDays}d daily, ${tiers.weeklyYears}y weekly)")
+        }
+
+        logger.info("Progression tracking enabled: ${features.joinToString(", ")}")
     }
 
     private fun initializeRateLimiter() {

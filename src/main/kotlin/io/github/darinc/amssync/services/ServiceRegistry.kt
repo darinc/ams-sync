@@ -40,6 +40,9 @@ class ServiceRegistry {
     var events: EventServices = EventServices.empty()
         internal set
 
+    var progression: ProgressionServices = ProgressionServices.disabled()
+        internal set
+
     /**
      * Shutdown all services in proper order.
      */
@@ -59,6 +62,9 @@ class ServiceRegistry {
         if (::resilience.isInitialized) {
             resilience.shutdown()
         }
+
+        // Shutdown progression services
+        progression.shutdown()
 
         // Save user mappings
         if (::userMappingService.isInitialized) {

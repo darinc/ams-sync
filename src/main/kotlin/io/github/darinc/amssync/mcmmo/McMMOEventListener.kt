@@ -85,6 +85,9 @@ class McMMOEventListener(
         val newLevel = event.skillLevel
         val uuid = player.uniqueId
 
+        // Log progression event to database (if enabled)
+        logProgressionEvent(uuid, player.name, skill, newLevel)
+
         // Check for skill milestone
         if (milestoneDetector.isSkillMilestone(skill, newLevel)) {
             val milestone = milestoneDetector.createSkillMilestone(player.name, uuid, skill, newLevel)
@@ -96,6 +99,29 @@ class McMMOEventListener(
             val milestone = milestoneDetector.createPowerLevelMilestone(player.name, uuid, powerLevel)
             announcePowerLevelMilestone(milestone)
         }
+    }
+
+    /**
+     * Log level-up event for progression tracking.
+     * Runs asynchronously to avoid blocking the event handler.
+     */
+    private fun logProgressionEvent(
+        uuid: UUID,
+        playerName: String,
+        skill: PrimarySkillType,
+        newLevel: Int
+    ) {
+        val database = plugin.services.progression.database ?: return
+        val config = plugin.services.progression.config
+        if (!config.enabled || !config.events.enabled) return
+
+        // Calculate old level (newLevel - 1 for single level-ups)
+        val oldLevel = newLevel - 1
+
+        // Run insert asynchronously to avoid blocking event handler
+        plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
+            database.insertLevelUp(uuid, playerName, skill.name, oldLevel, newLevel)
+        })
     }
 
     /**

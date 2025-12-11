@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2025-12-11
+
+### Added
+
+- Skill progression tracking with SQLite database storage
+- Tiered data retention: raw snapshots (7d) → hourly (30d) → daily (180d) → weekly (5y)
+- Periodic skill snapshots and level-up event recording
+- Comprehensive test suite for progression tracking features
+
 ## [0.18.8] - 2025-12-11
 
 ### Added

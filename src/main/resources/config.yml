@@ -301,6 +301,71 @@ mcmmo:
     # Recommended: 60 seconds (provides ~60x performance improvement)
     cache-ttl-seconds: 60
 
+# Skill Progression Tracking
+# Records level-up events and periodic snapshots for analytics and graphs
+# Data is stored in a SQLite database (uses Paper's bundled SQLite JDBC)
+progression-tracking:
+  # Master enable/disable for all progression tracking features
+  # When disabled, no data is collected or stored
+  enabled: false
+
+  # SQLite database filename (relative to plugin data folder)
+  # The database file is created automatically when first enabled
+  database-file: "progression.db"
+
+  # Level-up event tracking
+  # Records each skill level-up with timestamp, skill, old/new level
+  events:
+    # Enable/disable level-up event recording
+    enabled: true
+
+  # Periodic skill snapshots
+  # Captures full skill state for all online players at regular intervals
+  # Useful for tracking progression velocity and time-based analytics
+  snapshots:
+    # Enable/disable periodic snapshots
+    enabled: true
+    # Interval between snapshots in minutes
+    # Lower = more granular data but larger database
+    # Recommended: 5-15 minutes
+    interval-minutes: 5
+    # Only snapshot online players (recommended)
+    # When true, only captures players currently on the server
+    online-only: true
+
+  # Tiered data retention and compaction
+  # Implements logarithmic retention: raw -> hourly -> daily -> weekly -> delete
+  # This balances storage efficiency with historical data availability
+  retention:
+    # Enable/disable automatic data cleanup and compaction
+    enabled: true
+    # How often to run the cleanup/compaction task (in hours)
+    # Runs asynchronously to avoid blocking server
+    cleanup-interval-hours: 24
+
+    # Tiered retention periods
+    # Data flows: raw snapshots -> hourly -> daily -> weekly -> deleted
+    tiers:
+      # Keep raw snapshots (every N minutes) for this many days
+      # After this, snapshots are compacted into hourly summaries
+      # Example: 7 = keep 5-minute snapshots for 1 week
+      raw-days: 7
+
+      # Keep hourly summaries for this many days
+      # After this, hourly data is compacted into daily summaries
+      # Example: 30 = keep hourly data for 1 month
+      hourly-days: 30
+
+      # Keep daily summaries for this many days
+      # After this, daily data is compacted into weekly summaries
+      # Example: 180 = keep daily data for 6 months
+      daily-days: 180
+
+      # Keep weekly summaries for this many years
+      # After this, weekly data is permanently deleted
+      # Example: 5 = keep weekly data for 5 years
+      weekly-years: 5
+
 # Discord User ID to Minecraft Username mappings
 # Format: "discord_user_id": "MinecraftUsername"
 #

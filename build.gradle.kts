@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "io.github.darinc"
-version = "0.18.8"
+version = "0.19.0"
 
 repositories {
     mavenCentral()
@@ -41,6 +41,7 @@ dependencies {
     testImplementation("io.kotest:kotest-property:5.8.0")
     testImplementation("io.mockk:mockk:1.13.8")
     testImplementation("io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT")
+    testImplementation("org.xerial:sqlite-jdbc:3.45.1.0")
     // MCMMO for tests (milestone card generation, etc.)
     testImplementation("com.gmail.nossr50.mcMMO:mcMMO:2.2.044-SNAPSHOT") {
         exclude(group = "com.sk89q.worldedit")
