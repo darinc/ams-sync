@@ -284,52 +284,107 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) {
     private fun handleList(event: SlashCommandInteractionEvent) {
         deferReply(event, ephemeral = false)
 
-        Bukkit.getScheduler().runTask(plugin, Runnable {
-            try {
-                val mappings = plugin.userMappingService.getAllMappings()
+        // First, fetch all Discord users asynchronously, then build the embed
+        val mappings = plugin.userMappingService.getAllMappings()
 
-                if (mappings.isEmpty()) {
-                    sendMessage(event.hook, "📋 No user mappings configured yet.")
-                    return@Runnable
-                }
+        if (mappings.isEmpty()) {
+            sendMessage(event.hook, "📋 No user mappings configured yet.")
+            return
+        }
 
-                val embed = EmbedBuilder()
-                    .setTitle("📋 Discord-Minecraft User Links")
-                    .setColor(Color.CYAN)
-                    .setDescription("Total: ${mappings.size} linked user(s)")
-                    .setTimestamp(Instant.now())
-                    .setFooter("Amazing Minecraft Server", null)
+        val jda = event.jda
+        val guild = event.guild
+        val entriesToShow = mappings.entries.take(25)
 
-                // Get Discord names for the linked users
-                val guild = event.guild
-                mappings.entries.take(25).forEach { (discordId, minecraftName) ->
-                    val member = guild?.getMemberById(discordId)
-                    val discordName = member?.effectiveName ?: member?.user?.name ?: "Unknown"
-                    val displayName = if (member != null) {
-                        "$discordName (${member.user.name})"
+        // Collect user info asynchronously
+        // Note: getMemberById only checks the cache, which may not have all members loaded.
+        // We must use retrieveMemberById to make an API call for accurate results.
+        val userFutures = entriesToShow.map { (discordId, minecraftName) ->
+            if (guild != null) {
+                // Try to retrieve as guild member first (gives us nickname info)
+                guild.retrieveMemberById(discordId).submit().handle { member, memberError ->
+                    if (memberError == null && member != null) {
+                        // User is still in the guild
+                        Triple(discordId, minecraftName, "${member.effectiveName} (${member.user.name})")
                     } else {
-                        "User Left Server"
+                        // Member retrieval failed - try to get basic user info
+                        // This happens when user left the server
+                        try {
+                            val user = jda.retrieveUserById(discordId).complete()
+                            Triple(discordId, minecraftName, "${user.name} (left server)")
+                        } catch (e: Exception) {
+                            Triple(discordId, minecraftName, "Unknown ($discordId)")
+                        }
+                    }
+                }
+            } else {
+                // No guild context - just get user info
+                jda.retrieveUserById(discordId).submit().handle { user, error ->
+                    val discordName = if (error != null || user == null) {
+                        "Unknown ($discordId)"
+                    } else {
+                        user.name
+                    }
+                    Triple(discordId, minecraftName, discordName)
+                }
+            }
+        }
+
+        // Wait for all user lookups to complete
+        java.util.concurrent.CompletableFuture.allOf(*userFutures.toTypedArray()).thenRun {
+            Bukkit.getScheduler().runTask(plugin, Runnable {
+                try {
+                    val resolvedEntries = userFutures.map { it.join() }
+
+                    val embed = EmbedBuilder()
+                        .setTitle("📋 Discord-Minecraft User Links")
+                        .setColor(Color.CYAN)
+                        .setTimestamp(Instant.now())
+                        .setFooter("Amazing Minecraft Server", null)
+
+                    // Build table-style description
+                    val tableBuilder = StringBuilder()
+                    tableBuilder.append("**Total:** ${mappings.size} linked user(s)\n\n")
+                    tableBuilder.append("```\n")
+                    tableBuilder.append(String.format("%-25s │ %-16s%n", "Discord", "Minecraft"))
+                    tableBuilder.append("──────────────────────────┼──────────────────\n")
+
+                    resolvedEntries.forEach { (_, minecraftName, discordName) ->
+                        // Truncate long names to fit table
+                        val truncatedDiscord = if (discordName.length > 25) {
+                            discordName.take(22) + "..."
+                        } else {
+                            discordName
+                        }
+                        val truncatedMinecraft = if (minecraftName.length > 16) {
+                            minecraftName.take(13) + "..."
+                        } else {
+                            minecraftName
+                        }
+                        tableBuilder.append(String.format("%-25s │ %-16s%n", truncatedDiscord, truncatedMinecraft))
                     }
 
-                    embed.addField(displayName, "→ `$minecraftName`", false)
+                    tableBuilder.append("```")
+
+                    if (mappings.size > 25) {
+                        tableBuilder.append("\n*Showing first 25 of ${mappings.size} mappings*")
+                    }
+
+                    embed.setDescription(tableBuilder.toString())
+
+                    sendEmbed(event.hook, embed.build())
+
+                } catch (e: Exception) {
+                    plugin.logger.warning("Unexpected error in Discord /amslink list: ${e.message}")
+                    e.printStackTrace()
+                    sendMessage(
+                        event.hook,
+                        "⚠️ **Error**\n\n" +
+                        "An unexpected error occurred while fetching the list."
+                    )
                 }
-
-                if (mappings.size > 25) {
-                    embed.appendDescription("\n\n*Showing first 25 of ${mappings.size} mappings*")
-                }
-
-                sendEmbed(event.hook, embed.build())
-
-            } catch (e: Exception) {
-                plugin.logger.warning("Unexpected error in Discord /amslink list: ${e.message}")
-                e.printStackTrace()
-                sendMessage(
-                    event.hook,
-                    "⚠️ **Error**\n\n" +
-                    "An unexpected error occurred while fetching the list."
-                )
-            }
-        })
+            })
+        }
     }
 
     private fun handleCheck(event: SlashCommandInteractionEvent) {
