@@ -60,7 +60,7 @@ class PlayerCountPresence(
         plugin.server.pluginManager.registerEvents(this, plugin)
 
         // Store original bot name for nickname template
-        originalBotName = plugin.discordManager.getJda()?.selfUser?.name
+        originalBotName = plugin.services.discord.manager.getJda()?.selfUser?.name
 
         // Set initial presence
         updatePresenceNow()
@@ -166,8 +166,8 @@ class PlayerCountPresence(
      * Update Discord presence with current player count.
      */
     private fun updatePresence(playerCount: Int) {
-        val jda = plugin.discordManager.getJda() ?: return
-        if (!plugin.discordManager.isConnected()) {
+        val jda = plugin.services.discord.manager.getJda() ?: return
+        if (!plugin.services.discord.manager.isConnected()) {
             plugin.logger.fine("Skipping presence update - Discord not connected")
             return
         }
@@ -197,7 +197,7 @@ class PlayerCountPresence(
         }
 
         try {
-            val circuitBreaker = plugin.circuitBreaker
+            val circuitBreaker = plugin.services.resilience.circuitBreaker
 
             if (circuitBreaker != null) {
                 val result = circuitBreaker.execute("Update bot activity") {
@@ -242,7 +242,7 @@ class PlayerCountPresence(
         val nickname = formatTemplate(config.nickname.template, playerCount, botName)
 
         try {
-            val circuitBreaker = plugin.circuitBreaker
+            val circuitBreaker = plugin.services.resilience.circuitBreaker
 
             if (circuitBreaker != null) {
                 val result = circuitBreaker.execute("Update bot nickname") {

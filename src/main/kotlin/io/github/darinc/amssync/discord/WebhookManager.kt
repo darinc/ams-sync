@@ -100,7 +100,7 @@ class WebhookManager(
         client: WebhookClient
     ) {
         try {
-            val circuitBreaker = plugin.circuitBreaker
+            val circuitBreaker = plugin.services.resilience.circuitBreaker
 
             val sendAction = {
                 val webhookEmbed = convertToWebhookEmbed(embed)
@@ -141,7 +141,7 @@ class WebhookManager(
         client: WebhookClient
     ) {
         try {
-            val circuitBreaker = plugin.circuitBreaker
+            val circuitBreaker = plugin.services.resilience.circuitBreaker
 
             val sendAction = {
                 val message = WebhookMessageBuilder()
@@ -178,7 +178,7 @@ class WebhookManager(
         val channel = getChannel() ?: return
 
         try {
-            val circuitBreaker = plugin.circuitBreaker
+            val circuitBreaker = plugin.services.resilience.circuitBreaker
 
             val sendAction = {
                 channel.sendMessageEmbeds(embed).queue(
@@ -204,7 +204,7 @@ class WebhookManager(
         val channel = getChannel() ?: return
 
         try {
-            val circuitBreaker = plugin.circuitBreaker
+            val circuitBreaker = plugin.services.resilience.circuitBreaker
 
             val sendAction = {
                 channel.sendMessage(content).queue(
@@ -227,8 +227,8 @@ class WebhookManager(
     }
 
     private fun getChannel(): TextChannel? {
-        val jda = plugin.discordManager.getJda()
-        if (jda == null || !plugin.discordManager.isConnected()) {
+        val jda = plugin.services.discord.manager.getJda()
+        if (jda == null || !plugin.services.discord.manager.isConnected()) {
             plugin.logger.fine("Skipping message - Discord not connected")
             return null
         }

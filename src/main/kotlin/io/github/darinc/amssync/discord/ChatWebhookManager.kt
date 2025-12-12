@@ -59,7 +59,7 @@ class ChatWebhookManager(
         }
 
         try {
-            val circuitBreaker = plugin.circuitBreaker
+            val circuitBreaker = plugin.services.resilience.circuitBreaker
 
             val sendAction = {
                 val message = WebhookMessageBuilder()

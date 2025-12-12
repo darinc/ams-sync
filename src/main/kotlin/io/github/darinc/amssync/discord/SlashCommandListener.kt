@@ -32,7 +32,7 @@ class SlashCommandListener(
     }
 
     private val discordApi: DiscordApiWrapper?
-        get() = plugin.discordApiWrapper
+        get() = plugin.services.discord.apiWrapper
 
     override fun onSlashCommandInteraction(event: SlashCommandInteractionEvent) {
         val userId = event.user.id
@@ -41,11 +41,11 @@ class SlashCommandListener(
         plugin.logger.info("Received slash command: ${event.name} from $userName")
 
         // Check rate limit
-        val rateLimiter = plugin.rateLimiter
+        val rateLimiter = plugin.services.rateLimiter
         if (rateLimiter != null) {
             when (val result = rateLimiter.checkRateLimit(userId)) {
                 is RateLimitResult.Cooldown -> {
-                    plugin.auditLogger.logSecurityEvent(
+                    plugin.services.auditLogger.logSecurityEvent(
                         event = SecurityEvent.RATE_LIMITED,
                         actor = "$userName ($userId)",
                         actorType = ActorType.DISCORD_USER,
@@ -59,7 +59,7 @@ class SlashCommandListener(
                     return
                 }
                 is RateLimitResult.BurstLimited -> {
-                    plugin.auditLogger.logSecurityEvent(
+                    plugin.services.auditLogger.logSecurityEvent(
                         event = SecurityEvent.RATE_LIMITED,
                         actor = "$userName ($userId)",
                         actorType = ActorType.DISCORD_USER,

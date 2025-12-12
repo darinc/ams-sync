@@ -21,14 +21,14 @@ import java.time.Instant
 class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) {
 
     private val discordApi: DiscordApiWrapper?
-        get() = plugin.discordApiWrapper
+        get() = plugin.services.discord.apiWrapper
 
     fun handle(event: SlashCommandInteractionEvent) {
         val actorName = "${event.user.name} (${event.user.id})"
 
         // Check admin permission
         if (event.member?.hasPermission(Permission.MANAGE_SERVER) != true) {
-            plugin.auditLogger.logSecurityEvent(
+            plugin.services.auditLogger.logSecurityEvent(
                 event = SecurityEvent.PERMISSION_DENIED,
                 actor = actorName,
                 actorType = ActorType.DISCORD_USER,
@@ -123,7 +123,7 @@ class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) {
 
         // Validate Minecraft username
         if (!Validators.isValidMinecraftUsername(minecraftName)) {
-            plugin.auditLogger.logSecurityEvent(
+            plugin.services.auditLogger.logSecurityEvent(
                 event = SecurityEvent.INVALID_INPUT,
                 actor = actorName,
                 actorType = ActorType.DISCORD_USER,
@@ -149,7 +149,7 @@ class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) {
                 val offlinePlayer = findOfflinePlayerByName(minecraftName)
 
                 if (offlinePlayer == null || !offlinePlayer.hasPlayedBefore()) {
-                    plugin.auditLogger.logAdminAction(
+                    plugin.services.auditLogger.logAdminAction(
                         action = AuditAction.WHITELIST_ADD,
                         actor = actorName,
                         actorType = ActorType.DISCORD_USER,
@@ -178,7 +178,7 @@ class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) {
                 // Add to whitelist
                 offlinePlayer.isWhitelisted = true
 
-                plugin.auditLogger.logAdminAction(
+                plugin.services.auditLogger.logAdminAction(
                     action = AuditAction.WHITELIST_ADD,
                     actor = actorName,
                     actorType = ActorType.DISCORD_USER,
@@ -231,7 +231,7 @@ class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) {
                     .find { it.name?.equals(minecraftName, ignoreCase = true) == true }
 
                 if (whitelistedPlayer == null) {
-                    plugin.auditLogger.logAdminAction(
+                    plugin.services.auditLogger.logAdminAction(
                         action = AuditAction.WHITELIST_REMOVE,
                         actor = actorName,
                         actorType = ActorType.DISCORD_USER,
@@ -249,7 +249,7 @@ class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) {
                 // Remove from whitelist
                 whitelistedPlayer.isWhitelisted = false
 
-                plugin.auditLogger.logAdminAction(
+                plugin.services.auditLogger.logAdminAction(
                     action = AuditAction.WHITELIST_REMOVE,
                     actor = actorName,
                     actorType = ActorType.DISCORD_USER,

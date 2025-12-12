@@ -342,121 +342,70 @@ class PlayerCardRenderer(
         cardWidth: Int,
         startY: Int
     ) {
-        val centerX = cardWidth / 2
+        val layout = PodiumLayout(
+            centerX = cardWidth / 2,
+            startY = startY,
+            podiumY = startY + 120,
+            podiumWidth = PodiumPosition.getPodiumWidth(),
+            firstHeight = PodiumPosition.getFirstHeight()
+        )
 
-        // Podium dimensions
-        val podiumWidth = 70
-        val firstHeight = 80
-        val secondHeight = 60
-        val thirdHeight = 50
-        val podiumY = startY + 120
-
-        // Draw 1st place (center, highest)
-        if (top3.isNotEmpty()) {
-            val (name, score) = top3[0]
-            val firstX = centerX - podiumWidth / 2
-
-            // Draw crown above
-            GraphicsUtils.drawCrown(g2d, centerX, startY, 30, 20, CardStyles.PODIUM_GOLD)
-
-            // Draw head avatar
-            val avatar = avatarImages[name]
-            if (avatar != null) {
-                GraphicsUtils.drawCenteredImage(g2d, avatar, centerX, startY + 55)
+        PodiumPosition.ALL.forEachIndexed { index, position ->
+            if (top3.size > index) {
+                val (name, score) = top3[index]
+                drawPodiumPosition(g2d, position, name, score, avatarImages[name], layout)
             }
+        }
+    }
 
-            // Draw name and score
-            GraphicsUtils.drawCenteredString(
-                g2d, name, centerX, startY + 95,
-                CardStyles.FONT_SKILL_VALUE, CardStyles.TEXT_WHITE
-            )
-            GraphicsUtils.drawCenteredString(
-                g2d, numberFormat.format(score), centerX, startY + 110,
-                CardStyles.FONT_SKILL, CardStyles.TEXT_GOLD
-            )
+    /**
+     * Draw a single podium position (1st, 2nd, or 3rd place).
+     */
+    private fun drawPodiumPosition(
+        g2d: java.awt.Graphics2D,
+        position: PodiumPosition,
+        name: String,
+        score: Int,
+        avatar: BufferedImage?,
+        layout: PodiumLayout
+    ) {
+        val podiumX = layout.centerX + position.xOffset
+        val podiumCenterX = podiumX + layout.podiumWidth / 2
+        val podiumTopY = layout.podiumY + (layout.firstHeight - position.height)
 
-            // Draw podium block
-            g2d.color = CardStyles.PODIUM_GOLD
-            g2d.fillRect(firstX, podiumY, podiumWidth, firstHeight)
-            g2d.color = CardStyles.PODIUM_DARK
-            g2d.drawRect(firstX, podiumY, podiumWidth, firstHeight)
-
-            // "1" on podium
-            GraphicsUtils.drawCenteredString(
-                g2d, "1", centerX, podiumY + 40,
-                CardStyles.FONT_TITLE, CardStyles.PODIUM_DARK
-            )
+        // Draw crown for 1st place
+        if (position.showCrown) {
+            GraphicsUtils.drawCrown(g2d, layout.centerX, layout.startY, 30, 20, CardStyles.PODIUM_GOLD)
         }
 
-        // Draw 2nd place (left)
-        if (top3.size >= 2) {
-            val (name, score) = top3[1]
-            val secondX = centerX - podiumWidth - 40
-            val secondCenterX = secondX + podiumWidth / 2
-
-            // Draw head avatar
-            val avatar = avatarImages[name]
-            if (avatar != null) {
-                GraphicsUtils.drawCenteredImage(g2d, avatar, secondCenterX, startY + 70)
-            }
-
-            // Draw name and score
-            GraphicsUtils.drawCenteredString(
-                g2d, name, secondCenterX, startY + 105,
-                CardStyles.FONT_SKILL_VALUE, CardStyles.TEXT_WHITE
-            )
-            GraphicsUtils.drawCenteredString(
-                g2d, numberFormat.format(score), secondCenterX, startY + 120,
-                CardStyles.FONT_SKILL, CardStyles.PODIUM_SILVER
-            )
-
-            // Draw podium block
-            g2d.color = CardStyles.PODIUM_SILVER
-            g2d.fillRect(secondX, podiumY + (firstHeight - secondHeight), podiumWidth, secondHeight)
-            g2d.color = CardStyles.PODIUM_DARK
-            g2d.drawRect(secondX, podiumY + (firstHeight - secondHeight), podiumWidth, secondHeight)
-
-            // "2" on podium
-            GraphicsUtils.drawCenteredString(
-                g2d, "2", secondCenterX, podiumY + (firstHeight - secondHeight) + 35,
-                CardStyles.FONT_TITLE, CardStyles.PODIUM_DARK
-            )
+        // Draw head avatar
+        avatar?.let {
+            GraphicsUtils.drawCenteredImage(g2d, it, podiumCenterX, layout.startY + position.avatarYOffset)
         }
 
-        // Draw 3rd place (right)
-        if (top3.size >= 3) {
-            val (name, score) = top3[2]
-            val thirdX = centerX + 40
-            val thirdCenterX = thirdX + podiumWidth / 2
+        // Draw name
+        GraphicsUtils.drawCenteredString(
+            g2d, name, podiumCenterX, layout.startY + position.nameYOffset,
+            CardStyles.FONT_SKILL_VALUE, CardStyles.TEXT_WHITE
+        )
 
-            // Draw head avatar
-            val avatar = avatarImages[name]
-            if (avatar != null) {
-                GraphicsUtils.drawCenteredImage(g2d, avatar, thirdCenterX, startY + 75)
-            }
+        // Draw score with position-specific color
+        GraphicsUtils.drawCenteredString(
+            g2d, numberFormat.format(score), podiumCenterX, layout.startY + position.scoreYOffset,
+            CardStyles.FONT_SKILL, position.color
+        )
 
-            // Draw name and score
-            GraphicsUtils.drawCenteredString(
-                g2d, name, thirdCenterX, startY + 110,
-                CardStyles.FONT_SKILL_VALUE, CardStyles.TEXT_WHITE
-            )
-            GraphicsUtils.drawCenteredString(
-                g2d, numberFormat.format(score), thirdCenterX, startY + 125,
-                CardStyles.FONT_SKILL, CardStyles.PODIUM_BRONZE
-            )
+        // Draw podium block
+        g2d.color = position.color
+        g2d.fillRect(podiumX, podiumTopY, layout.podiumWidth, position.height)
+        g2d.color = CardStyles.PODIUM_DARK
+        g2d.drawRect(podiumX, podiumTopY, layout.podiumWidth, position.height)
 
-            // Draw podium block
-            g2d.color = CardStyles.PODIUM_BRONZE
-            g2d.fillRect(thirdX, podiumY + (firstHeight - thirdHeight), podiumWidth, thirdHeight)
-            g2d.color = CardStyles.PODIUM_DARK
-            g2d.drawRect(thirdX, podiumY + (firstHeight - thirdHeight), podiumWidth, thirdHeight)
-
-            // "3" on podium
-            GraphicsUtils.drawCenteredString(
-                g2d, "3", thirdCenterX, podiumY + (firstHeight - thirdHeight) + 30,
-                CardStyles.FONT_TITLE, CardStyles.PODIUM_DARK
-            )
-        }
+        // Draw rank number on podium
+        GraphicsUtils.drawCenteredString(
+            g2d, position.rank.toString(), podiumCenterX, podiumTopY + position.rankTextYOffset,
+            CardStyles.FONT_TITLE, CardStyles.PODIUM_DARK
+        )
     }
 
     /**

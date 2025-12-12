@@ -7,13 +7,11 @@ import io.github.darinc.amssync.config.ConfigValidator
 import io.github.darinc.amssync.discord.ChatBridge
 import io.github.darinc.amssync.discord.ChatBridgeConfig
 import io.github.darinc.amssync.discord.ChatWebhookManager
-import io.github.darinc.amssync.discord.CircuitBreaker
 import io.github.darinc.amssync.discord.CircuitBreakerConfig
 import io.github.darinc.amssync.discord.DiscordApiWrapper
 import io.github.darinc.amssync.discord.DiscordManager
 import io.github.darinc.amssync.discord.PlayerCountPresence
 import io.github.darinc.amssync.discord.PresenceConfig
-import io.github.darinc.amssync.discord.RateLimiter
 import io.github.darinc.amssync.discord.RateLimiterConfig
 import io.github.darinc.amssync.discord.RetryManager
 import io.github.darinc.amssync.discord.StatusChannelConfig
@@ -29,85 +27,26 @@ import io.github.darinc.amssync.events.PlayerDeathListener
 import io.github.darinc.amssync.events.ServerEventListener
 import io.github.darinc.amssync.image.AvatarFetcher
 import io.github.darinc.amssync.image.ImageConfig
+import io.github.darinc.amssync.image.MilestoneCardRenderer
 import io.github.darinc.amssync.image.PlayerCardRenderer
 import io.github.darinc.amssync.linking.UserMappingService
 import io.github.darinc.amssync.mcmmo.AnnouncementConfig
 import io.github.darinc.amssync.mcmmo.McMMOEventListener
 import io.github.darinc.amssync.mcmmo.McmmoApiWrapper
 import io.github.darinc.amssync.metrics.ErrorMetrics
+import io.github.darinc.amssync.services.DiscordServices
+import io.github.darinc.amssync.services.EventServices
+import io.github.darinc.amssync.services.ImageServices
+import io.github.darinc.amssync.services.ResilienceServices
+import io.github.darinc.amssync.services.ServiceRegistry
 import org.bukkit.plugin.java.JavaPlugin
 
 class AMSSyncPlugin : JavaPlugin() {
 
-    lateinit var discordManager: DiscordManager
-        private set
-
-    lateinit var userMappingService: UserMappingService
-        private set
-
-    lateinit var mcmmoApi: McmmoApiWrapper
-        private set
-
-    var timeoutManager: TimeoutManager? = null
-        private set
-
-    var circuitBreaker: CircuitBreaker? = null
-        private set
-
-    var discordApiWrapper: DiscordApiWrapper? = null
-        private set
-
-    var playerCountPresence: PlayerCountPresence? = null
-        private set
-
-    lateinit var errorMetrics: ErrorMetrics
-        private set
-
-    lateinit var auditLogger: AuditLogger
-        private set
-
-    var rateLimiter: RateLimiter? = null
-        private set
-
-    var statusChannelManager: StatusChannelManager? = null
-        private set
-
-    var mcmmoEventListener: McMMOEventListener? = null
-        private set
-
-    var chatBridge: ChatBridge? = null
-        private set
-
-    var chatWebhookManager: ChatWebhookManager? = null
-        private set
-
-    var webhookManager: WebhookManager? = null
-        private set
-
-    var serverEventListener: ServerEventListener? = null
-        private set
-
-    var playerDeathListener: PlayerDeathListener? = null
-        private set
-
-    var achievementListener: AchievementListener? = null
-        private set
-
-    // Image card components
-    var imageConfig: ImageConfig? = null
-        private set
-
-    var avatarFetcher: AvatarFetcher? = null
-        private set
-
-    var cardRenderer: PlayerCardRenderer? = null
-        private set
-
-    var amsStatsCommand: AmsStatsCommand? = null
-        private set
-
-    var amsTopCommand: AmsTopCommand? = null
-        private set
+    /**
+     * Central service registry holding all plugin services.
+     */
+    val services = ServiceRegistry()
 
     override fun onEnable() {
         // Ensure data folder exists for migration
@@ -130,21 +69,19 @@ class AMSSyncPlugin : JavaPlugin() {
         val retryConfig = loadRetryConfig()
         initializeResilienceComponents()
 
-        // Initialize image cards and Discord manager
+        // Initialize image cards
         initializeImageCards()
+
+        // Initialize Discord manager and connect
         val whitelistEnabled = config.getBoolean("whitelist.enabled", true)
         logger.info(if (whitelistEnabled) "Whitelist management enabled" else "Whitelist management disabled in config")
-        discordManager = DiscordManager(this, amsStatsCommand, amsTopCommand, whitelistEnabled)
 
-        // Connect to Discord
-        connectToDiscord(discordConfig.first, discordConfig.second, retryConfig)
+        val discordManager = DiscordManager(this, services.image.statsCommand, services.image.topCommand, whitelistEnabled)
+        connectToDiscord(discordManager, discordConfig.first, discordConfig.second, retryConfig)
 
         logger.info("AMSSync plugin enabled successfully!")
     }
 
-    /**
-     * Handle config migration before loading config.
-     */
     private fun handleConfigMigration() {
         val migrator = ConfigMigrator(this, logger)
         when (val result = migrator.migrateIfNeeded()) {
@@ -168,30 +105,27 @@ class AMSSyncPlugin : JavaPlugin() {
         }
     }
 
-    /**
-     * Initialize core services: metrics, audit, rate limiter, user mappings, mcmmo, commands.
-     */
     private fun initializeCoreServices() {
         // Initialize error metrics
-        errorMetrics = ErrorMetrics()
+        services.errorMetrics = ErrorMetrics()
         logger.info("Error metrics initialized")
 
         // Initialize audit logger
-        auditLogger = AuditLogger(this)
+        services.auditLogger = AuditLogger(this)
         logger.info("Audit logger initialized")
 
         // Initialize rate limiter if enabled
         initializeRateLimiter()
 
         // Load user mappings
-        userMappingService = UserMappingService(this)
-        userMappingService.loadMappings()
-        logger.info("Loaded ${userMappingService.getMappingCount()} user mapping(s)")
+        services.userMappingService = UserMappingService(this)
+        services.userMappingService.loadMappings()
+        logger.info("Loaded ${services.userMappingService.getMappingCount()} user mapping(s)")
 
         // Initialize MCMMO API wrapper with configuration
         val maxPlayersToScan = config.getInt("mcmmo.leaderboard.max-players-to-scan", 1000)
         val cacheTtlSeconds = config.getInt("mcmmo.leaderboard.cache-ttl-seconds", 60)
-        mcmmoApi = McmmoApiWrapper(this, maxPlayersToScan, cacheTtlSeconds * 1000L)
+        services.mcmmoApi = McmmoApiWrapper(this, maxPlayersToScan, cacheTtlSeconds * 1000L)
         logger.info("MCMMO leaderboard limits: max-scan=$maxPlayersToScan, cache-ttl=${cacheTtlSeconds}s")
 
         // Register commands
@@ -200,9 +134,6 @@ class AMSSyncPlugin : JavaPlugin() {
         getCommand("amssync")?.tabCompleter = syncCommand
     }
 
-    /**
-     * Initialize rate limiter if enabled in config.
-     */
     private fun initializeRateLimiter() {
         val rateLimitEnabled = config.getBoolean("rate-limiting.enabled", true)
         if (rateLimitEnabled) {
@@ -211,17 +142,13 @@ class AMSSyncPlugin : JavaPlugin() {
                 penaltyCooldownMs = config.getLong("rate-limiting.penalty-cooldown-ms", 10000L),
                 maxRequestsPerMinute = config.getInt("rate-limiting.max-requests-per-minute", 60)
             )
-            rateLimiter = rateLimiterConfig.toRateLimiter(logger)
+            services.rateLimiter = rateLimiterConfig.toRateLimiter(logger)
             logger.info("Rate limiting enabled: penalty-cooldown=${rateLimiterConfig.penaltyCooldownMs}ms, max=${rateLimiterConfig.maxRequestsPerMinute}/min")
         } else {
             logger.info("Rate limiting disabled")
         }
     }
 
-    /**
-     * Load and validate Discord configuration.
-     * @return Pair of (token, guildId) or null if validation fails and plugin should disable.
-     */
     private fun loadDiscordConfig(): Pair<String, String>? {
         // Environment variables take precedence over config file
         val token = System.getenv("AMS_DISCORD_TOKEN")
@@ -247,7 +174,7 @@ class AMSSyncPlugin : JavaPlugin() {
             logger.severe("=".repeat(60))
             logger.severe("DISCORD CONFIGURATION INVALID")
             logger.severe("")
-            validationResult.errors.forEach { logger.severe("  • $it") }
+            validationResult.errors.forEach { logger.severe("  * $it") }
             logger.severe("")
             logger.severe("Plugin will be disabled. Fix config.yml and restart.")
             logger.severe("=".repeat(60))
@@ -269,9 +196,6 @@ class AMSSyncPlugin : JavaPlugin() {
         return Pair(token, guildId)
     }
 
-    /**
-     * Load retry configuration from config.
-     */
     private fun loadRetryConfig(): RetryManager.RetryConfig {
         val retryEnabled = config.getBoolean("discord.retry.enabled", true)
         return RetryManager.RetryConfig(
@@ -283,10 +207,10 @@ class AMSSyncPlugin : JavaPlugin() {
         )
     }
 
-    /**
-     * Initialize resilience components: timeout manager, circuit breaker, and Discord API wrapper.
-     */
     private fun initializeResilienceComponents() {
+        var timeoutMgr: TimeoutManager? = null
+        var circuitBrkr: io.github.darinc.amssync.discord.CircuitBreaker? = null
+
         // Load and initialize timeout manager
         val timeoutEnabled = config.getBoolean("discord.timeout.enabled", true)
         if (timeoutEnabled) {
@@ -295,7 +219,7 @@ class AMSSyncPlugin : JavaPlugin() {
                 warningThresholdSeconds = config.getInt("discord.timeout.warning-threshold-seconds", 3),
                 hardTimeoutSeconds = config.getInt("discord.timeout.hard-timeout-seconds", 10)
             )
-            timeoutManager = timeoutConfig.toTimeoutManager(logger)
+            timeoutMgr = timeoutConfig.toTimeoutManager(logger)
             logger.info("Timeout protection enabled: warning=${timeoutConfig.warningThresholdSeconds}s, hard=${timeoutConfig.hardTimeoutSeconds}s")
         }
 
@@ -309,37 +233,67 @@ class AMSSyncPlugin : JavaPlugin() {
                 cooldownSeconds = config.getInt("discord.circuit-breaker.cooldown-seconds", 30),
                 successThreshold = config.getInt("discord.circuit-breaker.success-threshold", 2)
             )
-            circuitBreaker = circuitBreakerConfig.toCircuitBreaker(logger)
+            circuitBrkr = circuitBreakerConfig.toCircuitBreaker(logger)
             logger.info(
                 "Circuit breaker enabled: failures=${circuitBreakerConfig.failureThreshold}/" +
                     "${circuitBreakerConfig.timeWindowSeconds}s, cooldown=${circuitBreakerConfig.cooldownSeconds}s"
             )
         }
 
-        // Initialize Discord API wrapper with circuit breaker and metrics
-        discordApiWrapper = DiscordApiWrapper(circuitBreaker, logger, errorMetrics)
+        services.resilience = ResilienceServices(timeoutMgr, circuitBrkr)
     }
 
-    /**
-     * Connect to Discord with retry and timeout logic.
-     */
-    private fun connectToDiscord(token: String, guildId: String, retryConfig: RetryManager.RetryConfig) {
+    private fun initializeImageCards() {
+        val imgConfig = ImageConfig.fromConfig(config)
+
+        if (!imgConfig.enabled) {
+            logger.info("Image cards are disabled in config")
+            services.image = ImageServices.disabled()
+            return
+        }
+
+        // Initialize avatar fetcher with caching
+        val fetcher = AvatarFetcher(
+            logger = logger,
+            cacheMaxSize = imgConfig.avatarCacheMaxSize,
+            cacheTtlMs = imgConfig.getCacheTtlMs()
+        )
+
+        // Initialize card renderer
+        val renderer = PlayerCardRenderer(imgConfig.serverName)
+
+        // Initialize commands
+        val statsCmd = AmsStatsCommand(this, imgConfig, fetcher, renderer)
+        val topCmd = AmsTopCommand(this, imgConfig, fetcher, renderer)
+
+        services.image = ImageServices(imgConfig, fetcher, renderer, statsCmd, topCmd)
+        logger.info("Image cards enabled (provider=${imgConfig.avatarProvider}, cache=${imgConfig.avatarCacheTtlSeconds}s)")
+    }
+
+    private fun connectToDiscord(
+        discordManager: DiscordManager,
+        token: String,
+        guildId: String,
+        retryConfig: RetryManager.RetryConfig
+    ) {
         if (retryConfig.enabled) {
-            connectWithRetry(token, guildId, retryConfig)
+            connectWithRetry(discordManager, token, guildId, retryConfig)
         } else {
-            connectWithoutRetry(token, guildId)
+            connectWithoutRetry(discordManager, token, guildId)
         }
     }
 
-    /**
-     * Connect to Discord with retry logic enabled.
-     */
-    private fun connectWithRetry(token: String, guildId: String, retryConfig: RetryManager.RetryConfig) {
+    private fun connectWithRetry(
+        discordManager: DiscordManager,
+        token: String,
+        guildId: String,
+        retryConfig: RetryManager.RetryConfig
+    ) {
         val retryManager = retryConfig.toRetryManager(logger)
         val timeoutEnabled = config.getBoolean("discord.timeout.enabled", true)
+        val tm = services.resilience.timeoutManager
 
         // Wrap retry+initialization with timeout protection
-        val tm = timeoutManager
         val connectionResult = if (timeoutEnabled && tm != null) {
             tm.executeWithTimeout("Discord connection with retries") {
                 retryManager.executeWithRetry("Discord connection") {
@@ -354,58 +308,59 @@ class AMSSyncPlugin : JavaPlugin() {
             )
         }
 
-        handleConnectionResult(connectionResult)
+        handleConnectionResult(discordManager, connectionResult)
     }
 
-    /**
-     * Handle the result of a Discord connection attempt with retry.
-     */
-    private fun handleConnectionResult(connectionResult: TimeoutManager.TimeoutResult<RetryManager.RetryResult<Unit>>) {
+    private fun handleConnectionResult(
+        discordManager: DiscordManager,
+        connectionResult: TimeoutManager.TimeoutResult<RetryManager.RetryResult<Unit>>
+    ) {
         when (connectionResult) {
             is TimeoutManager.TimeoutResult.Success -> {
                 when (val retryResult = connectionResult.value) {
                     is RetryManager.RetryResult.Success -> {
-                        errorMetrics.recordConnectionAttempt(success = true)
+                        services.errorMetrics.recordConnectionAttempt(success = true)
                         logger.info("Discord bot successfully connected!")
-                        initializePlayerCountPresence()
+                        finalizeDiscordServices(discordManager)
                     }
                     is RetryManager.RetryResult.Failure -> {
-                        errorMetrics.recordConnectionAttempt(success = false)
+                        services.errorMetrics.recordConnectionAttempt(success = false)
                         logDegradedModeError(
                             "Failed to connect to Discord after ${retryResult.attempts} attempts",
                             "Last error: ${retryResult.lastException.message}",
                             "Check your bot token and network connection"
                         )
+                        // Still create discord services with disconnected manager
+                        finalizeDiscordServicesDisconnected(discordManager)
                     }
                 }
             }
             is TimeoutManager.TimeoutResult.Timeout -> {
-                errorMetrics.recordConnectionAttempt(success = false)
+                services.errorMetrics.recordConnectionAttempt(success = false)
                 logDegradedModeError(
                     "Discord connection timed out after ${connectionResult.timeoutMs}ms",
                     null,
                     "This may indicate network issues or Discord API problems"
                 )
+                finalizeDiscordServicesDisconnected(discordManager)
             }
             is TimeoutManager.TimeoutResult.Failure -> {
-                errorMetrics.recordConnectionAttempt(success = false)
+                services.errorMetrics.recordConnectionAttempt(success = false)
                 logger.severe("Discord connection failed unexpectedly: ${connectionResult.exception.message}")
                 connectionResult.exception.printStackTrace()
+                finalizeDiscordServicesDisconnected(discordManager)
             }
         }
     }
 
-    /**
-     * Connect to Discord without retry logic (fail fast).
-     */
-    private fun connectWithoutRetry(token: String, guildId: String) {
+    private fun connectWithoutRetry(discordManager: DiscordManager, token: String, guildId: String) {
         try {
             discordManager.initialize(token, guildId)
-            errorMetrics.recordConnectionAttempt(success = true)
+            services.errorMetrics.recordConnectionAttempt(success = true)
             logger.info("Discord bot successfully connected!")
-            initializePlayerCountPresence()
+            finalizeDiscordServices(discordManager)
         } catch (e: Exception) {
-            errorMetrics.recordConnectionAttempt(success = false)
+            services.errorMetrics.recordConnectionAttempt(success = false)
             logger.severe("Failed to initialize Discord bot: ${e.message}")
             logger.severe("Retry logic is disabled. Plugin will be disabled.")
             logger.severe("Enable retry in config.yml: discord.retry.enabled = true")
@@ -415,8 +370,217 @@ class AMSSyncPlugin : JavaPlugin() {
     }
 
     /**
-     * Log a degraded mode error with standard formatting.
+     * Finalize Discord services after successful connection.
      */
+    private fun finalizeDiscordServices(discordManager: DiscordManager) {
+        // Initialize Discord API wrapper
+        val apiWrapper = DiscordApiWrapper(services.resilience.circuitBreaker, logger, services.errorMetrics)
+
+        // Initialize presence and other Discord-dependent services
+        val presence = initializePresence(discordManager)
+        val statusChannel = initializeStatusChannel(discordManager)
+        val (chatBridge, chatWebhook) = initializeChatBridge(discordManager)
+        val (webhookMgr, eventServices) = initializeEventAnnouncements(discordManager)
+
+        services.discord = DiscordServices(
+            manager = discordManager,
+            apiWrapper = apiWrapper,
+            chatBridge = chatBridge,
+            chatWebhookManager = chatWebhook,
+            webhookManager = webhookMgr,
+            presence = presence,
+            statusChannel = statusChannel
+        )
+
+        services.events = eventServices
+    }
+
+    /**
+     * Create Discord services when connection failed (degraded mode).
+     */
+    private fun finalizeDiscordServicesDisconnected(discordManager: DiscordManager) {
+        val apiWrapper = DiscordApiWrapper(services.resilience.circuitBreaker, logger, services.errorMetrics)
+        services.discord = DiscordServices(
+            manager = discordManager,
+            apiWrapper = apiWrapper,
+            chatBridge = null,
+            chatWebhookManager = null,
+            webhookManager = null,
+            presence = null,
+            statusChannel = null
+        )
+        services.events = EventServices.empty()
+    }
+
+    private fun initializePresence(discordManager: DiscordManager): PlayerCountPresence? {
+        if (!discordManager.isConnected()) {
+            logger.fine("Skipping presence initialization - Discord not connected")
+            return null
+        }
+
+        val presenceConfig = PresenceConfig.fromConfig(config)
+        return if (presenceConfig.enabled) {
+            val presence = PlayerCountPresence(this, presenceConfig)
+            presence.initialize()
+            presence
+        } else {
+            logger.info("Player count presence is disabled in config")
+            null
+        }
+    }
+
+    private fun initializeStatusChannel(discordManager: DiscordManager): StatusChannelManager? {
+        if (!discordManager.isConnected()) return null
+
+        val statusConfig = StatusChannelConfig.fromConfig(config)
+        return if (statusConfig.enabled) {
+            if (statusConfig.channelId.isBlank()) {
+                logger.warning("Status channel enabled but no voice-channel-id configured")
+                null
+            } else {
+                val manager = StatusChannelManager(this, statusConfig)
+                manager.initialize()
+                manager
+            }
+        } else {
+            logger.info("Status channel manager is disabled in config")
+            null
+        }
+    }
+
+    private fun initializeChatBridge(discordManager: DiscordManager): Pair<ChatBridge?, ChatWebhookManager?> {
+        if (!discordManager.isConnected()) return Pair(null, null)
+
+        val chatConfig = ChatBridgeConfig.fromConfig(config)
+        if (!chatConfig.enabled) {
+            logger.info("Chat bridge is disabled in config")
+            return Pair(null, null)
+        }
+
+        if (chatConfig.channelId.isBlank()) {
+            logger.warning("Chat bridge enabled but no channel-id configured")
+            return Pair(null, null)
+        }
+
+        // Initialize webhook manager if webhook is enabled
+        var chatWebhook: ChatWebhookManager? = null
+        if (chatConfig.useWebhook) {
+            if (chatConfig.webhookUrl.isNullOrBlank()) {
+                logger.warning("Chat bridge use-webhook is true but no webhook-url configured")
+                logger.warning("Chat bridge falling back to bot messages")
+            } else {
+                chatWebhook = ChatWebhookManager(this, chatConfig.webhookUrl)
+                if (chatWebhook.isWebhookAvailable()) {
+                    logger.info("Chat bridge using webhook for rich messages")
+                }
+            }
+        }
+
+        val bridge = ChatBridge(this, chatConfig, chatWebhook)
+        // Register as Bukkit listener for MC->Discord
+        server.pluginManager.registerEvents(bridge, this)
+        // Register as JDA listener for Discord->MC
+        discordManager.getJda()?.addEventListener(bridge)
+        logger.info("Chat bridge enabled (MC->Discord=${chatConfig.minecraftToDiscord}, Discord->MC=${chatConfig.discordToMinecraft})")
+
+        return Pair(bridge, chatWebhook)
+    }
+
+    private fun initializeEventAnnouncements(discordManager: DiscordManager): Pair<WebhookManager?, EventServices> {
+        if (!discordManager.isConnected()) return Pair(null, EventServices.empty())
+
+        // Initialize MCMMO event listener
+        val mcmmoListener = initializeMcMMOListener(discordManager)
+
+        val eventConfig = EventAnnouncementConfig.fromConfig(config)
+        if (!eventConfig.enabled) {
+            logger.info("Event announcements are disabled in config")
+            return Pair(null, EventServices(mcmmoListener, null, null, null))
+        }
+
+        if (eventConfig.channelId.isBlank()) {
+            logger.warning("Event announcements enabled but no text-channel-id configured")
+            return Pair(null, EventServices(mcmmoListener, null, null, null))
+        }
+
+        // Initialize webhook manager
+        val webhookMgr = WebhookManager(this, eventConfig.webhookUrl, eventConfig.channelId)
+        if (eventConfig.webhookUrl != null) {
+            logger.info("Event announcements using webhook")
+        } else {
+            logger.info("Event announcements using bot messages")
+        }
+
+        // Initialize server event listener
+        val serverListener = ServerEventListener(this, eventConfig, webhookMgr)
+        serverListener.announceServerStart()
+
+        // Initialize player death listener
+        val deathListener = if (eventConfig.playerDeaths.enabled) {
+            val listener = PlayerDeathListener(this, eventConfig, webhookMgr)
+            server.pluginManager.registerEvents(listener, this)
+            logger.info("Player death announcements enabled")
+            listener
+        } else null
+
+        // Initialize achievement listener
+        val achievementListener = if (eventConfig.achievements.enabled) {
+            val listener = AchievementListener(this, eventConfig, webhookMgr)
+            server.pluginManager.registerEvents(listener, this)
+            logger.info("Achievement announcements enabled (exclude-recipes=${eventConfig.achievements.excludeRecipes})")
+            listener
+        } else null
+
+        return Pair(webhookMgr, EventServices(mcmmoListener, serverListener, deathListener, achievementListener))
+    }
+
+    private fun initializeMcMMOListener(discordManager: DiscordManager): McMMOEventListener? {
+        if (!discordManager.isConnected()) return null
+
+        val announcementConfig = AnnouncementConfig.fromConfig(config)
+        if (!announcementConfig.enabled) {
+            logger.info("MCMMO announcements are disabled in config")
+            return null
+        }
+
+        if (announcementConfig.channelId.isBlank()) {
+            logger.warning("MCMMO announcements enabled but no text-channel-id configured")
+            return null
+        }
+
+        // Initialize milestone card renderer if image cards are enabled
+        val milestoneCardRenderer = if (announcementConfig.useImageCards) {
+            val serverName = services.image.config?.serverName ?: "Minecraft Server"
+            MilestoneCardRenderer(serverName)
+        } else null
+
+        // Use existing avatar fetcher or create one for milestones
+        val milestoneAvatarFetcher = if (announcementConfig.useImageCards && announcementConfig.showAvatars) {
+            services.image.avatarFetcher ?: AvatarFetcher(
+                logger,
+                services.image.config?.avatarCacheMaxSize ?: 100,
+                (services.image.config?.avatarCacheTtlSeconds ?: 300) * 1000L
+            )
+        } else null
+
+        val listener = McMMOEventListener(
+            this,
+            announcementConfig,
+            milestoneAvatarFetcher,
+            milestoneCardRenderer
+        )
+        server.pluginManager.registerEvents(listener, this)
+
+        val imageMode = if (announcementConfig.useImageCards) "image cards" else "embeds"
+        val webhookMode = if (announcementConfig.webhookUrl != null) " via webhook" else ""
+        logger.info(
+            "MCMMO milestone announcements enabled ($imageMode$webhookMode, " +
+                "skill=${announcementConfig.skillMilestoneInterval}, power=${announcementConfig.powerMilestoneInterval})"
+        )
+
+        return listener
+    }
+
     private fun logDegradedModeError(mainError: String, details: String?, hint: String) {
         logger.severe("=".repeat(60))
         logger.severe(mainError)
@@ -434,250 +598,13 @@ class AMSSyncPlugin : JavaPlugin() {
 
     override fun onDisable() {
         logger.info("Shutting down AMSSync plugin...")
-
-        // Announce server stop before disconnecting
-        serverEventListener?.announceServerStop()
-
-        // Shutdown player count presence
-        playerCountPresence?.shutdown()
-
-        // Shutdown status channel manager
-        statusChannelManager?.shutdown()
-
-        // Shutdown webhook managers
-        webhookManager?.shutdown()
-        chatWebhookManager?.shutdown()
-        mcmmoEventListener?.shutdown()
-
-        // Shutdown Discord gracefully
-        if (::discordManager.isInitialized) {
-            try {
-                discordManager.shutdown()
-                logger.info("Discord bot disconnected")
-            } catch (e: Exception) {
-                logger.warning("Error during Discord shutdown: ${e.message}")
-            }
-        }
-
-        // Shutdown timeout manager
-        timeoutManager?.shutdown()
-
-        // Save user mappings
-        if (::userMappingService.isInitialized) {
-            userMappingService.saveMappings()
-        }
-
+        services.shutdown()
         logger.info("AMSSync plugin disabled")
     }
 
-    /**
-     * Reload configuration and user mappings
-     */
     fun reloadPluginConfig() {
         reloadConfig()
-        userMappingService.loadMappings()
+        services.userMappingService.loadMappings()
         logger.info("Configuration reloaded")
-    }
-
-    /**
-     * Initialize image card components for /amsstats and /amstop commands.
-     */
-    private fun initializeImageCards() {
-        imageConfig = ImageConfig.fromConfig(config)
-        val imgConfig = imageConfig!!
-
-        if (!imgConfig.enabled) {
-            logger.info("Image cards are disabled in config")
-            return
-        }
-
-        // Initialize avatar fetcher with caching
-        avatarFetcher = AvatarFetcher(
-            logger = logger,
-            cacheMaxSize = imgConfig.avatarCacheMaxSize,
-            cacheTtlMs = imgConfig.getCacheTtlMs()
-        )
-
-        // Initialize card renderer
-        cardRenderer = PlayerCardRenderer(imgConfig.serverName)
-
-        // Initialize commands
-        amsStatsCommand = AmsStatsCommand(this, imgConfig, avatarFetcher!!, cardRenderer!!)
-        amsTopCommand = AmsTopCommand(this, imgConfig, avatarFetcher!!, cardRenderer!!)
-
-        logger.info("Image cards enabled (provider=${imgConfig.avatarProvider}, cache=${imgConfig.avatarCacheTtlSeconds}s)")
-    }
-
-    /**
-     * Initialize player count presence display if enabled and Discord is connected.
-     */
-    private fun initializePlayerCountPresence() {
-        if (!discordManager.isConnected()) {
-            logger.fine("Skipping presence initialization - Discord not connected")
-            return
-        }
-
-        val presenceConfig = PresenceConfig.fromConfig(config)
-        if (presenceConfig.enabled) {
-            playerCountPresence = PlayerCountPresence(this, presenceConfig)
-            playerCountPresence?.initialize()
-        } else {
-            logger.info("Player count presence is disabled in config")
-        }
-
-        // Initialize status channel manager
-        initializeStatusChannel()
-
-        // Initialize MCMMO event listener
-        initializeMcMMOAnnouncements()
-
-        // Initialize chat bridge
-        initializeChatBridge()
-
-        // Initialize event announcements (deaths, achievements, server start/stop)
-        initializeEventAnnouncements()
-    }
-
-    /**
-     * Initialize status channel manager for voice channel player count display.
-     */
-    private fun initializeStatusChannel() {
-        val statusConfig = StatusChannelConfig.fromConfig(config)
-        if (statusConfig.enabled) {
-            if (statusConfig.channelId.isBlank()) {
-                logger.warning("Status channel enabled but no voice-channel-id configured")
-                return
-            }
-            statusChannelManager = StatusChannelManager(this, statusConfig)
-            statusChannelManager?.initialize()
-        } else {
-            logger.info("Status channel manager is disabled in config")
-        }
-    }
-
-    /**
-     * Initialize MCMMO event listener for milestone announcements.
-     */
-    private fun initializeMcMMOAnnouncements() {
-        val announcementConfig = AnnouncementConfig.fromConfig(config)
-        if (announcementConfig.enabled) {
-            if (announcementConfig.channelId.isBlank()) {
-                logger.warning("MCMMO announcements enabled but no text-channel-id configured")
-                return
-            }
-
-            // Initialize milestone card renderer if image cards are enabled
-            val milestoneCardRenderer = if (announcementConfig.useImageCards) {
-                val serverName = imageConfig?.serverName ?: "Minecraft Server"
-                io.github.darinc.amssync.image.MilestoneCardRenderer(serverName)
-            } else {
-                null
-            }
-
-            // Use existing avatar fetcher or create one for milestones
-            val milestoneAvatarFetcher = if (announcementConfig.useImageCards && announcementConfig.showAvatars) {
-                avatarFetcher ?: AvatarFetcher(
-                    logger,
-                    imageConfig?.avatarCacheMaxSize ?: 100,
-                    (imageConfig?.avatarCacheTtlSeconds ?: 300) * 1000L
-                )
-            } else {
-                null
-            }
-
-            mcmmoEventListener = McMMOEventListener(
-                this,
-                announcementConfig,
-                milestoneAvatarFetcher,
-                milestoneCardRenderer
-            )
-            server.pluginManager.registerEvents(mcmmoEventListener!!, this)
-
-            val imageMode = if (announcementConfig.useImageCards) "image cards" else "embeds"
-            val webhookMode = if (announcementConfig.webhookUrl != null) " via webhook" else ""
-            logger.info(
-                "MCMMO milestone announcements enabled ($imageMode$webhookMode, " +
-                    "skill=${announcementConfig.skillMilestoneInterval}, power=${announcementConfig.powerMilestoneInterval})"
-            )
-        } else {
-            logger.info("MCMMO announcements are disabled in config")
-        }
-    }
-
-    /**
-     * Initialize chat bridge for two-way Minecraft/Discord chat relay.
-     */
-    private fun initializeChatBridge() {
-        val chatConfig = ChatBridgeConfig.fromConfig(config)
-        if (chatConfig.enabled) {
-            if (chatConfig.channelId.isBlank()) {
-                logger.warning("Chat bridge enabled but no channel-id configured")
-                return
-            }
-
-            // Initialize webhook manager if webhook is enabled
-            if (chatConfig.useWebhook) {
-                if (chatConfig.webhookUrl.isNullOrBlank()) {
-                    logger.warning("Chat bridge use-webhook is true but no webhook-url configured")
-                    logger.warning("Chat bridge falling back to bot messages")
-                } else {
-                    chatWebhookManager = ChatWebhookManager(this, chatConfig.webhookUrl)
-                    if (chatWebhookManager?.isWebhookAvailable() == true) {
-                        logger.info("Chat bridge using webhook for rich messages")
-                    }
-                }
-            }
-
-            chatBridge = ChatBridge(this, chatConfig, chatWebhookManager)
-            // Register as Bukkit listener for MC->Discord
-            server.pluginManager.registerEvents(chatBridge!!, this)
-            // Register as JDA listener for Discord->MC
-            discordManager.getJda()?.addEventListener(chatBridge)
-            logger.info("Chat bridge enabled (MC->Discord=${chatConfig.minecraftToDiscord}, Discord->MC=${chatConfig.discordToMinecraft})")
-        } else {
-            logger.info("Chat bridge is disabled in config")
-        }
-    }
-
-    /**
-     * Initialize event announcements (deaths, achievements, server start/stop).
-     */
-    private fun initializeEventAnnouncements() {
-        val eventConfig = EventAnnouncementConfig.fromConfig(config)
-        if (!eventConfig.enabled) {
-            logger.info("Event announcements are disabled in config")
-            return
-        }
-
-        if (eventConfig.channelId.isBlank()) {
-            logger.warning("Event announcements enabled but no text-channel-id configured")
-            return
-        }
-
-        // Initialize webhook manager
-        webhookManager = WebhookManager(this, eventConfig.webhookUrl, eventConfig.channelId)
-        if (eventConfig.webhookUrl != null) {
-            logger.info("Event announcements using webhook")
-        } else {
-            logger.info("Event announcements using bot messages")
-        }
-
-        // Initialize server event listener
-        serverEventListener = ServerEventListener(this, eventConfig, webhookManager!!)
-        serverEventListener?.announceServerStart()
-
-        // Initialize player death listener
-        if (eventConfig.playerDeaths.enabled) {
-            playerDeathListener = PlayerDeathListener(this, eventConfig, webhookManager!!)
-            server.pluginManager.registerEvents(playerDeathListener!!, this)
-            logger.info("Player death announcements enabled")
-        }
-
-        // Initialize achievement listener
-        if (eventConfig.achievements.enabled) {
-            achievementListener = AchievementListener(this, eventConfig, webhookManager!!)
-            server.pluginManager.registerEvents(achievementListener!!, this)
-            logger.info("Achievement announcements enabled (exclude-recipes=${eventConfig.achievements.excludeRecipes})")
-        }
     }
 }

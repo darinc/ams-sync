@@ -5,7 +5,6 @@ import club.minnced.discord.webhook.WebhookClientBuilder
 import club.minnced.discord.webhook.send.WebhookMessageBuilder
 import com.gmail.nossr50.datatypes.skills.PrimarySkillType
 import com.gmail.nossr50.events.experience.McMMOPlayerLevelUpEvent
-import com.gmail.nossr50.mcMMO
 import io.github.darinc.amssync.AMSSyncPlugin
 import io.github.darinc.amssync.discord.CircuitBreaker
 import io.github.darinc.amssync.image.AvatarFetcher
@@ -15,7 +14,6 @@ import io.github.darinc.amssync.validation.Validators
 import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
 import net.dv8tion.jda.api.utils.FileUpload
-import org.bukkit.Bukkit
 import org.bukkit.configuration.file.FileConfiguration
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
@@ -26,7 +24,6 @@ import java.io.ByteArrayOutputStream
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.ConcurrentHashMap
 import javax.imageio.ImageIO
 
 /**
@@ -52,8 +49,8 @@ class McMMOEventListener(
     private val cardRenderer: MilestoneCardRenderer? = null
 ) : Listener {
 
-    // Track last known power level for each player to detect milestones
-    private val lastKnownPowerLevel = ConcurrentHashMap<String, Int>()
+    // Milestone detection logic
+    private val milestoneDetector = MilestoneDetector(config, plugin.logger)
 
     // Webhook client for richer messages
     private var webhookClient: WebhookClient? = null
@@ -89,44 +86,30 @@ class McMMOEventListener(
         val uuid = player.uniqueId
 
         // Check for skill milestone
-        if (config.skillMilestoneInterval > 0 && newLevel % config.skillMilestoneInterval == 0) {
-            sendSkillMilestone(player.name, uuid, skill, newLevel)
+        if (milestoneDetector.isSkillMilestone(skill, newLevel)) {
+            val milestone = milestoneDetector.createSkillMilestone(player.name, uuid, skill, newLevel)
+            announceSkillMilestone(milestone)
         }
 
         // Check for power level milestone
-        if (config.powerMilestoneInterval > 0) {
-            checkPowerLevelMilestone(player.name, uuid)
+        milestoneDetector.checkPowerLevelMilestone(player.name, uuid)?.let { powerLevel ->
+            val milestone = milestoneDetector.createPowerLevelMilestone(player.name, uuid, powerLevel)
+            announcePowerLevelMilestone(milestone)
         }
     }
 
     /**
-     * Check if player crossed a power level milestone and announce it.
+     * Announce a skill milestone.
      */
-    private fun checkPowerLevelMilestone(playerName: String, uuid: UUID) {
-        try {
-            // Calculate current power level
-            val profile = mcMMO.getDatabaseManager().loadPlayerProfile(uuid)
-            if (!profile.isLoaded) return
+    private fun announceSkillMilestone(milestone: MilestoneEvent.SkillMilestone) {
+        sendSkillMilestone(milestone.playerName, milestone.uuid, milestone.skill, milestone.level)
+    }
 
-            val currentPowerLevel = PrimarySkillType.values()
-                .filter { !it.isChildSkill }
-                .sumOf { profile.getSkillLevel(it) }
-
-            val lastPowerLevel = lastKnownPowerLevel.getOrDefault(playerName, 0)
-
-            // Check if we crossed a milestone
-            val lastMilestone = (lastPowerLevel / config.powerMilestoneInterval) * config.powerMilestoneInterval
-            val currentMilestone = (currentPowerLevel / config.powerMilestoneInterval) * config.powerMilestoneInterval
-
-            if (currentMilestone > lastMilestone && currentMilestone > 0) {
-                sendPowerLevelMilestone(playerName, uuid, currentMilestone)
-            }
-
-            // Update tracked power level
-            lastKnownPowerLevel[playerName] = currentPowerLevel
-        } catch (e: Exception) {
-            plugin.logger.warning("Error checking power level milestone: ${e.message}")
-        }
+    /**
+     * Announce a power level milestone.
+     */
+    private fun announcePowerLevelMilestone(milestone: MilestoneEvent.PowerLevelMilestone) {
+        sendPowerLevelMilestone(milestone.playerName, milestone.uuid, milestone.level)
     }
 
     /**
@@ -173,7 +156,7 @@ class McMMOEventListener(
         val channel = getAnnouncementChannel() ?: return
 
         try {
-            val circuitBreaker = plugin.circuitBreaker
+            val circuitBreaker = plugin.services.resilience.circuitBreaker
 
             val sendAction = {
                 if (config.useEmbeds) {
@@ -252,7 +235,7 @@ class McMMOEventListener(
         val channel = getAnnouncementChannel() ?: return
 
         try {
-            val circuitBreaker = plugin.circuitBreaker
+            val circuitBreaker = plugin.services.resilience.circuitBreaker
 
             val sendAction = {
                 if (config.useEmbeds) {
@@ -316,7 +299,7 @@ class McMMOEventListener(
      */
     private fun sendImageViaWebhook(imageBytes: ByteArray, filename: String, client: WebhookClient) {
         try {
-            val circuitBreaker = plugin.circuitBreaker
+            val circuitBreaker = plugin.services.resilience.circuitBreaker
 
             val sendAction = {
                 val message = WebhookMessageBuilder()
@@ -353,7 +336,7 @@ class McMMOEventListener(
         val channel = getAnnouncementChannel() ?: return
 
         try {
-            val circuitBreaker = plugin.circuitBreaker
+            val circuitBreaker = plugin.services.resilience.circuitBreaker
 
             val sendAction = {
                 channel.sendFiles(FileUpload.fromData(imageBytes, filename)).queue(
@@ -404,8 +387,8 @@ class McMMOEventListener(
      * Get the configured announcement channel.
      */
     private fun getAnnouncementChannel(): TextChannel? {
-        val jda = plugin.discordManager.getJda()
-        if (jda == null || !plugin.discordManager.isConnected()) {
+        val jda = plugin.services.discord.manager.getJda()
+        if (jda == null || !plugin.services.discord.manager.isConnected()) {
             plugin.logger.fine("Skipping announcement - Discord not connected")
             return null
         }

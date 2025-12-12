@@ -165,8 +165,8 @@ class StatusChannelManager(
      * Update Discord voice channel name with current player count.
      */
     private fun updateChannel(playerCount: Int) {
-        val jda = plugin.discordManager.getJda() ?: return
-        if (!plugin.discordManager.isConnected()) {
+        val jda = plugin.services.discord.manager.getJda() ?: return
+        if (!plugin.services.discord.manager.isConnected()) {
             plugin.logger.fine("Skipping status channel update - Discord not connected")
             return
         }
@@ -180,7 +180,7 @@ class StatusChannelManager(
         val newName = formatTemplate(config.template, playerCount)
 
         try {
-            val circuitBreaker = plugin.circuitBreaker
+            val circuitBreaker = plugin.services.resilience.circuitBreaker
 
             if (circuitBreaker != null) {
                 val result = circuitBreaker.execute("Update status channel") {

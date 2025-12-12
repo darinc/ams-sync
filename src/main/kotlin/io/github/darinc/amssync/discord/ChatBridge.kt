@@ -65,8 +65,8 @@ class ChatBridge(
      * Send a message to the Discord chat channel.
      */
     private fun sendToDiscord(message: String) {
-        val jda = plugin.discordManager.getJda()
-        if (jda == null || !plugin.discordManager.isConnected()) {
+        val jda = plugin.services.discord.manager.getJda()
+        if (jda == null || !plugin.services.discord.manager.isConnected()) {
             plugin.logger.fine("Skipping Discord relay - not connected")
             return
         }
@@ -81,7 +81,7 @@ class ChatBridge(
         val sanitized = sanitizeDiscordMessage(message)
 
         try {
-            val circuitBreaker = plugin.circuitBreaker
+            val circuitBreaker = plugin.services.resilience.circuitBreaker
 
             val sendAction = {
                 channel.sendMessage(sanitized)
