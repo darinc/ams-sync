@@ -544,7 +544,7 @@ class AMSSyncPlugin : JavaPlugin() {
         val presenceConfig = PresenceConfig.fromConfig(config)
         return if (presenceConfig.enabled) {
             val presence = PlayerCountPresence(this, presenceConfig)
-            presence.initialize()
+            presence.initialize(discordManager)
             presence
         } else {
             logger.info("Player count presence is disabled in config")

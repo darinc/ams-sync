@@ -175,11 +175,24 @@ class DiscordManager(
     }
 
     /**
-     * Gracefully shutdown the Discord bot
+     * Gracefully shutdown the Discord bot.
+     *
+     * Uses shutdown() with awaitShutdown() instead of shutdownNow() to ensure
+     * all JDA threads complete before the plugin classloader is closed.
+     * This prevents "zip file closed" errors from background threads.
      */
     fun shutdown() {
         plugin.logger.info("Disconnecting from Discord...")
-        jda?.shutdownNow() // Force immediate shutdown to prevent background thread issues
+        jda?.let { instance ->
+            instance.shutdown()
+            // Wait up to 5 seconds for graceful shutdown
+            if (!instance.awaitShutdown(java.time.Duration.ofSeconds(5))) {
+                plugin.logger.warning("JDA did not shutdown gracefully, forcing...")
+                instance.shutdownNow()
+                // Wait another 2 seconds for forced shutdown
+                instance.awaitShutdown(java.time.Duration.ofSeconds(2))
+            }
+        }
         jda = null
         connected = false
     }

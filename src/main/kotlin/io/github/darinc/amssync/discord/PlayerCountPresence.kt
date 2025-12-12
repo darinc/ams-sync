@@ -49,8 +49,10 @@ class PlayerCountPresence(
     /**
      * Initialize the presence manager.
      * Registers event listeners and sets initial presence.
+     *
+     * @param discordManager The Discord manager to use for JDA access
      */
-    fun initialize() {
+    fun initialize(discordManager: DiscordManager) {
         if (!config.enabled) {
             plugin.logger.info("Player count presence is disabled")
             return
@@ -60,7 +62,7 @@ class PlayerCountPresence(
         plugin.server.pluginManager.registerEvents(this, plugin)
 
         // Store original bot name for nickname template
-        originalBotName = plugin.services.discord.manager.getJda()?.selfUser?.name
+        originalBotName = discordManager.getJda()?.selfUser?.name
 
         // Set initial presence
         updatePresenceNow()
