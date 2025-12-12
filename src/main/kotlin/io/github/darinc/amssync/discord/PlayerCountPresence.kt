@@ -41,6 +41,9 @@ class PlayerCountPresence(
     // Original bot name for nickname template
     private var originalBotName: String? = null
 
+    // Discord manager reference (set during initialize)
+    private var discordManager: DiscordManager? = null
+
     // Executor for scheduling debounced updates
     private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor { runnable ->
         Thread(runnable, "AMSSync-Presence").apply { isDaemon = true }
@@ -57,6 +60,9 @@ class PlayerCountPresence(
             plugin.logger.info("Player count presence is disabled")
             return
         }
+
+        // Store Discord manager reference for later use
+        this.discordManager = discordManager
 
         // Register Bukkit event listener
         plugin.server.pluginManager.registerEvents(this, plugin)
@@ -168,8 +174,9 @@ class PlayerCountPresence(
      * Update Discord presence with current player count.
      */
     private fun updatePresence(playerCount: Int) {
-        val jda = plugin.services.discord.manager.getJda() ?: return
-        if (!plugin.services.discord.manager.isConnected()) {
+        val manager = discordManager ?: return
+        val jda = manager.getJda() ?: return
+        if (!manager.isConnected()) {
             plugin.logger.fine("Skipping presence update - Discord not connected")
             return
         }
