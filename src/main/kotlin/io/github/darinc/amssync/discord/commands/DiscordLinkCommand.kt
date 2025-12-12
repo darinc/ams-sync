@@ -20,12 +20,14 @@ import java.time.Instant
 /**
  * Handles the /amslink Discord slash command for admin user linking
  */
-class DiscordLinkCommand(private val plugin: AMSSyncPlugin) {
+class DiscordLinkCommand(private val plugin: AMSSyncPlugin) : SlashCommandHandler {
+
+    override val commandName = "amssync"
 
     private val discordApi: DiscordApiWrapper?
         get() = plugin.services.discord.apiWrapper
 
-    fun handle(event: SlashCommandInteractionEvent) {
+    override fun handle(event: SlashCommandInteractionEvent) {
         val actorName = "${event.user.name} (${event.user.id})"
 
         // Check admin permission

@@ -21,6 +21,11 @@ import io.github.darinc.amssync.discord.TimeoutManager
 import io.github.darinc.amssync.discord.WebhookManager
 import io.github.darinc.amssync.discord.commands.AmsStatsCommand
 import io.github.darinc.amssync.discord.commands.AmsTopCommand
+import io.github.darinc.amssync.discord.commands.DiscordLinkCommand
+import io.github.darinc.amssync.discord.commands.DiscordWhitelistCommand
+import io.github.darinc.amssync.discord.commands.McStatsCommand
+import io.github.darinc.amssync.discord.commands.McTopCommand
+import io.github.darinc.amssync.discord.commands.SlashCommandHandler
 import io.github.darinc.amssync.events.AchievementListener
 import io.github.darinc.amssync.events.EventAnnouncementConfig
 import io.github.darinc.amssync.events.PlayerDeathListener
@@ -72,11 +77,9 @@ class AMSSyncPlugin : JavaPlugin() {
         // Initialize image cards
         initializeImageCards()
 
-        // Initialize Discord manager and connect
-        val whitelistEnabled = config.getBoolean("whitelist.enabled", true)
-        logger.info(if (whitelistEnabled) "Whitelist management enabled" else "Whitelist management disabled in config")
-
-        val discordManager = DiscordManager(this, services.image.statsCommand, services.image.topCommand, whitelistEnabled)
+        // Build slash command handlers and initialize Discord manager
+        val commandHandlers = buildSlashCommandHandlers()
+        val discordManager = DiscordManager(this, commandHandlers)
         connectToDiscord(discordManager, discordConfig.first, discordConfig.second, retryConfig)
 
         logger.info("AMSSync plugin enabled successfully!")
@@ -268,6 +271,39 @@ class AMSSyncPlugin : JavaPlugin() {
 
         services.image = ImageServices(imgConfig, fetcher, renderer, statsCmd, topCmd)
         logger.info("Image cards enabled (provider=${imgConfig.avatarProvider}, cache=${imgConfig.avatarCacheTtlSeconds}s)")
+    }
+
+    /**
+     * Build the map of slash command handlers for Discord.
+     *
+     * This factory method creates and registers all slash command handlers.
+     * Commands are conditionally registered based on config settings.
+     *
+     * @return Map of command names to their handlers
+     */
+    private fun buildSlashCommandHandlers(): Map<String, SlashCommandHandler> {
+        val handlers = mutableMapOf<String, SlashCommandHandler>()
+
+        // Always-enabled commands
+        handlers["mcstats"] = McStatsCommand(this)
+        handlers["mctop"] = McTopCommand(this)
+        handlers["amssync"] = DiscordLinkCommand(this)
+
+        // Image card commands (only if enabled)
+        services.image.statsCommand?.let { handlers["amsstats"] = it }
+        services.image.topCommand?.let { handlers["amstop"] = it }
+
+        // Whitelist command (only if enabled)
+        val whitelistEnabled = config.getBoolean("whitelist.enabled", true)
+        if (whitelistEnabled) {
+            handlers["amswhitelist"] = DiscordWhitelistCommand(this)
+            logger.info("Whitelist management enabled")
+        } else {
+            logger.info("Whitelist management disabled in config")
+        }
+
+        logger.info("Registered ${handlers.size} slash command handler(s)")
+        return handlers
     }
 
     private fun connectToDiscord(

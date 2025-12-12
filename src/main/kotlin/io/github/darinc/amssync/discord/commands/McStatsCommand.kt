@@ -14,14 +14,16 @@ import java.time.Instant
 /**
  * Handles the /mcstats slash command
  */
-class McStatsCommand(private val plugin: AMSSyncPlugin) {
+class McStatsCommand(private val plugin: AMSSyncPlugin) : SlashCommandHandler {
+
+    override val commandName = "mcstats"
 
     private val discordApi: DiscordApiWrapper?
         get() = plugin.services.discord.apiWrapper
 
     private val usernameResolver = UsernameResolver(plugin.services.userMappingService)
 
-    fun handle(event: SlashCommandInteractionEvent) {
+    override fun handle(event: SlashCommandInteractionEvent) {
         // Defer reply immediately to avoid timeout
         CommandUtils.deferReply(event, "/mcstats", discordApi, plugin.logger)
 

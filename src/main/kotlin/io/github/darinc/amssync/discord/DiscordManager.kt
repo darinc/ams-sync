@@ -1,10 +1,7 @@
 package io.github.darinc.amssync.discord
 
 import io.github.darinc.amssync.AMSSyncPlugin
-import io.github.darinc.amssync.discord.commands.AmsStatsCommand
-import io.github.darinc.amssync.discord.commands.AmsTopCommand
-import io.github.darinc.amssync.discord.commands.McStatsCommand
-import io.github.darinc.amssync.discord.commands.McTopCommand
+import io.github.darinc.amssync.discord.commands.SlashCommandHandler
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions
@@ -14,11 +11,15 @@ import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData
 import net.dv8tion.jda.api.requests.GatewayIntent
 
+/**
+ * Manages the Discord bot lifecycle and slash command registration.
+ *
+ * @param plugin The plugin instance
+ * @param commandHandlers Map of command names to their handlers for routing
+ */
 class DiscordManager(
     private val plugin: AMSSyncPlugin,
-    private val amsStatsCommand: AmsStatsCommand? = null,
-    private val amsTopCommand: AmsTopCommand? = null,
-    private val whitelistEnabled: Boolean = true
+    private val commandHandlers: Map<String, SlashCommandHandler>
 ) {
 
     private var jda: JDA? = null
@@ -44,7 +45,7 @@ class DiscordManager(
                     GatewayIntent.GUILD_MESSAGES,  // Needed for chat bridge (receive messages)
                     GatewayIntent.MESSAGE_CONTENT  // Needed for chat bridge (read message content)
                 )
-                .addEventListeners(SlashCommandListener(plugin, amsStatsCommand, amsTopCommand, whitelistEnabled))
+                .addEventListeners(SlashCommandListener(plugin, commandHandlers))
                 .build()
                 .awaitReady()
 
@@ -113,8 +114,8 @@ class DiscordManager(
                 )
         )
 
-        // Conditionally add whitelist command
-        if (whitelistEnabled) {
+        // Conditionally add whitelist command (only if handler is registered)
+        if (commandHandlers.containsKey("amswhitelist")) {
             commands.add(
                 Commands.slash("amswhitelist", "Admin: Manage server whitelist")
                     .setDefaultPermissions(DefaultMemberPermissions.enabledFor(net.dv8tion.jda.api.Permission.MANAGE_SERVER))

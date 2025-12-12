@@ -20,14 +20,16 @@ class AmsStatsCommand(
     private val imageConfig: ImageConfig,
     private val avatarFetcher: AvatarFetcher,
     private val cardRenderer: PlayerCardRenderer
-) {
+) : SlashCommandHandler {
+
+    override val commandName = "amsstats"
 
     private val discordApi: DiscordApiWrapper?
         get() = plugin.services.discord.apiWrapper
 
     private val usernameResolver = UsernameResolver(plugin.services.userMappingService)
 
-    fun handle(event: SlashCommandInteractionEvent) {
+    override fun handle(event: SlashCommandInteractionEvent) {
         // Defer reply immediately to avoid timeout (image generation takes time)
         CommandUtils.deferReply(event, "/amsstats", discordApi, plugin.logger)
 

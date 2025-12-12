@@ -18,12 +18,14 @@ import java.time.Instant
 /**
  * Handles the /amswhitelist Discord slash command for server whitelist management
  */
-class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) {
+class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) : SlashCommandHandler {
+
+    override val commandName = "amswhitelist"
 
     private val discordApi: DiscordApiWrapper?
         get() = plugin.services.discord.apiWrapper
 
-    fun handle(event: SlashCommandInteractionEvent) {
+    override fun handle(event: SlashCommandInteractionEvent) {
         val actorName = "${event.user.name} (${event.user.id})"
 
         // Check admin permission

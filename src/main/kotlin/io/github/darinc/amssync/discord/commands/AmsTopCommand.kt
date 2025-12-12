@@ -22,14 +22,16 @@ class AmsTopCommand(
     private val imageConfig: ImageConfig,
     private val avatarFetcher: AvatarFetcher,
     private val cardRenderer: PlayerCardRenderer
-) {
+) : SlashCommandHandler {
+
+    override val commandName = "amstop"
 
     private val leaderboardSize = 10
 
     private val discordApi: DiscordApiWrapper?
         get() = plugin.services.discord.apiWrapper
 
-    fun handle(event: SlashCommandInteractionEvent) {
+    override fun handle(event: SlashCommandInteractionEvent) {
         // Defer reply immediately (image generation takes time)
         CommandUtils.deferReply(event, "/amstop", discordApi, plugin.logger)
 

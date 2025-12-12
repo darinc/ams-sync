@@ -14,14 +14,16 @@ import java.time.Instant
 /**
  * Handles the /mctop slash command
  */
-class McTopCommand(private val plugin: AMSSyncPlugin) {
+class McTopCommand(private val plugin: AMSSyncPlugin) : SlashCommandHandler {
+
+    override val commandName = "mctop"
 
     private val leaderboardSize = 10
 
     private val discordApi: DiscordApiWrapper?
         get() = plugin.services.discord.apiWrapper
 
-    fun handle(event: SlashCommandInteractionEvent) {
+    override fun handle(event: SlashCommandInteractionEvent) {
         // Defer reply immediately to avoid timeout
         CommandUtils.deferReply(event, "/mctop", discordApi, plugin.logger)
 
