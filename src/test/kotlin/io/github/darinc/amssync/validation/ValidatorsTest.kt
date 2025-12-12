@@ -6,6 +6,29 @@ import io.kotest.matchers.string.shouldContain
 
 class ValidatorsTest : DescribeSpec({
 
+    describe("formatSkillName") {
+
+        it("formats uppercase skill name to title case") {
+            Validators.formatSkillName("MINING") shouldBe "Mining"
+        }
+
+        it("formats lowercase skill name to title case") {
+            Validators.formatSkillName("woodcutting") shouldBe "Woodcutting"
+        }
+
+        it("formats mixed case to title case") {
+            Validators.formatSkillName("ArChErY") shouldBe "Archery"
+        }
+
+        it("handles single character") {
+            Validators.formatSkillName("a") shouldBe "A"
+        }
+
+        it("handles empty string") {
+            Validators.formatSkillName("") shouldBe ""
+        }
+    }
+
     describe("Minecraft username validation") {
 
         describe("isValidMinecraftUsername") {

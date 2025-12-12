@@ -115,7 +115,37 @@ class AMSSyncPlugin : JavaPlugin() {
             dataFolder.mkdirs()
         }
 
-        // Migrate config if needed (before saveDefaultConfig)
+        // Migrate and save config
+        handleConfigMigration()
+        saveDefaultConfig()
+
+        // Initialize core services
+        logger.info("Initializing AMSSync plugin...")
+        initializeCoreServices()
+
+        // Load and validate Discord configuration
+        val discordConfig = loadDiscordConfig() ?: return
+
+        // Load resilience configurations and initialize components
+        val retryConfig = loadRetryConfig()
+        initializeResilienceComponents()
+
+        // Initialize image cards and Discord manager
+        initializeImageCards()
+        val whitelistEnabled = config.getBoolean("whitelist.enabled", true)
+        logger.info(if (whitelistEnabled) "Whitelist management enabled" else "Whitelist management disabled in config")
+        discordManager = DiscordManager(this, amsStatsCommand, amsTopCommand, whitelistEnabled)
+
+        // Connect to Discord
+        connectToDiscord(discordConfig.first, discordConfig.second, retryConfig)
+
+        logger.info("AMSSync plugin enabled successfully!")
+    }
+
+    /**
+     * Handle config migration before loading config.
+     */
+    private fun handleConfigMigration() {
         val migrator = ConfigMigrator(this, logger)
         when (val result = migrator.migrateIfNeeded()) {
             is ConfigMigrator.MigrationResult.FreshInstall -> {
@@ -136,13 +166,12 @@ class AMSSyncPlugin : JavaPlugin() {
                 logger.warning("Using existing config - some new options may use defaults")
             }
         }
+    }
 
-        // Save default config if it doesn't exist
-        saveDefaultConfig()
-
-        // Initialize services
-        logger.info("Initializing AMSSync plugin...")
-
+    /**
+     * Initialize core services: metrics, audit, rate limiter, user mappings, mcmmo, commands.
+     */
+    private fun initializeCoreServices() {
         // Initialize error metrics
         errorMetrics = ErrorMetrics()
         logger.info("Error metrics initialized")
@@ -152,18 +181,7 @@ class AMSSyncPlugin : JavaPlugin() {
         logger.info("Audit logger initialized")
 
         // Initialize rate limiter if enabled
-        val rateLimitEnabled = config.getBoolean("rate-limiting.enabled", true)
-        if (rateLimitEnabled) {
-            val rateLimiterConfig = RateLimiterConfig(
-                enabled = true,
-                penaltyCooldownMs = config.getLong("rate-limiting.penalty-cooldown-ms", 10000L),
-                maxRequestsPerMinute = config.getInt("rate-limiting.max-requests-per-minute", 60)
-            )
-            rateLimiter = rateLimiterConfig.toRateLimiter(logger)
-            logger.info("Rate limiting enabled: penalty-cooldown=${rateLimiterConfig.penaltyCooldownMs}ms, max=${rateLimiterConfig.maxRequestsPerMinute}/min")
-        } else {
-            logger.info("Rate limiting disabled")
-        }
+        initializeRateLimiter()
 
         // Load user mappings
         userMappingService = UserMappingService(this)
@@ -180,8 +198,31 @@ class AMSSyncPlugin : JavaPlugin() {
         val syncCommand = AMSSyncCommand(this)
         getCommand("amssync")?.setExecutor(syncCommand)
         getCommand("amssync")?.tabCompleter = syncCommand
+    }
 
-        // Initialize Discord with retry logic
+    /**
+     * Initialize rate limiter if enabled in config.
+     */
+    private fun initializeRateLimiter() {
+        val rateLimitEnabled = config.getBoolean("rate-limiting.enabled", true)
+        if (rateLimitEnabled) {
+            val rateLimiterConfig = RateLimiterConfig(
+                enabled = true,
+                penaltyCooldownMs = config.getLong("rate-limiting.penalty-cooldown-ms", 10000L),
+                maxRequestsPerMinute = config.getInt("rate-limiting.max-requests-per-minute", 60)
+            )
+            rateLimiter = rateLimiterConfig.toRateLimiter(logger)
+            logger.info("Rate limiting enabled: penalty-cooldown=${rateLimiterConfig.penaltyCooldownMs}ms, max=${rateLimiterConfig.maxRequestsPerMinute}/min")
+        } else {
+            logger.info("Rate limiting disabled")
+        }
+    }
+
+    /**
+     * Load and validate Discord configuration.
+     * @return Pair of (token, guildId) or null if validation fails and plugin should disable.
+     */
+    private fun loadDiscordConfig(): Pair<String, String>? {
         // Environment variables take precedence over config file
         val token = System.getenv("AMS_DISCORD_TOKEN")
             ?: config.getString("discord.token")
@@ -191,11 +232,10 @@ class AMSSyncPlugin : JavaPlugin() {
             ?: ""
 
         // Log configuration source (without exposing secrets)
-        if (System.getenv("AMS_DISCORD_TOKEN") != null) {
-            logger.info("Discord token loaded from environment variable AMS_DISCORD_TOKEN")
-        } else {
-            logger.info("Discord token loaded from config.yml")
-        }
+        logger.info(
+            if (System.getenv("AMS_DISCORD_TOKEN") != null) "Discord token loaded from environment variable AMS_DISCORD_TOKEN"
+            else "Discord token loaded from config.yml"
+        )
         if (System.getenv("AMS_GUILD_ID") != null) {
             logger.info("Guild ID loaded from environment variable AMS_GUILD_ID")
         }
@@ -212,7 +252,7 @@ class AMSSyncPlugin : JavaPlugin() {
             logger.severe("Plugin will be disabled. Fix config.yml and restart.")
             logger.severe("=".repeat(60))
             server.pluginManager.disablePlugin(this)
-            return
+            return null
         }
 
         // Log any warnings (e.g., missing guild ID)
@@ -226,42 +266,49 @@ class AMSSyncPlugin : JavaPlugin() {
             logger.warning("Expected format: [base64_id].[timestamp].[hmac] (e.g., MTIz...XXX.XXXXXX.XXX...)")
         }
 
-        // Load retry configuration
+        return Pair(token, guildId)
+    }
+
+    /**
+     * Load retry configuration from config.
+     */
+    private fun loadRetryConfig(): RetryManager.RetryConfig {
         val retryEnabled = config.getBoolean("discord.retry.enabled", true)
-        val retryConfig = RetryManager.RetryConfig(
+        return RetryManager.RetryConfig(
             enabled = retryEnabled,
             maxAttempts = config.getInt("discord.retry.max-attempts", 5),
             initialDelaySeconds = config.getInt("discord.retry.initial-delay-seconds", 5),
             maxDelaySeconds = config.getInt("discord.retry.max-delay-seconds", 300),
             backoffMultiplier = config.getDouble("discord.retry.backoff-multiplier", 2.0)
         )
+    }
 
-        // Load timeout configuration
+    /**
+     * Initialize resilience components: timeout manager, circuit breaker, and Discord API wrapper.
+     */
+    private fun initializeResilienceComponents() {
+        // Load and initialize timeout manager
         val timeoutEnabled = config.getBoolean("discord.timeout.enabled", true)
-        val timeoutConfig = TimeoutConfig(
-            enabled = timeoutEnabled,
-            warningThresholdSeconds = config.getInt("discord.timeout.warning-threshold-seconds", 3),
-            hardTimeoutSeconds = config.getInt("discord.timeout.hard-timeout-seconds", 10)
-        )
-
-        // Initialize timeout manager
         if (timeoutEnabled) {
+            val timeoutConfig = TimeoutConfig(
+                enabled = true,
+                warningThresholdSeconds = config.getInt("discord.timeout.warning-threshold-seconds", 3),
+                hardTimeoutSeconds = config.getInt("discord.timeout.hard-timeout-seconds", 10)
+            )
             timeoutManager = timeoutConfig.toTimeoutManager(logger)
             logger.info("Timeout protection enabled: warning=${timeoutConfig.warningThresholdSeconds}s, hard=${timeoutConfig.hardTimeoutSeconds}s")
         }
 
-        // Load circuit breaker configuration
+        // Load and initialize circuit breaker
         val circuitBreakerEnabled = config.getBoolean("discord.circuit-breaker.enabled", true)
-        val circuitBreakerConfig = CircuitBreakerConfig(
-            enabled = circuitBreakerEnabled,
-            failureThreshold = config.getInt("discord.circuit-breaker.failure-threshold", 5),
-            timeWindowSeconds = config.getInt("discord.circuit-breaker.time-window-seconds", 60),
-            cooldownSeconds = config.getInt("discord.circuit-breaker.cooldown-seconds", 30),
-            successThreshold = config.getInt("discord.circuit-breaker.success-threshold", 2)
-        )
-
-        // Initialize circuit breaker
         if (circuitBreakerEnabled) {
+            val circuitBreakerConfig = CircuitBreakerConfig(
+                enabled = true,
+                failureThreshold = config.getInt("discord.circuit-breaker.failure-threshold", 5),
+                timeWindowSeconds = config.getInt("discord.circuit-breaker.time-window-seconds", 60),
+                cooldownSeconds = config.getInt("discord.circuit-breaker.cooldown-seconds", 30),
+                successThreshold = config.getInt("discord.circuit-breaker.success-threshold", 2)
+            )
             circuitBreaker = circuitBreakerConfig.toCircuitBreaker(logger)
             logger.info(
                 "Circuit breaker enabled: failures=${circuitBreakerConfig.failureThreshold}/" +
@@ -271,104 +318,118 @@ class AMSSyncPlugin : JavaPlugin() {
 
         // Initialize Discord API wrapper with circuit breaker and metrics
         discordApiWrapper = DiscordApiWrapper(circuitBreaker, logger, errorMetrics)
+    }
 
-        // Initialize image card components
-        initializeImageCards()
-
-        // Check if whitelist management is enabled
-        val whitelistEnabled = config.getBoolean("whitelist.enabled", true)
-        if (whitelistEnabled) {
-            logger.info("Whitelist management enabled")
+    /**
+     * Connect to Discord with retry and timeout logic.
+     */
+    private fun connectToDiscord(token: String, guildId: String, retryConfig: RetryManager.RetryConfig) {
+        if (retryConfig.enabled) {
+            connectWithRetry(token, guildId, retryConfig)
         } else {
-            logger.info("Whitelist management disabled in config")
+            connectWithoutRetry(token, guildId)
+        }
+    }
+
+    /**
+     * Connect to Discord with retry logic enabled.
+     */
+    private fun connectWithRetry(token: String, guildId: String, retryConfig: RetryManager.RetryConfig) {
+        val retryManager = retryConfig.toRetryManager(logger)
+        val timeoutEnabled = config.getBoolean("discord.timeout.enabled", true)
+
+        // Wrap retry+initialization with timeout protection
+        val tm = timeoutManager
+        val connectionResult = if (timeoutEnabled && tm != null) {
+            tm.executeWithTimeout("Discord connection with retries") {
+                retryManager.executeWithRetry("Discord connection") {
+                    discordManager.initialize(token, guildId)
+                }
+            }
+        } else {
+            TimeoutManager.TimeoutResult.Success(
+                retryManager.executeWithRetry("Discord connection") {
+                    discordManager.initialize(token, guildId)
+                }
+            )
         }
 
-        // Initialize Discord manager (passing image card commands if available)
-        discordManager = DiscordManager(this, amsStatsCommand, amsTopCommand, whitelistEnabled)
+        handleConnectionResult(connectionResult)
+    }
 
-        // Attempt connection with retry logic (if enabled)
-        if (retryEnabled) {
-            val retryManager = retryConfig.toRetryManager(logger)
-
-            // Wrap retry+initialization with timeout protection
-            val tm = timeoutManager  // Smart cast to non-null
-            val connectionResult = if (timeoutEnabled && tm != null) {
-                tm.executeWithTimeout("Discord connection with retries") {
-                    retryManager.executeWithRetry("Discord connection") {
-                        discordManager.initialize(token, guildId)
+    /**
+     * Handle the result of a Discord connection attempt with retry.
+     */
+    private fun handleConnectionResult(connectionResult: TimeoutManager.TimeoutResult<RetryManager.RetryResult<Unit>>) {
+        when (connectionResult) {
+            is TimeoutManager.TimeoutResult.Success -> {
+                when (val retryResult = connectionResult.value) {
+                    is RetryManager.RetryResult.Success -> {
+                        errorMetrics.recordConnectionAttempt(success = true)
+                        logger.info("Discord bot successfully connected!")
+                        initializePlayerCountPresence()
+                    }
+                    is RetryManager.RetryResult.Failure -> {
+                        errorMetrics.recordConnectionAttempt(success = false)
+                        logDegradedModeError(
+                            "Failed to connect to Discord after ${retryResult.attempts} attempts",
+                            "Last error: ${retryResult.lastException.message}",
+                            "Check your bot token and network connection"
+                        )
                     }
                 }
-            } else {
-                // No timeout - execute retry directly
-                TimeoutManager.TimeoutResult.Success(
-                    retryManager.executeWithRetry("Discord connection") {
-                        discordManager.initialize(token, guildId)
-                    }
+            }
+            is TimeoutManager.TimeoutResult.Timeout -> {
+                errorMetrics.recordConnectionAttempt(success = false)
+                logDegradedModeError(
+                    "Discord connection timed out after ${connectionResult.timeoutMs}ms",
+                    null,
+                    "This may indicate network issues or Discord API problems"
                 )
             }
-
-            // Handle timeout result
-            when (connectionResult) {
-                is TimeoutManager.TimeoutResult.Success -> {
-                    // Check retry result
-                    when (val retryResult = connectionResult.value) {
-                        is RetryManager.RetryResult.Success -> {
-                            errorMetrics.recordConnectionAttempt(success = true)
-                            logger.info("Discord bot successfully connected!")
-                            initializePlayerCountPresence()
-                        }
-                        is RetryManager.RetryResult.Failure -> {
-                            errorMetrics.recordConnectionAttempt(success = false)
-                            logger.severe("=".repeat(60))
-                            logger.severe("Failed to connect to Discord after ${retryResult.attempts} attempts")
-                            logger.severe("Last error: ${retryResult.lastException.message}")
-                            logger.severe("")
-                            logger.severe("PLUGIN RUNNING IN DEGRADED MODE")
-                            logger.severe("- Minecraft features will continue to work")
-                            logger.severe("- Discord integration is unavailable")
-                            logger.severe("- Check your bot token and network connection")
-                            logger.severe("- Use /reload to retry connection after fixing issues")
-                            logger.severe("=".repeat(60))
-                        }
-                    }
-                }
-                is TimeoutManager.TimeoutResult.Timeout -> {
-                    errorMetrics.recordConnectionAttempt(success = false)
-                    logger.severe("=".repeat(60))
-                    logger.severe("Discord connection timed out after ${connectionResult.timeoutMs}ms")
-                    logger.severe("")
-                    logger.severe("PLUGIN RUNNING IN DEGRADED MODE")
-                    logger.severe("- Minecraft features will continue to work")
-                    logger.severe("- Discord integration is unavailable")
-                    logger.severe("- This may indicate network issues or Discord API problems")
-                    logger.severe("- Use /reload to retry connection after fixing issues")
-                    logger.severe("=".repeat(60))
-                }
-                is TimeoutManager.TimeoutResult.Failure -> {
-                    errorMetrics.recordConnectionAttempt(success = false)
-                    logger.severe("Discord connection failed unexpectedly: ${connectionResult.exception.message}")
-                    connectionResult.exception.printStackTrace()
-                }
-            }
-        } else {
-            // Retry disabled - fail fast (original behavior)
-            try {
-                discordManager.initialize(token, guildId)
-                errorMetrics.recordConnectionAttempt(success = true)
-                logger.info("Discord bot successfully connected!")
-                initializePlayerCountPresence()
-            } catch (e: Exception) {
+            is TimeoutManager.TimeoutResult.Failure -> {
                 errorMetrics.recordConnectionAttempt(success = false)
-                logger.severe("Failed to initialize Discord bot: ${e.message}")
-                logger.severe("Retry logic is disabled. Plugin will be disabled.")
-                logger.severe("Enable retry in config.yml: discord.retry.enabled = true")
-                logger.severe("Stack trace: ${e.stackTraceToString()}")
-                server.pluginManager.disablePlugin(this)
-                return
+                logger.severe("Discord connection failed unexpectedly: ${connectionResult.exception.message}")
+                connectionResult.exception.printStackTrace()
             }
         }
+    }
 
-        logger.info("AMSSync plugin enabled successfully!")
+    /**
+     * Connect to Discord without retry logic (fail fast).
+     */
+    private fun connectWithoutRetry(token: String, guildId: String) {
+        try {
+            discordManager.initialize(token, guildId)
+            errorMetrics.recordConnectionAttempt(success = true)
+            logger.info("Discord bot successfully connected!")
+            initializePlayerCountPresence()
+        } catch (e: Exception) {
+            errorMetrics.recordConnectionAttempt(success = false)
+            logger.severe("Failed to initialize Discord bot: ${e.message}")
+            logger.severe("Retry logic is disabled. Plugin will be disabled.")
+            logger.severe("Enable retry in config.yml: discord.retry.enabled = true")
+            logger.severe("Stack trace: ${e.stackTraceToString()}")
+            server.pluginManager.disablePlugin(this)
+        }
+    }
+
+    /**
+     * Log a degraded mode error with standard formatting.
+     */
+    private fun logDegradedModeError(mainError: String, details: String?, hint: String) {
+        logger.severe("=".repeat(60))
+        logger.severe(mainError)
+        if (details != null) {
+            logger.severe(details)
+        }
+        logger.severe("")
+        logger.severe("PLUGIN RUNNING IN DEGRADED MODE")
+        logger.severe("- Minecraft features will continue to work")
+        logger.severe("- Discord integration is unavailable")
+        logger.severe("- $hint")
+        logger.severe("- Use /reload to retry connection after fixing issues")
+        logger.severe("=".repeat(60))
     }
 
     override fun onDisable() {

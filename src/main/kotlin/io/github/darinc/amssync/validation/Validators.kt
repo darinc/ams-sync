@@ -1,9 +1,31 @@
 package io.github.darinc.amssync.validation
 
+import com.gmail.nossr50.datatypes.skills.PrimarySkillType
+
 /**
- * Input validation utilities for Minecraft usernames and Discord IDs.
+ * Input validation and formatting utilities for Minecraft usernames and Discord IDs.
  */
 object Validators {
+
+    /**
+     * Format a skill name for display (title case).
+     *
+     * @param skill The skill name to format
+     * @return Formatted skill name with first letter capitalized
+     */
+    fun formatSkillName(skill: String): String {
+        return skill.lowercase().replaceFirstChar { it.uppercase() }
+    }
+
+    /**
+     * Format a PrimarySkillType name for display (title case).
+     *
+     * @param skill The MCMMO skill type to format
+     * @return Formatted skill name with first letter capitalized
+     */
+    fun formatSkillName(skill: PrimarySkillType): String {
+        return formatSkillName(skill.name)
+    }
     /**
      * Valid Minecraft username pattern:
      * - 3-16 characters

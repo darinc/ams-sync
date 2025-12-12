@@ -7,7 +7,6 @@ import io.github.darinc.amssync.exceptions.PlayerDataNotFoundException
 import io.github.darinc.amssync.validation.Validators
 import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
-import net.dv8tion.jda.api.interactions.InteractionHook
 import org.bukkit.Bukkit
 import java.awt.Color
 import java.time.Instant
@@ -20,15 +19,11 @@ class McStatsCommand(private val plugin: AMSSyncPlugin) {
     private val discordApi: DiscordApiWrapper?
         get() = plugin.discordApiWrapper
 
+    private val usernameResolver = UsernameResolver(plugin.userMappingService)
+
     fun handle(event: SlashCommandInteractionEvent) {
         // Defer reply immediately to avoid timeout
-        discordApi?.deferReply(event)?.exceptionally { error ->
-            plugin.logger.warning("Failed to defer reply for /mcstats: ${error.message}")
-            null
-        } ?: event.deferReply().queue(
-            null,
-            { error -> plugin.logger.warning("Failed to defer reply for /mcstats: ${error.message}") }
-        )
+        CommandUtils.deferReply(event, "/mcstats", discordApi, plugin.logger)
 
         val usernameOption = event.getOption("username")?.asString
         val skillOption = event.getOption("skill")?.asString
@@ -39,7 +34,7 @@ class McStatsCommand(private val plugin: AMSSyncPlugin) {
         Bukkit.getScheduler().runTask(plugin, Runnable {
             try {
                 // Resolve the target Minecraft username (self or other player)
-                val mcUsername = resolveMinecraftUsername(usernameOption, invokerDiscordId)
+                val mcUsername = usernameResolver.resolve(usernameOption, invokerDiscordId)
 
                 if (skillOption != null) {
                     // Show specific skill
@@ -52,61 +47,40 @@ class McStatsCommand(private val plugin: AMSSyncPlugin) {
             } catch (e: IllegalArgumentException) {
                 // Username resolution errors (not linked, Discord user not found, etc.)
                 plugin.logger.fine("Username resolution failed: ${e.message}")
-                sendEphemeralMessage(event.hook, e.message ?: "Invalid username")
+                CommandUtils.sendEphemeralMessage(event.hook, e.message ?: "Invalid username", discordApi, plugin.logger)
 
             } catch (e: PlayerDataNotFoundException) {
                 plugin.logger.fine("Player data not found: ${e.message}")
-                sendEphemeralMessage(
+                CommandUtils.sendEphemeralMessage(
                     event.hook,
-                    "❌ **Player Not Found**\n\n" +
-                    "Player **${e.playerName}** has no MCMMO data.\n\n" +
-                    "**Possible reasons:**\n" +
-                    "• Player has never joined the server\n" +
-                    "• Player has not gained any MCMMO experience\n" +
-                    "• MCMMO data file is corrupted"
+                    "Player **${e.playerName}** has no MCMMO data.\n" +
+                    "They may have never joined or haven't gained any XP yet.",
+                    discordApi,
+                    plugin.logger
                 )
 
             } catch (e: InvalidSkillException) {
                 plugin.logger.fine("Invalid skill requested: ${e.skillName}")
-                sendEphemeralMessage(
+                CommandUtils.sendEphemeralMessage(
                     event.hook,
-                    "❌ **Invalid Skill**\n\n" +
-                    "Skill **${e.skillName}** is not valid.\n\n" +
-                    "**Valid skills:**\n" +
-                    e.validSkills.joinToString(", ")
+                    "Invalid skill: **${e.skillName}**\n\n" +
+                    "Valid skills: ${e.validSkills.joinToString(", ")}",
+                    discordApi,
+                    plugin.logger
                 )
 
             } catch (e: Exception) {
                 plugin.logger.warning("Unexpected error handling /mcstats command: ${e.message}")
                 e.printStackTrace()
-                sendEphemeralMessage(
+                CommandUtils.sendEphemeralMessage(
                     event.hook,
-                    "⚠️ **Error**\n\n" +
-                    "An unexpected error occurred while fetching stats.\n" +
-                    "Please try again later or contact an administrator."
+                    "An error occurred while fetching stats.\n" +
+                    "Please try again later.",
+                    discordApi,
+                    plugin.logger
                 )
             }
         })
-    }
-
-    private fun sendEphemeralMessage(hook: InteractionHook, message: String) {
-        discordApi?.sendMessage(hook, message, ephemeral = true)?.exceptionally { error ->
-            plugin.logger.warning("Failed to send message: ${error.message}")
-            null
-        } ?: hook.sendMessage(message).setEphemeral(true).queue(
-            null,
-            { error -> plugin.logger.warning("Failed to send message: ${error.message}") }
-        )
-    }
-
-    private fun sendEmbed(hook: InteractionHook, embed: net.dv8tion.jda.api.entities.MessageEmbed) {
-        discordApi?.sendMessageEmbed(hook, embed)?.exceptionally { error ->
-            plugin.logger.warning("Failed to send embed: ${error.message}")
-            null
-        } ?: hook.sendMessageEmbeds(embed).queue(
-            null,
-            { error -> plugin.logger.warning("Failed to send embed: ${error.message}") }
-        )
     }
 
     private fun handleAllSkills(event: SlashCommandInteractionEvent, mcUsername: String, invokerTag: String) {
@@ -125,10 +99,10 @@ class McStatsCommand(private val plugin: AMSSyncPlugin) {
         val sortedStats = stats.entries.sortedByDescending { it.value }
 
         for ((skill, level) in sortedStats) {
-            embed.addField(formatSkillName(skill), level.toString(), true)
+            embed.addField(Validators.formatSkillName(skill), level.toString(), true)
         }
 
-        sendEmbed(event.hook, embed.build())
+        CommandUtils.sendEmbed(event.hook, embed.build(), discordApi, plugin.logger)
     }
 
     private fun handleSpecificSkill(event: SlashCommandInteractionEvent, mcUsername: String, skillName: String, invokerTag: String) {
@@ -139,89 +113,12 @@ class McStatsCommand(private val plugin: AMSSyncPlugin) {
         val level = plugin.mcmmoApi.getPlayerSkillLevel(mcUsername, skill.name)
 
         val embed = EmbedBuilder()
-            .setTitle("${formatSkillName(skill.name)} Stats for $mcUsername")
+            .setTitle("${Validators.formatSkillName(skill.name)} Stats for $mcUsername")
             .setColor(Color.CYAN)
             .setDescription("**Level:** $level")
             .setTimestamp(Instant.now())
             .setFooter("Requested by $invokerTag", null)
 
-        sendEmbed(event.hook, embed.build())
-    }
-
-    /**
-     * Resolve a flexible username input to a Minecraft username.
-     *
-     * Strategy:
-     * 1. If usernameInput is null/empty, use command invoker's Discord ID (requires linking)
-     * 2. If usernameInput is provided:
-     *    a. Strip Discord mention format if present (<@123...> or <@!123...>)
-     *    b. If it's a Discord ID (17-19 digits), lookup via UserMappingService
-     *    c. Otherwise, assume it's a Minecraft username and use directly
-     *
-     * @param usernameInput The username parameter from the command (can be null)
-     * @param invokerDiscordId The Discord ID of the user who invoked the command
-     * @return Minecraft username to query
-     * @throws IllegalArgumentException if username cannot be resolved
-     */
-    private fun resolveMinecraftUsername(usernameInput: String?, invokerDiscordId: String): String {
-        // Case 1: No username provided - use command invoker's Discord ID
-        if (usernameInput.isNullOrBlank()) {
-            val mcUsername = plugin.userMappingService.getMinecraftUsername(invokerDiscordId)
-            if (mcUsername == null) {
-                throw IllegalArgumentException(
-                    "❌ **Account Not Linked**\n\n" +
-                    "Your Discord account is not linked to a Minecraft account.\n\n" +
-                    "**How to link:**\n" +
-                    "Contact a server administrator to use `/amslink add` command."
-                )
-            }
-            return mcUsername
-        }
-
-        // Case 2: Username provided - flexible detection
-        var cleanedInput = usernameInput.trim()
-
-        // Strip Discord mention format: <@123456789012345678> or <@!123456789012345678>
-        if (cleanedInput.startsWith("<@") && cleanedInput.endsWith(">")) {
-            cleanedInput = cleanedInput.removePrefix("<@").removeSuffix(">")
-            if (cleanedInput.startsWith("!")) {
-                cleanedInput = cleanedInput.removePrefix("!")
-            }
-        }
-
-        // Check if it's a Discord ID (17-19 digit snowflake)
-        if (cleanedInput.matches(Regex("^\\d{17,19}$"))) {
-            // Try to resolve via UserMappingService
-            val mcUsername = plugin.userMappingService.getMinecraftUsername(cleanedInput)
-            if (mcUsername == null) {
-                throw IllegalArgumentException(
-                    "❌ **Discord User Not Linked**\n\n" +
-                    "Discord user <@$cleanedInput> is not linked to a Minecraft account.\n\n" +
-                    "**How to link:**\n" +
-                    "Contact a server administrator to use `/amslink add` command."
-                )
-            }
-            return mcUsername
-        }
-
-        // Assume it's a Minecraft username - validate format before passing to MCMMO
-        if (!Validators.isValidMinecraftUsername(cleanedInput)) {
-            throw IllegalArgumentException(
-                "❌ **Invalid Username**\n\n" +
-                "${Validators.getMinecraftUsernameError(cleanedInput)}\n\n" +
-                "**Minecraft usernames must:**\n" +
-                "• Be 3-16 characters long\n" +
-                "• Contain only letters, numbers, and underscores"
-            )
-        }
-
-        return cleanedInput
-    }
-
-    /**
-     * Format skill name for display (capitalize first letter)
-     */
-    private fun formatSkillName(skill: String): String {
-        return skill.lowercase().replaceFirstChar { it.uppercase() }
+        CommandUtils.sendEmbed(event.hook, embed.build(), discordApi, plugin.logger)
     }
 }

@@ -331,6 +331,7 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) {
         }
 
         // Wait for all user lookups to complete
+        @Suppress("SpreadOperator") // Required for CompletableFuture.allOf() varargs
         java.util.concurrent.CompletableFuture.allOf(*userFutures.toTypedArray()).thenRun {
             Bukkit.getScheduler().runTask(plugin, Runnable {
                 try {

@@ -11,6 +11,7 @@ import io.github.darinc.amssync.discord.CircuitBreaker
 import io.github.darinc.amssync.image.AvatarFetcher
 import io.github.darinc.amssync.image.MilestoneCardRenderer
 import io.github.darinc.amssync.image.MilestoneStyles
+import io.github.darinc.amssync.validation.Validators
 import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
 import net.dv8tion.jda.api.utils.FileUpload
@@ -179,7 +180,7 @@ class McMMOEventListener(
                     val embed = EmbedBuilder()
                         .setColor(getSkillColor(skill))
                         .setTitle("Skill Milestone!")
-                        .setDescription("**$playerName** reached level **$level** in **${formatSkillName(skill)}**!")
+                        .setDescription("**$playerName** reached level **$level** in **${Validators.formatSkillName(skill)}**!")
                         .setTimestamp(Instant.now())
                         .build()
                     channel.sendMessageEmbeds(embed).queue(
@@ -187,7 +188,7 @@ class McMMOEventListener(
                         { e -> plugin.logger.warning("Failed to send skill milestone: ${e.message}") }
                     )
                 } else {
-                    channel.sendMessage("$playerName reached level $level in ${formatSkillName(skill)}!").queue(
+                    channel.sendMessage("$playerName reached level $level in ${Validators.formatSkillName(skill)}!").queue(
                         { plugin.logger.fine("Sent skill milestone message") },
                         { e -> plugin.logger.warning("Failed to send skill milestone: ${e.message}") }
                     )
@@ -416,13 +417,6 @@ class McMMOEventListener(
         }
 
         return channel
-    }
-
-    /**
-     * Format skill name for display (title case).
-     */
-    private fun formatSkillName(skill: PrimarySkillType): String {
-        return skill.name.lowercase().replaceFirstChar { it.uppercase() }
     }
 
     /**

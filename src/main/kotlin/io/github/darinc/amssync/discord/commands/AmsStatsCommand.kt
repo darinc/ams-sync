@@ -6,9 +6,7 @@ import io.github.darinc.amssync.exceptions.PlayerDataNotFoundException
 import io.github.darinc.amssync.image.AvatarFetcher
 import io.github.darinc.amssync.image.ImageConfig
 import io.github.darinc.amssync.image.PlayerCardRenderer
-import io.github.darinc.amssync.validation.Validators
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
-import net.dv8tion.jda.api.interactions.InteractionHook
 import net.dv8tion.jda.api.utils.FileUpload
 import org.bukkit.Bukkit
 import java.io.ByteArrayOutputStream
@@ -27,15 +25,11 @@ class AmsStatsCommand(
     private val discordApi: DiscordApiWrapper?
         get() = plugin.discordApiWrapper
 
+    private val usernameResolver = UsernameResolver(plugin.userMappingService)
+
     fun handle(event: SlashCommandInteractionEvent) {
         // Defer reply immediately to avoid timeout (image generation takes time)
-        discordApi?.deferReply(event)?.exceptionally { error ->
-            plugin.logger.warning("Failed to defer reply for /amsstats: ${error.message}")
-            null
-        } ?: event.deferReply().queue(
-            null,
-            { error -> plugin.logger.warning("Failed to defer reply for /amsstats: ${error.message}") }
-        )
+        CommandUtils.deferReply(event, "/amsstats", discordApi, plugin.logger)
 
         val usernameOption = event.getOption("username")?.asString
         val invokerDiscordId = event.user.id
@@ -44,7 +38,7 @@ class AmsStatsCommand(
         Bukkit.getScheduler().runTask(plugin, Runnable {
             try {
                 // Resolve the target Minecraft username
-                val mcUsername = resolveMinecraftUsername(usernameOption, invokerDiscordId)
+                val mcUsername = usernameResolver.resolve(usernameOption, invokerDiscordId)
 
                 // Get player stats and power level
                 val stats = plugin.mcmmoApi.getPlayerStats(mcUsername)
@@ -75,100 +69,34 @@ class AmsStatsCommand(
                 val imageBytes = baos.toByteArray()
 
                 // Send as file attachment
-                sendFiles(event.hook, FileUpload.fromData(imageBytes, "${mcUsername}_stats.png"))
+                CommandUtils.sendFiles(event.hook, discordApi, plugin.logger, FileUpload.fromData(imageBytes, "${mcUsername}_stats.png"))
                 plugin.logger.fine("Sent stats card for $mcUsername")
 
             } catch (e: IllegalArgumentException) {
                 plugin.logger.fine("Username resolution failed: ${e.message}")
-                sendEphemeralMessage(event.hook, e.message ?: "Invalid username")
+                CommandUtils.sendEphemeralMessage(event.hook, e.message ?: "Invalid username", discordApi, plugin.logger)
 
             } catch (e: PlayerDataNotFoundException) {
                 plugin.logger.fine("Player data not found: ${e.message}")
-                sendEphemeralMessage(
+                CommandUtils.sendEphemeralMessage(
                     event.hook,
                     "Player **${e.playerName}** has no MCMMO data.\n" +
-                    "They may have never joined or haven't gained any XP yet."
+                    "They may have never joined or haven't gained any XP yet.",
+                    discordApi,
+                    plugin.logger
                 )
 
             } catch (e: Exception) {
                 plugin.logger.warning("Error handling /amsstats: ${e.message}")
                 e.printStackTrace()
-                sendEphemeralMessage(
+                CommandUtils.sendEphemeralMessage(
                     event.hook,
                     "An error occurred while generating the stats card.\n" +
-                    "Please try again later."
+                    "Please try again later.",
+                    discordApi,
+                    plugin.logger
                 )
             }
         })
-    }
-
-    private fun sendEphemeralMessage(hook: InteractionHook, message: String) {
-        discordApi?.sendMessage(hook, message, ephemeral = true)?.exceptionally { error ->
-            plugin.logger.warning("Failed to send message: ${error.message}")
-            null
-        } ?: hook.sendMessage(message).setEphemeral(true).queue(
-            null,
-            { error -> plugin.logger.warning("Failed to send message: ${error.message}") }
-        )
-    }
-
-    private fun sendFiles(hook: InteractionHook, vararg files: FileUpload) {
-        discordApi?.sendFiles(hook, *files)?.exceptionally { error ->
-            plugin.logger.warning("Failed to send files: ${error.message}")
-            null
-        } ?: hook.sendFiles(*files).queue(
-            null,
-            { error -> plugin.logger.warning("Failed to send files: ${error.message}") }
-        )
-    }
-
-    /**
-     * Resolve a flexible username input to a Minecraft username.
-     * Mirrors the logic from McStatsCommand.
-     */
-    private fun resolveMinecraftUsername(usernameInput: String?, invokerDiscordId: String): String {
-        // Case 1: No username provided - use command invoker's Discord ID
-        if (usernameInput.isNullOrBlank()) {
-            val mcUsername = plugin.userMappingService.getMinecraftUsername(invokerDiscordId)
-            if (mcUsername == null) {
-                throw IllegalArgumentException(
-                    "Your Discord account is not linked to a Minecraft account.\n" +
-                    "Contact an administrator to use `/amslink add`."
-                )
-            }
-            return mcUsername
-        }
-
-        // Case 2: Username provided - flexible detection
-        var cleanedInput = usernameInput.trim()
-
-        // Strip Discord mention format
-        if (cleanedInput.startsWith("<@") && cleanedInput.endsWith(">")) {
-            cleanedInput = cleanedInput.removePrefix("<@").removeSuffix(">")
-            if (cleanedInput.startsWith("!")) {
-                cleanedInput = cleanedInput.removePrefix("!")
-            }
-        }
-
-        // Check if it's a Discord ID
-        if (cleanedInput.matches(Regex("^\\d{17,19}$"))) {
-            val mcUsername = plugin.userMappingService.getMinecraftUsername(cleanedInput)
-            if (mcUsername == null) {
-                throw IllegalArgumentException(
-                    "Discord user <@$cleanedInput> is not linked to a Minecraft account."
-                )
-            }
-            return mcUsername
-        }
-
-        // Validate Minecraft username format
-        if (!Validators.isValidMinecraftUsername(cleanedInput)) {
-            throw IllegalArgumentException(
-                "${Validators.getMinecraftUsernameError(cleanedInput)}\n" +
-                "Minecraft usernames must be 3-16 characters with only letters, numbers, and underscores."
-            )
-        }
-
-        return cleanedInput
     }
 }

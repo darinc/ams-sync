@@ -1,6 +1,7 @@
 package io.github.darinc.amssync.image
 
 import com.gmail.nossr50.datatypes.skills.PrimarySkillType
+import io.github.darinc.amssync.validation.Validators
 import java.awt.GradientPaint
 import java.awt.Graphics2D
 import java.awt.RenderingHints
@@ -115,9 +116,7 @@ class MilestoneCardRenderer(
     // ========== DRAWING HELPERS ==========
 
     private fun enableAntialiasing(g2d: Graphics2D) {
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
-        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
+        GraphicsUtils.enableAntialiasing(g2d)
     }
 
     private fun drawBackground(g2d: Graphics2D, width: Int, height: Int, glowColor: java.awt.Color) {
@@ -185,7 +184,7 @@ class MilestoneCardRenderer(
         // Draw skill achievement text
         g2d.font = MilestoneStyles.FONT_BODY
         g2d.color = MilestoneStyles.TEXT_SECONDARY
-        val skillName = formatSkillName(skill)
+        val skillName = Validators.formatSkillName(skill)
         g2d.drawString("reached level ${MilestoneStyles.formatLevel(level)}", textX, sectionY + 40)
         g2d.color = MilestoneStyles.TEXT_ACCENT
         g2d.drawString("in $skillName", textX, sectionY + 58)
@@ -318,9 +317,5 @@ class MilestoneCardRenderer(
         path.lineTo((x + size * 0.55).toDouble(), (y + size * 0.5).toDouble())
         path.closePath()
         g2d.fill(path)
-    }
-
-    private fun formatSkillName(skill: PrimarySkillType): String {
-        return skill.name.lowercase().replaceFirstChar { it.uppercase() }
     }
 }

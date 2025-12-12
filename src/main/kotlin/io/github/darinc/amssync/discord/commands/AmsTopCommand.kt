@@ -7,8 +7,8 @@ import io.github.darinc.amssync.exceptions.InvalidSkillException
 import io.github.darinc.amssync.image.AvatarFetcher
 import io.github.darinc.amssync.image.ImageConfig
 import io.github.darinc.amssync.image.PlayerCardRenderer
+import io.github.darinc.amssync.validation.Validators
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent
-import net.dv8tion.jda.api.interactions.InteractionHook
 import net.dv8tion.jda.api.utils.FileUpload
 import org.bukkit.Bukkit
 import java.io.ByteArrayOutputStream
@@ -31,13 +31,7 @@ class AmsTopCommand(
 
     fun handle(event: SlashCommandInteractionEvent) {
         // Defer reply immediately (image generation takes time)
-        discordApi?.deferReply(event)?.exceptionally { error ->
-            plugin.logger.warning("Failed to defer reply for /amstop: ${error.message}")
-            null
-        } ?: event.deferReply().queue(
-            null,
-            { error -> plugin.logger.warning("Failed to defer reply for /amstop: ${error.message}") }
-        )
+        CommandUtils.deferReply(event, "/amstop", discordApi, plugin.logger)
 
         val skillName = event.getOption("skill")?.asString
         val timeoutManager = plugin.timeoutManager
@@ -64,10 +58,12 @@ class AmsTopCommand(
             when (result) {
                 is TimeoutManager.TimeoutResult.Success -> {}
                 is TimeoutManager.TimeoutResult.Timeout -> {
-                    sendEphemeralMessage(
+                    CommandUtils.sendEphemeralMessage(
                         event.hook,
                         "The leaderboard query timed out (${result.timeoutMs}ms).\n" +
-                        "Please try again later."
+                        "Please try again later.",
+                        discordApi,
+                        plugin.logger
                     )
                 }
                 is TimeoutManager.TimeoutResult.Failure -> {
@@ -93,10 +89,12 @@ class AmsTopCommand(
         val leaderboard = plugin.mcmmoApi.getPowerLevelLeaderboard(leaderboardSize)
 
         if (leaderboard.isEmpty()) {
-            sendEphemeralMessage(
+            CommandUtils.sendEphemeralMessage(
                 event.hook,
                 "No leaderboard data available.\n" +
-                "Players need to gain MCMMO experience first."
+                "Players need to gain MCMMO experience first.",
+                discordApi,
+                plugin.logger
             )
             return
         }
@@ -109,10 +107,12 @@ class AmsTopCommand(
         val skill = try {
             plugin.mcmmoApi.parseSkillType(skillName)
         } catch (e: InvalidSkillException) {
-            sendEphemeralMessage(
+            CommandUtils.sendEphemeralMessage(
                 event.hook,
                 "Invalid skill: **$skillName**\n\n" +
-                "Valid skills: ${e.validSkills.joinToString(", ")}"
+                "Valid skills: ${e.validSkills.joinToString(", ")}",
+                discordApi,
+                plugin.logger
             )
             return
         }
@@ -120,15 +120,17 @@ class AmsTopCommand(
         val leaderboard = plugin.mcmmoApi.getLeaderboard(skill.name, leaderboardSize)
 
         if (leaderboard.isEmpty()) {
-            sendEphemeralMessage(
+            CommandUtils.sendEphemeralMessage(
                 event.hook,
-                "No leaderboard data for **${formatSkillName(skill.name)}**.\n" +
-                "Players need to gain experience in this skill first."
+                "No leaderboard data for **${Validators.formatSkillName(skill.name)}**.\n" +
+                "Players need to gain experience in this skill first.",
+                discordApi,
+                plugin.logger
             )
             return
         }
 
-        renderAndSendCard(event, formatSkillName(skill.name), leaderboard)
+        renderAndSendCard(event, Validators.formatSkillName(skill.name), leaderboard)
     }
 
     private fun renderAndSendCard(
@@ -163,52 +165,32 @@ class AmsTopCommand(
 
         // Send as file attachment
         val filename = "${title.lowercase().replace(" ", "_")}_leaderboard.png"
-        sendFiles(event.hook, FileUpload.fromData(imageBytes, filename))
+        CommandUtils.sendFiles(event.hook, discordApi, plugin.logger, FileUpload.fromData(imageBytes, filename))
         plugin.logger.fine("Sent leaderboard card for $title")
     }
 
     private fun handleException(event: SlashCommandInteractionEvent, e: Exception) {
         when (e) {
             is InvalidSkillException -> {
-                sendEphemeralMessage(
+                CommandUtils.sendEphemeralMessage(
                     event.hook,
                     "Invalid skill: **${e.skillName}**\n\n" +
-                    "Valid skills: ${e.validSkills.joinToString(", ")}"
+                    "Valid skills: ${e.validSkills.joinToString(", ")}",
+                    discordApi,
+                    plugin.logger
                 )
             }
             else -> {
                 plugin.logger.warning("Error handling /amstop: ${e.message}")
                 e.printStackTrace()
-                sendEphemeralMessage(
+                CommandUtils.sendEphemeralMessage(
                     event.hook,
                     "An error occurred while generating the leaderboard.\n" +
-                    "Please try again later."
+                    "Please try again later.",
+                    discordApi,
+                    plugin.logger
                 )
             }
         }
-    }
-
-    private fun sendEphemeralMessage(hook: InteractionHook, message: String) {
-        discordApi?.sendMessage(hook, message, ephemeral = true)?.exceptionally { error ->
-            plugin.logger.warning("Failed to send message: ${error.message}")
-            null
-        } ?: hook.sendMessage(message).setEphemeral(true).queue(
-            null,
-            { error -> plugin.logger.warning("Failed to send message: ${error.message}") }
-        )
-    }
-
-    private fun sendFiles(hook: InteractionHook, vararg files: FileUpload) {
-        discordApi?.sendFiles(hook, *files)?.exceptionally { error ->
-            plugin.logger.warning("Failed to send files: ${error.message}")
-            null
-        } ?: hook.sendFiles(*files).queue(
-            null,
-            { error -> plugin.logger.warning("Failed to send files: ${error.message}") }
-        )
-    }
-
-    private fun formatSkillName(skill: String): String {
-        return skill.lowercase().replaceFirstChar { it.uppercase() }
     }
 }

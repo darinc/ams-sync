@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "io.github.darinc"
-version = "0.18.4"
+version = "0.18.5"
 
 repositories {
     mavenCentral()

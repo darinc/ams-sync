@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.5] - 2025-12-11
+
+### Changed
+
+- Refactored AMSSyncPlugin.onEnable() to reduce cyclomatic complexity
+- Extracted shared utilities into CommandUtils and UsernameResolver classes
+- Consolidated duplicate formatSkillName functions into Validators
+
+### Fixed
+
+- Resolved all detekt static analysis warnings
+
 ## [0.18.4] - 2025-12-11
 
 ### Added

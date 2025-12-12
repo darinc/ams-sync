@@ -163,7 +163,7 @@ class ConfigMigrator(
      */
     private fun loadDefaultConfigLines(): List<String> {
         val resource = plugin.getResource("config.yml")
-            ?: throw IllegalStateException("Default config.yml not found in JAR")
+            ?: error("Default config.yml not found in JAR")
 
         return resource.bufferedReader().use { it.readLines() }
     }
@@ -173,7 +173,7 @@ class ConfigMigrator(
      */
     private fun loadDefaultConfig(): YamlConfiguration {
         val resource = plugin.getResource("config.yml")
-            ?: throw IllegalStateException("Default config.yml not found in JAR")
+            ?: error("Default config.yml not found in JAR")
 
         return InputStreamReader(resource).use { reader ->
             YamlConfiguration.loadConfiguration(reader)
