@@ -25,6 +25,16 @@ Output: `build/libs/ams-sync-*.jar` (shaded JAR with all dependencies)
 ```
 Uses Kotest with JUnit5 platform.
 
+**Run a single test class:**
+```bash
+./gradlew test --tests "io.github.darinc.amssync.discord.CircuitBreakerTest"
+```
+
+**Run a single test method:**
+```bash
+./gradlew test --tests "io.github.darinc.amssync.discord.CircuitBreakerTest.CircuitBreaker -- CLOSED state -- starts in CLOSED state"
+```
+
 **Run static analysis:**
 ```bash
 ./gradlew detekt
@@ -115,6 +125,16 @@ mvn install -DskipTests
 - Logs administrative actions (link/unlink operations)
 - File-based audit trail
 
+**ConfigMigrator** (`config/ConfigMigrator.kt`)
+- Handles config.yml version migrations between plugin updates
+- Creates backups before migration
+- Returns sealed class `MigrationResult` (FreshInstall, UpToDate, Migrated, Failed)
+
+**ConfigValidator** (`config/ConfigValidator.kt`)
+- Pre-validates Discord configuration before connection attempts
+- Bot token format validation
+- Guild ID validation
+
 ### Image Card System
 
 **PlayerCardRenderer** (`image/PlayerCardRenderer.kt`)
@@ -156,13 +176,17 @@ mvn install -DskipTests
 - Sends messages via Discord webhooks with custom avatars
 - Fallback to bot messages when webhook unavailable
 
+**ChatWebhookManager** (`discord/ChatWebhookManager.kt`)
+- Specialized webhook manager for chat bridge messages
+- Sends player chat with Minecraft head avatars
+
 ### Command Handling
 
 **Discord Commands** (`discord/SlashCommandListener.kt`)
 - Routes slash commands to handlers
 - Text commands: `McStatsCommand`, `McTopCommand` (embed-based)
 - Image commands: `AmsStatsCommand`, `AmsTopCommand` (visual cards)
-- Admin: `DiscordLinkCommand`
+- Admin: `DiscordLinkCommand`, `DiscordWhitelistCommand`
 - All commands check `CircuitBreaker` and `RateLimiter` state before executing
 - Uses ephemeral responses for errors
 
