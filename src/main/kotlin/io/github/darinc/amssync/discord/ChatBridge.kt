@@ -29,6 +29,11 @@ class ChatBridge(
     private val chatWebhookManager: ChatWebhookManager? = null
 ) : Listener, ListenerAdapter() {
 
+    companion object {
+        // Matches @username patterns (3-16 chars, alphanumeric + underscore)
+        private val MENTION_PATTERN = Regex("@([a-zA-Z0-9_]{3,16})")
+    }
+
     /**
      * Handle Minecraft chat events - relay to Discord.
      * Uses Paper's AsyncChatEvent for modern Paper servers.
@@ -48,17 +53,62 @@ class ChatBridge(
         val player = event.player
         val playerName = player.name
 
-        // Use webhook if enabled and available
+        // Mention resolution requires main thread access to UserMappingService
+        // Schedule on main thread, then send to Discord
+        if (config.resolveMentions && message.contains("@")) {
+            Bukkit.getScheduler().runTask(plugin, Runnable {
+                val resolvedMessage = resolveMentions(message)
+                sendMessageToDiscord(resolvedMessage, playerName, player.uniqueId)
+            })
+        } else {
+            sendMessageToDiscord(message, playerName, player.uniqueId)
+        }
+    }
+
+    /**
+     * Send a message to Discord using either webhook or bot message.
+     */
+    private fun sendMessageToDiscord(message: String, playerName: String, playerUuid: java.util.UUID) {
         if (config.useWebhook && chatWebhookManager?.isWebhookAvailable() == true) {
-            val avatarUrl = ChatBridgeConfig.getAvatarUrl(playerName, player.uniqueId, config.avatarProvider)
+            val avatarUrl = ChatBridgeConfig.getAvatarUrl(playerName, playerUuid, config.avatarProvider)
             sendViaWebhook(message, playerName, avatarUrl)
         } else {
-            // Fall back to bot message with formatted text
             val formatted = config.discordFormat
                 .replace("{player}", playerName)
                 .replace("{message}", message)
             sendToDiscord(formatted)
         }
+    }
+
+    /**
+     * Resolve @username mentions to Discord user mentions.
+     * Looks up linked users in UserMappingService and converts to <@discordId> format.
+     *
+     * @param message The message containing potential @mentions
+     * @return Message with resolved mentions (unlinked users kept as-is)
+     */
+    private fun resolveMentions(message: String): String {
+        return MENTION_PATTERN.replace(message) { match ->
+            val mentionedUsername = match.groupValues[1]
+            val discordId = findDiscordIdCaseInsensitive(mentionedUsername)
+            if (discordId != null) {
+                "<@$discordId>"
+            } else {
+                match.value // Keep original @username
+            }
+        }
+    }
+
+    /**
+     * Find Discord ID for a Minecraft username (case-insensitive).
+     */
+    private fun findDiscordIdCaseInsensitive(username: String): String? {
+        val mappings = plugin.services.userMappingService.getAllMappings()
+        // mappings is Discord ID -> Minecraft Username, need to search values
+        val entry = mappings.entries.find { (_, mcUsername) ->
+            mcUsername.equals(username, ignoreCase = true)
+        }
+        return entry?.key
     }
 
     /**
@@ -156,14 +206,18 @@ class ChatBridge(
 
     /**
      * Sanitize a message for Discord to prevent mention exploits.
+     * Preserves valid user mentions in the format <@discordId>.
      */
     private fun sanitizeDiscordMessage(message: String): String {
         return message
             // Prevent @everyone and @here mentions
             .replace("@everyone", "@\u200Beveryone")
             .replace("@here", "@\u200Bhere")
-            // Prevent role mentions (@ followed by role name)
-            .replace(Regex("@(&|!)?(\\d+)")) { match -> "@\u200B${match.groupValues[1]}${match.groupValues[2]}" }
+            // Prevent role mentions and raw ID mentions, but preserve valid <@id> user mentions
+            // Negative lookbehind (?<!<) ensures we don't break <@123456789> format
+            .replace(Regex("(?<!<)@(&|!)?(\\d+)")) { match ->
+                "@\u200B${match.groupValues[1]}${match.groupValues[2]}"
+            }
     }
 
     /**
@@ -194,6 +248,7 @@ class ChatBridge(
  * @property useWebhook Use webhook for richer Discord messages
  * @property webhookUrl Webhook URL (empty = auto-create in channel)
  * @property avatarProvider Avatar service: "mc-heads" or "crafatar"
+ * @property resolveMentions Convert @username to Discord mentions for linked users
  */
 data class ChatBridgeConfig(
     val enabled: Boolean,
@@ -206,7 +261,8 @@ data class ChatBridgeConfig(
     val suppressNotifications: Boolean,
     val useWebhook: Boolean,
     val webhookUrl: String?,
-    val avatarProvider: String
+    val avatarProvider: String,
+    val resolveMentions: Boolean
 ) {
     companion object {
         /**
@@ -229,7 +285,8 @@ data class ChatBridgeConfig(
                 suppressNotifications = config.getBoolean("discord.chat-bridge.suppress-notifications", true),
                 useWebhook = config.getBoolean("discord.chat-bridge.use-webhook", false),
                 webhookUrl = config.getString("discord.chat-bridge.webhook-url", "")?.takeIf { it.isNotBlank() },
-                avatarProvider = config.getString("discord.chat-bridge.avatar-provider", "mc-heads") ?: "mc-heads"
+                avatarProvider = config.getString("discord.chat-bridge.avatar-provider", "mc-heads") ?: "mc-heads",
+                resolveMentions = config.getBoolean("discord.chat-bridge.resolve-mentions", true)
             )
         }
 

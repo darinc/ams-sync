@@ -239,6 +239,11 @@ discord:
     # Avatar provider for player heads in webhook messages
     # Options: "mc-heads" or "crafatar"
     avatar-provider: "mc-heads"
+    # Convert @username mentions to Discord mentions for linked users
+    # When a Minecraft player types @Username, if that user has linked their
+    # Discord account via /amssync, the message will ping them on Discord
+    # Users not linked will appear as plain @username text (no notification)
+    resolve-mentions: true
 
 # Whitelist management via Discord
 # Allows Discord admins to add/remove players from the server whitelist

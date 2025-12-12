@@ -51,7 +51,8 @@ class ChatBridgeConfigTest : DescribeSpec({
                 suppressNotifications = true,
                 useWebhook = false,
                 webhookUrl = null,
-                avatarProvider = "mc-heads"
+                avatarProvider = "mc-heads",
+                resolveMentions = true
             )
 
             config.enabled shouldBe false
@@ -61,6 +62,7 @@ class ChatBridgeConfigTest : DescribeSpec({
             config.useWebhook shouldBe false
             config.webhookUrl.shouldBeNull()
             config.avatarProvider shouldBe "mc-heads"
+            config.resolveMentions shouldBe true
         }
     }
 
@@ -79,13 +81,15 @@ class ChatBridgeConfigTest : DescribeSpec({
                 suppressNotifications = true,
                 useWebhook = true,
                 webhookUrl = webhookUrl,
-                avatarProvider = "crafatar"
+                avatarProvider = "crafatar",
+                resolveMentions = true
             )
 
             config.enabled shouldBe true
             config.useWebhook shouldBe true
             config.webhookUrl shouldBe webhookUrl
             config.avatarProvider shouldBe "crafatar"
+            config.resolveMentions shouldBe true
         }
     }
 })

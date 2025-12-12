@@ -157,6 +157,8 @@ mvn install -DskipTests
 - Two-way chat relay between Minecraft and Discord
 - Configurable message formats with placeholders
 - Optional webhook support for rich messages
+- @mention resolution: converts `@Username` to Discord pings for linked users
+- Message sanitization prevents @everyone/@here exploits
 
 **PlayerCountPresence** (`discord/PlayerCountPresence.kt`)
 - Updates bot activity/status with player count
@@ -266,6 +268,7 @@ All configuration lives in `src/main/resources/config.yml`:
 - `discord.announcements.*` - MCMMO milestone announcements
 - `discord.events.*` - Server start/stop, deaths, achievements announcements
 - `discord.chat-bridge.*` - Two-way Minecraft↔Discord chat relay
+  - `resolve-mentions` - Convert `@Username` to Discord pings (default: true)
 
 **MCMMO Settings:**
 - `mcmmo.leaderboard.max-players-to-scan` - Query limit to prevent timeouts (default: 1000)

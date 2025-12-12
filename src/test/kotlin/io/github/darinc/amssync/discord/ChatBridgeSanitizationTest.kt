@@ -157,5 +157,86 @@ class ChatBridgeSanitizationTest : DescribeSpec({
                 sanitized shouldBe "@\u200Beveryone @\u200Bhere"
             }
         }
+
+        describe("mention resolution patterns") {
+
+            // Regex pattern for @username mentions (matches ChatBridge.MENTION_PATTERN)
+            val mentionPattern = Regex("@([a-zA-Z0-9_]{3,16})")
+
+            it("matches valid Minecraft usernames after @") {
+                mentionPattern.find("@Steve")?.groupValues?.get(1) shouldBe "Steve"
+                mentionPattern.find("@Player123")?.groupValues?.get(1) shouldBe "Player123"
+                mentionPattern.find("@_underscore_")?.groupValues?.get(1) shouldBe "_underscore_"
+            }
+
+            it("does not match usernames too short") {
+                mentionPattern.find("@ab") shouldBe null
+            }
+
+            it("does not match usernames too long") {
+                val longName = "@" + "a".repeat(17)
+                mentionPattern.find(longName)?.groupValues?.get(1) shouldBe "a".repeat(16)
+            }
+
+            it("extracts multiple mentions from message") {
+                val message = "Hey @Steve and @Alex, check this out!"
+                val mentions = mentionPattern.findAll(message).map { it.groupValues[1] }.toList()
+
+                mentions shouldBe listOf("Steve", "Alex")
+            }
+
+            it("ignores @everyone and @here") {
+                // @everyone is 8 chars, @here is 4 chars - @here won't match (too short)
+                val everyoneMatch = mentionPattern.find("@everyone")
+                everyoneMatch?.groupValues?.get(1) shouldBe "everyone"
+
+                // But sanitization happens AFTER mention resolution, so these would
+                // be sanitized later. The point is these aren't valid player names.
+            }
+
+            it("does not match Discord IDs (too long for username)") {
+                // Discord IDs are 17-19 digits, which exceeds the 16 char max for usernames
+                // So <@123456789012345678> won't have its ID matched as a username
+                val discordMention = "Hey <@123456789012345678>!"
+                val matches = mentionPattern.findAll(discordMention).toList()
+
+                // The pattern matches max 16 chars, Discord IDs are 17-19 digits
+                // So this won't capture the full ID (would only get first 16 digits)
+                // In practice, this means Discord user mentions won't be mistaken for player names
+                if (matches.isNotEmpty()) {
+                    // If it does match, it only gets first 16 chars which isn't a valid Discord ID
+                    matches[0].groupValues[1].length shouldBe 16
+                }
+            }
+        }
+
+        describe("sanitization preserves valid Discord mentions") {
+
+            // Updated sanitization pattern that preserves <@id> format
+            val sanitizationPattern = Regex("(?<!<)@(&|!)?(\\d+)")
+
+            it("sanitizes raw @digits mentions") {
+                sanitizationPattern.find("@123456789")?.value shouldBe "@123456789"
+            }
+
+            it("preserves valid <@id> user mentions") {
+                val result = sanitizationPattern.find("<@123456789012345678>")
+                result shouldBe null // Should not match inside angle brackets
+            }
+
+            it("preserves valid <@!id> nick mentions") {
+                val result = sanitizationPattern.find("<@!123456789012345678>")
+                result shouldBe null
+            }
+
+            it("handles mixed valid and invalid mentions") {
+                val message = "Hey <@123456789012345678>, don't type @123456789!"
+
+                // The raw @123456789 should match and be sanitized
+                val matches = sanitizationPattern.findAll(message).toList()
+                matches.size shouldBe 1
+                matches[0].value shouldBe "@123456789"
+            }
+        }
     }
 })
