@@ -165,6 +165,15 @@ class AMSSyncPlugin : JavaPlugin() {
             return
         }
 
+        // Record retention config in history (for hybrid query tier boundaries)
+        val tiers = progressionConfig.retention.tiers
+        database.recordConfigIfChanged(
+            rawDays = tiers.rawDays,
+            hourlyDays = tiers.hourlyDays,
+            dailyDays = tiers.dailyDays,
+            weeklyYears = tiers.weeklyYears
+        )
+
         // Initialize snapshot task if enabled
         val snapshotTask = if (progressionConfig.snapshots.enabled) {
             ProgressionSnapshotTask(this, progressionConfig.snapshots, database).also { it.start() }
@@ -192,7 +201,6 @@ class AMSSyncPlugin : JavaPlugin() {
             features.add("snapshots (${progressionConfig.snapshots.intervalMinutes}min)")
         }
         if (progressionConfig.retention.enabled) {
-            val tiers = progressionConfig.retention.tiers
             features.add("retention (${tiers.rawDays}d raw, ${tiers.hourlyDays}d hourly, " +
                 "${tiers.dailyDays}d daily, ${tiers.weeklyYears}y weekly)")
         }

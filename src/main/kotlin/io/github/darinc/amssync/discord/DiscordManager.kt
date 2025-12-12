@@ -51,7 +51,7 @@ class DiscordManager(
                 .awaitReady()
 
             connected = true
-            plugin.logger.info("Discord bot is ready! Connected as ${jda?.selfUser?.name}")
+            plugin.logger.fine("Discord bot is ready! Connected as ${jda?.selfUser?.name}")
 
             // Register slash commands
             registerSlashCommands(guildId)

@@ -31,6 +31,11 @@ class ProgressionRetentionTask(
     private val hourFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH")
         .withZone(ZoneId.systemDefault())
 
+    companion object {
+        /** Metadata key for tracking last compression time */
+        const val METADATA_LAST_COMPRESSION = "last_compression"
+    }
+
     /**
      * Start the periodic retention task.
      */
@@ -39,6 +44,9 @@ class ProgressionRetentionTask(
             plugin.logger.info("Progression retention disabled in config")
             return
         }
+
+        // Check if compression is overdue and run catch-up if needed
+        checkAndRunCatchUp()
 
         val intervalTicks = config.getCleanupIntervalTicks()
 
@@ -57,6 +65,42 @@ class ProgressionRetentionTask(
                 "raw: ${tiers.rawDays}d, hourly: ${tiers.hourlyDays}d, " +
                 "daily: ${tiers.dailyDays}d, weekly: ${tiers.weeklyYears}y"
         )
+    }
+
+    /**
+     * Check if compression is overdue and run catch-up if needed.
+     * This ensures data compression happens even if the server was offline
+     * during the scheduled compression time.
+     */
+    private fun checkAndRunCatchUp() {
+        val lastCompressionStr = database.getMetadata(METADATA_LAST_COMPRESSION)
+        val lastCompression = lastCompressionStr?.let {
+            try {
+                Instant.parse(it)
+            } catch (e: Exception) {
+                plugin.logger.warning("Invalid last_compression timestamp: $it")
+                null
+            }
+        }
+
+        val threshold = Instant.now().minus(config.cleanupIntervalHours.toLong(), ChronoUnit.HOURS)
+
+        if (lastCompression == null || lastCompression.isBefore(threshold)) {
+            val lastStr = lastCompression?.toString() ?: "never"
+            plugin.logger.info("Compression overdue (last: $lastStr), running catch-up...")
+            plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable { runRetention() })
+        }
+    }
+
+    /**
+     * Run compression immediately (for manual or startup-triggered compression).
+     */
+    fun runImmediately() {
+        if (!config.enabled) {
+            plugin.logger.info("Progression retention disabled, skipping immediate run")
+            return
+        }
+        plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable { runRetention() })
     }
 
     /**
@@ -89,6 +133,9 @@ class ProgressionRetentionTask(
 
             // Step 5: Delete old level-up events (keep for full retention period)
             stats.levelUpsDeleted = deleteOldLevelUps(tiers.getTotalRetentionDays())
+
+            // Track successful compression time
+            database.setMetadata(METADATA_LAST_COMPRESSION, Instant.now().toString())
 
             // Log summary if anything was done
             if (stats.hasActivity()) {

@@ -47,13 +47,13 @@ class RetryManager(
             attempt++
 
             try {
-                logger.info("$operationName - Attempt $attempt/$maxAttempts")
+                logger.fine("$operationName - Attempt $attempt/$maxAttempts")
                 val result = operation()
 
                 if (attempt > 1) {
                     logger.info("$operationName succeeded after $attempt attempts")
                 } else {
-                    logger.info("$operationName succeeded on first attempt")
+                    logger.fine("$operationName succeeded on first attempt")
                 }
 
                 return RetryResult.Success(result)

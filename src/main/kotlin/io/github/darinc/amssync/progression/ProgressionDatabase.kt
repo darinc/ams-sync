@@ -150,6 +150,31 @@ class ProgressionDatabase(
             )
             stmt.executeUpdate("CREATE INDEX IF NOT EXISTS idx_weekly_uuid ON weekly_summaries(uuid)")
             stmt.executeUpdate("CREATE INDEX IF NOT EXISTS idx_weekly_week ON weekly_summaries(week)")
+
+            // Metadata table for tracking operational state
+            stmt.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS metadata (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                )
+                """.trimIndent()
+            )
+
+            // Config history table for tracking retention config changes
+            stmt.executeUpdate(
+                """
+                CREATE TABLE IF NOT EXISTS config_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    effective_from TEXT NOT NULL,
+                    raw_days INTEGER NOT NULL,
+                    hourly_days INTEGER NOT NULL,
+                    daily_days INTEGER NOT NULL,
+                    weekly_years INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+            stmt.executeUpdate("CREATE INDEX IF NOT EXISTS idx_config_effective ON config_history(effective_from)")
         }
     }
 
@@ -882,6 +907,225 @@ class ProgressionDatabase(
         return results
     }
 
+    // ========== Bounded Trend Queries (for hybrid multi-tier queries) ==========
+
+    /**
+     * Get power level trend from raw snapshots between two timestamps.
+     */
+    @Synchronized
+    fun getPowerLevelFromSnapshotsBetween(uuid: UUID, after: Instant, before: Instant): List<TrendPoint> {
+        val conn = connection ?: return emptyList()
+        val afterStr = timestampFormatter.format(after)
+        val beforeStr = timestampFormatter.format(before)
+        val results = mutableListOf<TrendPoint>()
+
+        try {
+            conn.prepareStatement(
+                """
+                SELECT timestamp, power_level
+                FROM snapshots
+                WHERE uuid = ? AND timestamp >= ? AND timestamp < ?
+                ORDER BY timestamp ASC
+                """.trimIndent()
+            ).use { stmt ->
+                stmt.setString(1, uuid.toString())
+                stmt.setString(2, afterStr)
+                stmt.setString(3, beforeStr)
+                val rs = stmt.executeQuery()
+                while (rs.next()) {
+                    val ts = Instant.parse(rs.getString("timestamp"))
+                    results.add(TrendPoint(ts, rs.getInt("power_level")))
+                }
+            }
+        } catch (e: Exception) {
+            logger.warning("Failed to query power level from snapshots (bounded): ${e.message}")
+        }
+        return results
+    }
+
+    /**
+     * Get power level trend from hourly summaries between two hours.
+     */
+    @Synchronized
+    fun getPowerLevelFromHourlyBetween(uuid: UUID, afterHour: String, beforeHour: String): List<TrendPoint> {
+        val conn = connection ?: return emptyList()
+        val results = mutableListOf<TrendPoint>()
+
+        try {
+            conn.prepareStatement(
+                """
+                SELECT hour, end_power_level
+                FROM hourly_summaries
+                WHERE uuid = ? AND hour >= ? AND hour < ?
+                ORDER BY hour ASC
+                """.trimIndent()
+            ).use { stmt ->
+                stmt.setString(1, uuid.toString())
+                stmt.setString(2, afterHour)
+                stmt.setString(3, beforeHour)
+                val rs = stmt.executeQuery()
+                while (rs.next()) {
+                    val hour = rs.getString("hour")
+                    val ts = java.time.LocalDateTime.parse(hour + ":00:00")
+                        .atZone(java.time.ZoneId.systemDefault())
+                        .toInstant()
+                    results.add(TrendPoint(ts, rs.getInt("end_power_level")))
+                }
+            }
+        } catch (e: Exception) {
+            logger.warning("Failed to query power level from hourly (bounded): ${e.message}")
+        }
+        return results
+    }
+
+    /**
+     * Get power level trend from daily summaries between two dates.
+     */
+    @Synchronized
+    fun getPowerLevelFromDailyBetween(uuid: UUID, afterDate: String, beforeDate: String): List<TrendPoint> {
+        val conn = connection ?: return emptyList()
+        val results = mutableListOf<TrendPoint>()
+
+        try {
+            conn.prepareStatement(
+                """
+                SELECT date, end_power_level
+                FROM daily_summaries
+                WHERE uuid = ? AND date >= ? AND date < ?
+                ORDER BY date ASC
+                """.trimIndent()
+            ).use { stmt ->
+                stmt.setString(1, uuid.toString())
+                stmt.setString(2, afterDate)
+                stmt.setString(3, beforeDate)
+                val rs = stmt.executeQuery()
+                while (rs.next()) {
+                    val date = rs.getString("date")
+                    val ts = java.time.LocalDate.parse(date)
+                        .atStartOfDay(java.time.ZoneId.systemDefault())
+                        .toInstant()
+                    results.add(TrendPoint(ts, rs.getInt("end_power_level")))
+                }
+            }
+        } catch (e: Exception) {
+            logger.warning("Failed to query power level from daily (bounded): ${e.message}")
+        }
+        return results
+    }
+
+    /**
+     * Get specific skill level trend from raw snapshots between two timestamps.
+     */
+    @Synchronized
+    fun getSkillLevelFromSnapshotsBetween(uuid: UUID, skill: String, after: Instant, before: Instant): List<TrendPoint> {
+        val conn = connection ?: return emptyList()
+        val afterStr = timestampFormatter.format(after)
+        val beforeStr = timestampFormatter.format(before)
+        val results = mutableListOf<TrendPoint>()
+
+        try {
+            conn.prepareStatement(
+                """
+                SELECT timestamp, skills_json
+                FROM snapshots
+                WHERE uuid = ? AND timestamp >= ? AND timestamp < ?
+                ORDER BY timestamp ASC
+                """.trimIndent()
+            ).use { stmt ->
+                stmt.setString(1, uuid.toString())
+                stmt.setString(2, afterStr)
+                stmt.setString(3, beforeStr)
+                val rs = stmt.executeQuery()
+                while (rs.next()) {
+                    val ts = Instant.parse(rs.getString("timestamp"))
+                    val skillsJson = rs.getString("skills_json")
+                    val skills = parseSkillsJson(skillsJson)
+                    val level = skills[skill] ?: 0
+                    results.add(TrendPoint(ts, level))
+                }
+            }
+        } catch (e: Exception) {
+            logger.warning("Failed to query skill level from snapshots (bounded): ${e.message}")
+        }
+        return results
+    }
+
+    /**
+     * Get specific skill level trend from hourly summaries between two hours.
+     */
+    @Synchronized
+    fun getSkillLevelFromHourlyBetween(uuid: UUID, skill: String, afterHour: String, beforeHour: String): List<TrendPoint> {
+        val conn = connection ?: return emptyList()
+        val results = mutableListOf<TrendPoint>()
+
+        try {
+            conn.prepareStatement(
+                """
+                SELECT hour, skills_json
+                FROM hourly_summaries
+                WHERE uuid = ? AND hour >= ? AND hour < ?
+                ORDER BY hour ASC
+                """.trimIndent()
+            ).use { stmt ->
+                stmt.setString(1, uuid.toString())
+                stmt.setString(2, afterHour)
+                stmt.setString(3, beforeHour)
+                val rs = stmt.executeQuery()
+                while (rs.next()) {
+                    val hour = rs.getString("hour")
+                    val ts = java.time.LocalDateTime.parse(hour + ":00:00")
+                        .atZone(java.time.ZoneId.systemDefault())
+                        .toInstant()
+                    val skillsJson = rs.getString("skills_json")
+                    val level = extractSkillEndLevel(skillsJson, skill)
+                    results.add(TrendPoint(ts, level))
+                }
+            }
+        } catch (e: Exception) {
+            logger.warning("Failed to query skill level from hourly (bounded): ${e.message}")
+        }
+        return results
+    }
+
+    /**
+     * Get specific skill level trend from daily summaries between two dates.
+     */
+    @Synchronized
+    fun getSkillLevelFromDailyBetween(uuid: UUID, skill: String, afterDate: String, beforeDate: String): List<TrendPoint> {
+        val conn = connection ?: return emptyList()
+        val results = mutableListOf<TrendPoint>()
+
+        try {
+            conn.prepareStatement(
+                """
+                SELECT date, skills_json
+                FROM daily_summaries
+                WHERE uuid = ? AND date >= ? AND date < ?
+                ORDER BY date ASC
+                """.trimIndent()
+            ).use { stmt ->
+                stmt.setString(1, uuid.toString())
+                stmt.setString(2, afterDate)
+                stmt.setString(3, beforeDate)
+                val rs = stmt.executeQuery()
+                while (rs.next()) {
+                    val date = rs.getString("date")
+                    val ts = java.time.LocalDate.parse(date)
+                        .atStartOfDay(java.time.ZoneId.systemDefault())
+                        .toInstant()
+                    val skillsJson = rs.getString("skills_json")
+                    val level = extractSkillEndLevel(skillsJson, skill)
+                    results.add(TrendPoint(ts, level))
+                }
+            }
+        } catch (e: Exception) {
+            logger.warning("Failed to query skill level from daily (bounded): ${e.message}")
+        }
+        return results
+    }
+
+    // ========== Helper Methods ==========
+
     /**
      * Extract the end level for a specific skill from aggregated skills JSON.
      * Format: {"SKILL":{"start":X,"end":Y,"gain":Z}}
@@ -898,6 +1142,145 @@ class ProgressionDatabase(
         } catch (e: Exception) {
             logger.warning("Failed to extract skill end level: ${e.message}")
             0
+        }
+    }
+
+    // ========== Metadata ==========
+
+    /**
+     * Get a metadata value by key.
+     *
+     * @param key The metadata key
+     * @return The value, or null if not found
+     */
+    @Synchronized
+    fun getMetadata(key: String): String? {
+        val conn = connection ?: return null
+
+        return try {
+            conn.prepareStatement("SELECT value FROM metadata WHERE key = ?").use { stmt ->
+                stmt.setString(1, key)
+                val rs = stmt.executeQuery()
+                if (rs.next()) rs.getString("value") else null
+            }
+        } catch (e: Exception) {
+            logger.warning("Failed to get metadata '$key': ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Set a metadata value (upsert).
+     *
+     * @param key The metadata key
+     * @param value The value to store
+     */
+    @Synchronized
+    fun setMetadata(key: String, value: String) {
+        val conn = connection ?: return
+
+        try {
+            conn.prepareStatement(
+                "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)"
+            ).use { stmt ->
+                stmt.setString(1, key)
+                stmt.setString(2, value)
+                stmt.executeUpdate()
+            }
+        } catch (e: Exception) {
+            logger.warning("Failed to set metadata '$key': ${e.message}")
+        }
+    }
+
+    // ========== Config History ==========
+
+    /**
+     * Get the current (most recent) config from history.
+     *
+     * @return The most recent config snapshot, or null if none recorded
+     */
+    @Synchronized
+    fun getCurrentConfig(): ConfigSnapshot? {
+        val conn = connection ?: return null
+
+        return try {
+            conn.prepareStatement(
+                """
+                SELECT effective_from, raw_days, hourly_days, daily_days, weekly_years
+                FROM config_history
+                ORDER BY effective_from DESC
+                LIMIT 1
+                """.trimIndent()
+            ).use { stmt ->
+                val rs = stmt.executeQuery()
+                if (rs.next()) {
+                    ConfigSnapshot(
+                        effectiveFrom = Instant.parse(rs.getString("effective_from")),
+                        rawDays = rs.getInt("raw_days"),
+                        hourlyDays = rs.getInt("hourly_days"),
+                        dailyDays = rs.getInt("daily_days"),
+                        weeklyYears = rs.getInt("weekly_years")
+                    )
+                } else {
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            logger.warning("Failed to get current config: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Record config in history if it differs from the current config.
+     *
+     * @param rawDays Raw snapshot retention days
+     * @param hourlyDays Hourly summary retention days
+     * @param dailyDays Daily summary retention days
+     * @param weeklyYears Weekly summary retention years
+     * @return true if new config was recorded, false if unchanged
+     */
+    @Synchronized
+    fun recordConfigIfChanged(
+        rawDays: Int,
+        hourlyDays: Int,
+        dailyDays: Int,
+        weeklyYears: Int
+    ): Boolean {
+        val current = getCurrentConfig()
+
+        // Check if config has changed
+        if (current != null &&
+            current.rawDays == rawDays &&
+            current.hourlyDays == hourlyDays &&
+            current.dailyDays == dailyDays &&
+            current.weeklyYears == weeklyYears
+        ) {
+            return false
+        }
+
+        val conn = connection ?: return false
+        val timestamp = timestampFormatter.format(Instant.now())
+
+        return try {
+            conn.prepareStatement(
+                """
+                INSERT INTO config_history (effective_from, raw_days, hourly_days, daily_days, weekly_years)
+                VALUES (?, ?, ?, ?, ?)
+                """.trimIndent()
+            ).use { stmt ->
+                stmt.setString(1, timestamp)
+                stmt.setInt(2, rawDays)
+                stmt.setInt(3, hourlyDays)
+                stmt.setInt(4, dailyDays)
+                stmt.setInt(5, weeklyYears)
+                stmt.executeUpdate()
+            }
+            logger.info("Recorded new config: raw=$rawDays, hourly=$hourlyDays, daily=$dailyDays, weekly=$weeklyYears years")
+            true
+        } catch (e: Exception) {
+            logger.warning("Failed to record config: ${e.message}")
+            false
         }
     }
 
@@ -1007,4 +1390,15 @@ data class WeeklyCompactionData(
     val endPowerLevel: Int,
     val startSkillsJson: String,
     val endSkillsJson: String
+)
+
+/**
+ * Data class for config history snapshot.
+ */
+data class ConfigSnapshot(
+    val effectiveFrom: Instant,
+    val rawDays: Int,
+    val hourlyDays: Int,
+    val dailyDays: Int,
+    val weeklyYears: Int
 )
