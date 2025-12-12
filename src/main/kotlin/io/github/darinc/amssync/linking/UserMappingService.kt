@@ -63,7 +63,7 @@ class UserMappingService(private val plugin: AMSSyncPlugin) {
             }
         }
 
-        plugin.logger.info("Loaded ${discordToMinecraft.size} user mapping(s)")
+        plugin.logger.fine("UserMappingService loaded ${discordToMinecraft.size} mapping(s)")
     }
 
     /**

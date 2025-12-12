@@ -46,7 +46,8 @@ class McMMOEventListener(
     private val plugin: AMSSyncPlugin,
     private val config: AnnouncementConfig,
     private val avatarFetcher: AvatarFetcher? = null,
-    private val cardRenderer: MilestoneCardRenderer? = null
+    private val cardRenderer: MilestoneCardRenderer? = null,
+    private val discordManager: io.github.darinc.amssync.discord.DiscordManager? = null
 ) : Listener {
 
     // Milestone detection logic
@@ -413,8 +414,9 @@ class McMMOEventListener(
      * Get the configured announcement channel.
      */
     private fun getAnnouncementChannel(): TextChannel? {
-        val jda = plugin.services.discord.manager.getJda()
-        if (jda == null || !plugin.services.discord.manager.isConnected()) {
+        val manager = discordManager ?: return null
+        val jda = manager.getJda()
+        if (jda == null || !manager.isConnected()) {
             plugin.logger.fine("Skipping announcement - Discord not connected")
             return null
         }

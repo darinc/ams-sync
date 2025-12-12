@@ -25,7 +25,8 @@ import java.time.Instant
 class WebhookManager(
     private val plugin: AMSSyncPlugin,
     private val webhookUrl: String?,
-    private val channelId: String
+    private val channelId: String,
+    private val discordManager: DiscordManager? = null
 ) {
     private var webhookClient: WebhookClient? = null
 
@@ -227,8 +228,9 @@ class WebhookManager(
     }
 
     private fun getChannel(): TextChannel? {
-        val jda = plugin.services.discord.manager.getJda()
-        if (jda == null || !plugin.services.discord.manager.isConnected()) {
+        val manager = discordManager ?: return null
+        val jda = manager.getJda()
+        if (jda == null || !manager.isConnected()) {
             plugin.logger.fine("Skipping message - Discord not connected")
             return null
         }

@@ -35,6 +35,9 @@ class StatusChannelManager(
     private val lastPlayerCount = AtomicInteger(-1)
     private val pendingUpdate = AtomicReference<ScheduledFuture<*>?>(null)
 
+    // Discord manager reference (set during initialize)
+    private var discordManager: DiscordManager? = null
+
     // Executor for scheduling debounced updates
     private val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor { runnable ->
         Thread(runnable, "AMSSync-StatusChannel").apply { isDaemon = true }
@@ -47,8 +50,10 @@ class StatusChannelManager(
     /**
      * Initialize the status channel manager.
      * Registers event listeners and sets initial channel name.
+     *
+     * @param discordManager The Discord manager to use for JDA access
      */
-    fun initialize() {
+    fun initialize(discordManager: DiscordManager) {
         if (!config.enabled) {
             plugin.logger.info("Status channel manager is disabled")
             return
@@ -58,6 +63,9 @@ class StatusChannelManager(
             plugin.logger.warning("Status channel enabled but no voice-channel-id configured")
             return
         }
+
+        // Store Discord manager reference for later use
+        this.discordManager = discordManager
 
         // Register Bukkit event listener
         plugin.server.pluginManager.registerEvents(this, plugin)
@@ -165,8 +173,9 @@ class StatusChannelManager(
      * Update Discord voice channel name with current player count.
      */
     private fun updateChannel(playerCount: Int) {
-        val jda = plugin.services.discord.manager.getJda() ?: return
-        if (!plugin.services.discord.manager.isConnected()) {
+        val manager = discordManager ?: return
+        val jda = manager.getJda() ?: return
+        if (!manager.isConnected()) {
             plugin.logger.fine("Skipping status channel update - Discord not connected")
             return
         }

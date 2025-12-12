@@ -562,7 +562,7 @@ class AMSSyncPlugin : JavaPlugin() {
                 null
             } else {
                 val manager = StatusChannelManager(this, statusConfig)
-                manager.initialize()
+                manager.initialize(discordManager)
                 manager
             }
         } else {
@@ -599,7 +599,7 @@ class AMSSyncPlugin : JavaPlugin() {
             }
         }
 
-        val bridge = ChatBridge(this, chatConfig, chatWebhook)
+        val bridge = ChatBridge(this, chatConfig, chatWebhook, discordManager)
         // Register as Bukkit listener for MC->Discord
         server.pluginManager.registerEvents(bridge, this)
         // Register as JDA listener for Discord->MC
@@ -627,7 +627,7 @@ class AMSSyncPlugin : JavaPlugin() {
         }
 
         // Initialize webhook manager
-        val webhookMgr = WebhookManager(this, eventConfig.webhookUrl, eventConfig.channelId)
+        val webhookMgr = WebhookManager(this, eventConfig.webhookUrl, eventConfig.channelId, discordManager)
         if (eventConfig.webhookUrl != null) {
             logger.info("Event announcements using webhook")
         } else {
@@ -690,7 +690,8 @@ class AMSSyncPlugin : JavaPlugin() {
             this,
             announcementConfig,
             milestoneAvatarFetcher,
-            milestoneCardRenderer
+            milestoneCardRenderer,
+            discordManager
         )
         server.pluginManager.registerEvents(listener, this)
 

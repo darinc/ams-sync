@@ -26,7 +26,8 @@ import org.bukkit.event.Listener
 class ChatBridge(
     private val plugin: AMSSyncPlugin,
     private val config: ChatBridgeConfig,
-    private val chatWebhookManager: ChatWebhookManager? = null
+    private val chatWebhookManager: ChatWebhookManager? = null,
+    private val discordManager: DiscordManager? = null
 ) : Listener, ListenerAdapter() {
 
     companion object {
@@ -115,8 +116,9 @@ class ChatBridge(
      * Send a message to the Discord chat channel.
      */
     private fun sendToDiscord(message: String) {
-        val jda = plugin.services.discord.manager.getJda()
-        if (jda == null || !plugin.services.discord.manager.isConnected()) {
+        val manager = discordManager ?: return
+        val jda = manager.getJda()
+        if (jda == null || !manager.isConnected()) {
             plugin.logger.fine("Skipping Discord relay - not connected")
             return
         }

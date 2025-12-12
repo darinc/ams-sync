@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.4] - 2025-12-12
+
+### Fixed
+
+- McMMOEventListener now stores DiscordManager reference to fix initialization order
+- Duplicate "Loaded user mapping(s)" log message reduced to debug level
+
+## [0.20.3] - 2025-12-11
+
+### Fixed
+
+- StatusChannelManager, ChatBridge, WebhookManager, and McMMOEventListener now store DiscordManager reference to avoid services.discord access during initialization
+- Complete fix for plugin startup crash caused by ServiceRegistry initialization order
+
 ## [0.20.2] - 2025-12-11
 
 ### Fixed
