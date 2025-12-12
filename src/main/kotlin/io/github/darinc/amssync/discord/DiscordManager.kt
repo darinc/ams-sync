@@ -7,6 +7,7 @@ import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions
 import net.dv8tion.jda.api.interactions.commands.OptionType
 import net.dv8tion.jda.api.interactions.commands.build.Commands
+import net.dv8tion.jda.api.interactions.commands.build.OptionData
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData
 import net.dv8tion.jda.api.requests.GatewayIntent
@@ -131,6 +132,24 @@ class DiscordManager(
 
                         SubcommandData("check", "Check if a player is whitelisted")
                             .addOption(OptionType.STRING, "minecraft_username", "Minecraft username to check", true)
+                    )
+            )
+        }
+
+        // Conditionally add progression chart command (only if handler is registered)
+        if (commandHandlers.containsKey("amsprogress")) {
+            commands.add(
+                Commands.slash("amsprogress", "View skill progression chart over time")
+                    .addOption(OptionType.STRING, "username", "Minecraft or Discord username (leave empty for your own)", false)
+                    .addOption(OptionType.STRING, "skill", "Skill name (leave empty for total power level)", false)
+                    .addOptions(
+                        OptionData(OptionType.STRING, "timeframe", "Time period to display", false)
+                            .addChoice("7 Days", "7d")
+                            .addChoice("30 Days", "30d")
+                            .addChoice("90 Days", "90d")
+                            .addChoice("6 Months", "180d")
+                            .addChoice("1 Year", "1y")
+                            .addChoice("All Time", "all")
                     )
             )
         }

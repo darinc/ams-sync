@@ -95,6 +95,25 @@ object CardStyles {
     val TOP_SKILL_PANEL_BG = Color(50, 40, 80, 220)
     val TOP_SKILL_PANEL_BORDER = Color(100, 80, 140)
 
+    // === Chart Dimensions ===
+    const val CHART_WIDTH = 600
+    const val CHART_HEIGHT = 400
+    const val CHART_PADDING = 50
+    const val CHART_TITLE_HEIGHT = 60
+    const val CHART_FOOTER_HEIGHT = 30
+
+    // === Chart Colors ===
+    val CHART_LINE_COLOR = Color(0, 200, 255)               // Cyan line
+    val CHART_LINE_GLOW = Color(0, 200, 255, 80)            // Glow effect
+    val CHART_GRID_COLOR = Color(60, 60, 80)                // Grid lines
+    val CHART_AXIS_COLOR = Color(120, 120, 150)             // Axis text
+    val CHART_POINT_COLOR = Color(255, 255, 255)            // Data points
+
+    // === Chart Fonts ===
+    val FONT_CHART_TITLE = Font("SansSerif", Font.BOLD, 18)
+    val FONT_CHART_SUBTITLE = Font("SansSerif", Font.PLAIN, 14)
+    val FONT_CHART_AXIS = Font("SansSerif", Font.PLAIN, 11)
+
     // === Font Definitions ===
     val FONT_TITLE = Font("SansSerif", Font.BOLD, 24)
     val FONT_PLAYER_NAME = Font("SansSerif", Font.BOLD, 20)

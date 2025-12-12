@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.0] - 2025-12-11
+
+### Added
+
+- `/amsprogress` Discord command for skill progression visualization
+- Line chart rendering with player avatar, grid lines, and glow effects
+- Auto-tier query selection based on timeframe (snapshots, hourly, daily, weekly)
+- Timeframe dropdown options: 7 days, 30 days, 90 days, 6 months, 1 year, all time
+
 ## [0.19.0] - 2025-12-11
 
 ### Added

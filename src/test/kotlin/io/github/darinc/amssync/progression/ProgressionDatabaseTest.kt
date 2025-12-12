@@ -648,5 +648,211 @@ class ProgressionDatabaseTest : DescribeSpec({
                 }
             }
         }
+
+        describe("getPowerLevelFromSnapshots") {
+
+            it("returns empty list when no data") {
+                val (database, tempDir) = createTestDatabase()
+                try {
+                    val uuid = UUID.randomUUID()
+                    val after = Instant.now().minus(7, ChronoUnit.DAYS)
+
+                    val results = database.getPowerLevelFromSnapshots(uuid, after)
+
+                    results.shouldBeEmpty()
+                    database.close()
+                } finally {
+                    tempDir.deleteRecursively()
+                }
+            }
+
+            it("returns trend points from snapshots") {
+                val (database, tempDir) = createTestDatabase()
+                try {
+                    val uuid = UUID.randomUUID()
+                    val dbFile = File(tempDir, "test.db")
+
+                    // Insert snapshots at different times
+                    val now = Instant.now()
+                    val times = listOf(
+                        now.minus(5, ChronoUnit.DAYS),
+                        now.minus(3, ChronoUnit.DAYS),
+                        now.minus(1, ChronoUnit.DAYS)
+                    )
+                    val powerLevels = listOf(100, 150, 200)
+
+                    DriverManager.getConnection("jdbc:sqlite:${dbFile.absolutePath}").use { conn ->
+                        times.forEachIndexed { i, timestamp ->
+                            conn.prepareStatement(
+                                """INSERT INTO snapshots (timestamp, uuid, player_name, power_level, skills_json)
+                                   VALUES (?, ?, ?, ?, ?)"""
+                            ).use { stmt ->
+                                stmt.setString(1, timestamp.toString())
+                                stmt.setString(2, uuid.toString())
+                                stmt.setString(3, "TestPlayer")
+                                stmt.setInt(4, powerLevels[i])
+                                stmt.setString(5, "{}")
+                                stmt.executeUpdate()
+                            }
+                        }
+                    }
+
+                    val after = Instant.now().minus(7, ChronoUnit.DAYS)
+                    val results = database.getPowerLevelFromSnapshots(uuid, after)
+
+                    results shouldHaveSize 3
+                    results[0].level shouldBe 100
+                    results[1].level shouldBe 150
+                    results[2].level shouldBe 200
+                    database.close()
+                } finally {
+                    tempDir.deleteRecursively()
+                }
+            }
+        }
+
+        describe("getSkillLevelFromSnapshots") {
+
+            it("returns skill level trend from snapshots") {
+                val (database, tempDir) = createTestDatabase()
+                try {
+                    val uuid = UUID.randomUUID()
+                    val dbFile = File(tempDir, "test.db")
+
+                    val now = Instant.now()
+                    val times = listOf(
+                        now.minus(2, ChronoUnit.DAYS),
+                        now.minus(1, ChronoUnit.DAYS)
+                    )
+
+                    DriverManager.getConnection("jdbc:sqlite:${dbFile.absolutePath}").use { conn ->
+                        conn.prepareStatement(
+                            """INSERT INTO snapshots (timestamp, uuid, player_name, power_level, skills_json)
+                               VALUES (?, ?, ?, ?, ?)"""
+                        ).use { stmt ->
+                            stmt.setString(1, times[0].toString())
+                            stmt.setString(2, uuid.toString())
+                            stmt.setString(3, "TestPlayer")
+                            stmt.setInt(4, 100)
+                            stmt.setString(5, """{"MINING":50,"WOODCUTTING":50}""")
+                            stmt.executeUpdate()
+                        }
+                        conn.prepareStatement(
+                            """INSERT INTO snapshots (timestamp, uuid, player_name, power_level, skills_json)
+                               VALUES (?, ?, ?, ?, ?)"""
+                        ).use { stmt ->
+                            stmt.setString(1, times[1].toString())
+                            stmt.setString(2, uuid.toString())
+                            stmt.setString(3, "TestPlayer")
+                            stmt.setInt(4, 120)
+                            stmt.setString(5, """{"MINING":70,"WOODCUTTING":50}""")
+                            stmt.executeUpdate()
+                        }
+                    }
+
+                    val after = Instant.now().minus(7, ChronoUnit.DAYS)
+                    val results = database.getSkillLevelFromSnapshots(uuid, "MINING", after)
+
+                    results shouldHaveSize 2
+                    results[0].level shouldBe 50
+                    results[1].level shouldBe 70
+                    database.close()
+                } finally {
+                    tempDir.deleteRecursively()
+                }
+            }
+        }
+
+        describe("getPowerLevelFromHourly") {
+
+            it("returns power level trend from hourly summaries") {
+                val (database, tempDir) = createTestDatabase()
+                try {
+                    val uuid = UUID.randomUUID()
+
+                    database.insertHourlySummary("2025-01-10T10", uuid, "Player", 100, 110, "{}")
+                    database.insertHourlySummary("2025-01-10T11", uuid, "Player", 110, 120, "{}")
+                    database.insertHourlySummary("2025-01-10T12", uuid, "Player", 120, 130, "{}")
+
+                    val results = database.getPowerLevelFromHourly(uuid, "2025-01-01T00")
+
+                    results shouldHaveSize 3
+                    results[0].level shouldBe 110
+                    results[1].level shouldBe 120
+                    results[2].level shouldBe 130
+                    database.close()
+                } finally {
+                    tempDir.deleteRecursively()
+                }
+            }
+        }
+
+        describe("getPowerLevelFromDaily") {
+
+            it("returns power level trend from daily summaries") {
+                val (database, tempDir) = createTestDatabase()
+                try {
+                    val uuid = UUID.randomUUID()
+
+                    database.insertDailySummary("2025-01-10", uuid, "Player", 100, 150, "{}")
+                    database.insertDailySummary("2025-01-11", uuid, "Player", 150, 200, "{}")
+
+                    val results = database.getPowerLevelFromDaily(uuid, "2025-01-01")
+
+                    results shouldHaveSize 2
+                    results[0].level shouldBe 150
+                    results[1].level shouldBe 200
+                    database.close()
+                } finally {
+                    tempDir.deleteRecursively()
+                }
+            }
+        }
+
+        describe("getPowerLevelFromWeekly") {
+
+            it("returns power level trend from weekly summaries") {
+                val (database, tempDir) = createTestDatabase()
+                try {
+                    val uuid = UUID.randomUUID()
+
+                    database.insertWeeklySummary("2025-W01", uuid, "Player", 100, 200, "{}")
+                    database.insertWeeklySummary("2025-W02", uuid, "Player", 200, 350, "{}")
+
+                    val results = database.getPowerLevelFromWeekly(uuid, "2024-W50")
+
+                    results shouldHaveSize 2
+                    results[0].level shouldBe 200
+                    results[1].level shouldBe 350
+                    database.close()
+                } finally {
+                    tempDir.deleteRecursively()
+                }
+            }
+        }
+
+        describe("getSkillLevelFromHourly") {
+
+            it("returns skill level trend from hourly summaries") {
+                val (database, tempDir) = createTestDatabase()
+                try {
+                    val uuid = UUID.randomUUID()
+                    val skillsJson1 = """{"MINING":{"start":50,"end":60,"gain":10}}"""
+                    val skillsJson2 = """{"MINING":{"start":60,"end":75,"gain":15}}"""
+
+                    database.insertHourlySummary("2025-01-10T10", uuid, "Player", 100, 110, skillsJson1)
+                    database.insertHourlySummary("2025-01-10T11", uuid, "Player", 110, 125, skillsJson2)
+
+                    val results = database.getSkillLevelFromHourly(uuid, "MINING", "2025-01-01T00")
+
+                    results shouldHaveSize 2
+                    results[0].level shouldBe 60
+                    results[1].level shouldBe 75
+                    database.close()
+                } finally {
+                    tempDir.deleteRecursively()
+                }
+            }
+        }
     }
 })

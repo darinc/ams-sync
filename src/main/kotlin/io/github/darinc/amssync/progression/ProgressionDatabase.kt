@@ -589,6 +589,318 @@ class ProgressionDatabase(
         }
     }
 
+    // ========== Trend Queries for Charts ==========
+
+    /**
+     * Get power level trend from raw snapshots (for timeframes <= 7 days).
+     */
+    @Synchronized
+    fun getPowerLevelFromSnapshots(uuid: UUID, after: Instant): List<TrendPoint> {
+        val conn = connection ?: return emptyList()
+        val threshold = timestampFormatter.format(after)
+        val results = mutableListOf<TrendPoint>()
+
+        try {
+            conn.prepareStatement(
+                """
+                SELECT timestamp, power_level
+                FROM snapshots
+                WHERE uuid = ? AND timestamp >= ?
+                ORDER BY timestamp ASC
+                """.trimIndent()
+            ).use { stmt ->
+                stmt.setString(1, uuid.toString())
+                stmt.setString(2, threshold)
+                val rs = stmt.executeQuery()
+                while (rs.next()) {
+                    val ts = Instant.parse(rs.getString("timestamp"))
+                    results.add(TrendPoint(ts, rs.getInt("power_level")))
+                }
+            }
+        } catch (e: Exception) {
+            logger.warning("Failed to query power level from snapshots: ${e.message}")
+        }
+        return results
+    }
+
+    /**
+     * Get power level trend from hourly summaries (for timeframes 7-30 days).
+     */
+    @Synchronized
+    fun getPowerLevelFromHourly(uuid: UUID, afterHour: String): List<TrendPoint> {
+        val conn = connection ?: return emptyList()
+        val results = mutableListOf<TrendPoint>()
+
+        try {
+            conn.prepareStatement(
+                """
+                SELECT hour, end_power_level
+                FROM hourly_summaries
+                WHERE uuid = ? AND hour >= ?
+                ORDER BY hour ASC
+                """.trimIndent()
+            ).use { stmt ->
+                stmt.setString(1, uuid.toString())
+                stmt.setString(2, afterHour)
+                val rs = stmt.executeQuery()
+                while (rs.next()) {
+                    val hour = rs.getString("hour")
+                    // Parse hour format "2025-01-15T14" to Instant
+                    val ts = java.time.LocalDateTime.parse(hour + ":00:00")
+                        .atZone(java.time.ZoneId.systemDefault())
+                        .toInstant()
+                    results.add(TrendPoint(ts, rs.getInt("end_power_level")))
+                }
+            }
+        } catch (e: Exception) {
+            logger.warning("Failed to query power level from hourly: ${e.message}")
+        }
+        return results
+    }
+
+    /**
+     * Get power level trend from daily summaries (for timeframes 30-180 days).
+     */
+    @Synchronized
+    fun getPowerLevelFromDaily(uuid: UUID, afterDate: String): List<TrendPoint> {
+        val conn = connection ?: return emptyList()
+        val results = mutableListOf<TrendPoint>()
+
+        try {
+            conn.prepareStatement(
+                """
+                SELECT date, end_power_level
+                FROM daily_summaries
+                WHERE uuid = ? AND date >= ?
+                ORDER BY date ASC
+                """.trimIndent()
+            ).use { stmt ->
+                stmt.setString(1, uuid.toString())
+                stmt.setString(2, afterDate)
+                val rs = stmt.executeQuery()
+                while (rs.next()) {
+                    val date = rs.getString("date")
+                    val ts = java.time.LocalDate.parse(date)
+                        .atStartOfDay(java.time.ZoneId.systemDefault())
+                        .toInstant()
+                    results.add(TrendPoint(ts, rs.getInt("end_power_level")))
+                }
+            }
+        } catch (e: Exception) {
+            logger.warning("Failed to query power level from daily: ${e.message}")
+        }
+        return results
+    }
+
+    /**
+     * Get power level trend from weekly summaries (for timeframes > 180 days).
+     */
+    @Synchronized
+    fun getPowerLevelFromWeekly(uuid: UUID, afterWeek: String): List<TrendPoint> {
+        val conn = connection ?: return emptyList()
+        val results = mutableListOf<TrendPoint>()
+
+        try {
+            conn.prepareStatement(
+                """
+                SELECT week, end_power_level
+                FROM weekly_summaries
+                WHERE uuid = ? AND week >= ?
+                ORDER BY week ASC
+                """.trimIndent()
+            ).use { stmt ->
+                stmt.setString(1, uuid.toString())
+                stmt.setString(2, afterWeek)
+                val rs = stmt.executeQuery()
+                while (rs.next()) {
+                    val week = rs.getString("week")
+                    // Parse week format "2025-W02" to Instant (start of that week)
+                    val weekFields = java.time.temporal.WeekFields.ISO
+                    val yearWeek = week.split("-W")
+                    val year = yearWeek[0].toInt()
+                    val weekNum = yearWeek[1].toInt()
+                    val ts = java.time.LocalDate.of(year, 1, 1)
+                        .with(weekFields.weekOfYear(), weekNum.toLong())
+                        .with(weekFields.dayOfWeek(), 1)
+                        .atStartOfDay(java.time.ZoneId.systemDefault())
+                        .toInstant()
+                    results.add(TrendPoint(ts, rs.getInt("end_power_level")))
+                }
+            }
+        } catch (e: Exception) {
+            logger.warning("Failed to query power level from weekly: ${e.message}")
+        }
+        return results
+    }
+
+    /**
+     * Get specific skill level trend from raw snapshots.
+     */
+    @Synchronized
+    fun getSkillLevelFromSnapshots(uuid: UUID, skill: String, after: Instant): List<TrendPoint> {
+        val conn = connection ?: return emptyList()
+        val threshold = timestampFormatter.format(after)
+        val results = mutableListOf<TrendPoint>()
+
+        try {
+            conn.prepareStatement(
+                """
+                SELECT timestamp, skills_json
+                FROM snapshots
+                WHERE uuid = ? AND timestamp >= ?
+                ORDER BY timestamp ASC
+                """.trimIndent()
+            ).use { stmt ->
+                stmt.setString(1, uuid.toString())
+                stmt.setString(2, threshold)
+                val rs = stmt.executeQuery()
+                while (rs.next()) {
+                    val ts = Instant.parse(rs.getString("timestamp"))
+                    val skillsJson = rs.getString("skills_json")
+                    val skills = parseSkillsJson(skillsJson)
+                    val level = skills[skill] ?: 0
+                    results.add(TrendPoint(ts, level))
+                }
+            }
+        } catch (e: Exception) {
+            logger.warning("Failed to query skill level from snapshots: ${e.message}")
+        }
+        return results
+    }
+
+    /**
+     * Get specific skill level trend from hourly summaries.
+     */
+    @Synchronized
+    fun getSkillLevelFromHourly(uuid: UUID, skill: String, afterHour: String): List<TrendPoint> {
+        val conn = connection ?: return emptyList()
+        val results = mutableListOf<TrendPoint>()
+
+        try {
+            conn.prepareStatement(
+                """
+                SELECT hour, skills_json
+                FROM hourly_summaries
+                WHERE uuid = ? AND hour >= ?
+                ORDER BY hour ASC
+                """.trimIndent()
+            ).use { stmt ->
+                stmt.setString(1, uuid.toString())
+                stmt.setString(2, afterHour)
+                val rs = stmt.executeQuery()
+                while (rs.next()) {
+                    val hour = rs.getString("hour")
+                    val ts = java.time.LocalDateTime.parse(hour + ":00:00")
+                        .atZone(java.time.ZoneId.systemDefault())
+                        .toInstant()
+                    val skillsJson = rs.getString("skills_json")
+                    val level = extractSkillEndLevel(skillsJson, skill)
+                    results.add(TrendPoint(ts, level))
+                }
+            }
+        } catch (e: Exception) {
+            logger.warning("Failed to query skill level from hourly: ${e.message}")
+        }
+        return results
+    }
+
+    /**
+     * Get specific skill level trend from daily summaries.
+     */
+    @Synchronized
+    fun getSkillLevelFromDaily(uuid: UUID, skill: String, afterDate: String): List<TrendPoint> {
+        val conn = connection ?: return emptyList()
+        val results = mutableListOf<TrendPoint>()
+
+        try {
+            conn.prepareStatement(
+                """
+                SELECT date, skills_json
+                FROM daily_summaries
+                WHERE uuid = ? AND date >= ?
+                ORDER BY date ASC
+                """.trimIndent()
+            ).use { stmt ->
+                stmt.setString(1, uuid.toString())
+                stmt.setString(2, afterDate)
+                val rs = stmt.executeQuery()
+                while (rs.next()) {
+                    val date = rs.getString("date")
+                    val ts = java.time.LocalDate.parse(date)
+                        .atStartOfDay(java.time.ZoneId.systemDefault())
+                        .toInstant()
+                    val skillsJson = rs.getString("skills_json")
+                    val level = extractSkillEndLevel(skillsJson, skill)
+                    results.add(TrendPoint(ts, level))
+                }
+            }
+        } catch (e: Exception) {
+            logger.warning("Failed to query skill level from daily: ${e.message}")
+        }
+        return results
+    }
+
+    /**
+     * Get specific skill level trend from weekly summaries.
+     */
+    @Synchronized
+    fun getSkillLevelFromWeekly(uuid: UUID, skill: String, afterWeek: String): List<TrendPoint> {
+        val conn = connection ?: return emptyList()
+        val results = mutableListOf<TrendPoint>()
+
+        try {
+            conn.prepareStatement(
+                """
+                SELECT week, skills_json
+                FROM weekly_summaries
+                WHERE uuid = ? AND week >= ?
+                ORDER BY week ASC
+                """.trimIndent()
+            ).use { stmt ->
+                stmt.setString(1, uuid.toString())
+                stmt.setString(2, afterWeek)
+                val rs = stmt.executeQuery()
+                while (rs.next()) {
+                    val week = rs.getString("week")
+                    val weekFields = java.time.temporal.WeekFields.ISO
+                    val yearWeek = week.split("-W")
+                    val year = yearWeek[0].toInt()
+                    val weekNum = yearWeek[1].toInt()
+                    val ts = java.time.LocalDate.of(year, 1, 1)
+                        .with(weekFields.weekOfYear(), weekNum.toLong())
+                        .with(weekFields.dayOfWeek(), 1)
+                        .atStartOfDay(java.time.ZoneId.systemDefault())
+                        .toInstant()
+                    val skillsJson = rs.getString("skills_json")
+                    val level = extractSkillEndLevel(skillsJson, skill)
+                    results.add(TrendPoint(ts, level))
+                }
+            }
+        } catch (e: Exception) {
+            logger.warning("Failed to query skill level from weekly: ${e.message}")
+        }
+        return results
+    }
+
+    /**
+     * Extract the end level for a specific skill from aggregated skills JSON.
+     * Format: {"SKILL":{"start":X,"end":Y,"gain":Z}}
+     */
+    private fun extractSkillEndLevel(skillsJson: String, skill: String): Int {
+        if (skillsJson.isBlank() || skillsJson == "{}") return 0
+
+        return try {
+            // Find the skill entry and extract "end" value
+            val skillPattern = """"$skill":\{"start":\d+,"end":(\d+),"gain":-?\d+\}"""
+            val regex = Regex(skillPattern)
+            val match = regex.find(skillsJson)
+            match?.groupValues?.get(1)?.toInt() ?: 0
+        } catch (e: Exception) {
+            logger.warning("Failed to extract skill end level: ${e.message}")
+            0
+        }
+    }
+
     // ========== Utilities ==========
 
     /**

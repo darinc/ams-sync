@@ -19,6 +19,7 @@ import io.github.darinc.amssync.discord.StatusChannelManager
 import io.github.darinc.amssync.discord.TimeoutConfig
 import io.github.darinc.amssync.discord.TimeoutManager
 import io.github.darinc.amssync.discord.WebhookManager
+import io.github.darinc.amssync.discord.commands.AmsProgressCommand
 import io.github.darinc.amssync.discord.commands.AmsStatsCommand
 import io.github.darinc.amssync.discord.commands.AmsTopCommand
 import io.github.darinc.amssync.discord.commands.DiscordLinkCommand
@@ -34,12 +35,14 @@ import io.github.darinc.amssync.image.AvatarFetcher
 import io.github.darinc.amssync.image.ImageConfig
 import io.github.darinc.amssync.image.MilestoneCardRenderer
 import io.github.darinc.amssync.image.PlayerCardRenderer
+import io.github.darinc.amssync.image.ProgressionChartRenderer
 import io.github.darinc.amssync.linking.UserMappingService
 import io.github.darinc.amssync.mcmmo.AnnouncementConfig
 import io.github.darinc.amssync.mcmmo.McMMOEventListener
 import io.github.darinc.amssync.mcmmo.McmmoApiWrapper
 import io.github.darinc.amssync.metrics.ErrorMetrics
 import io.github.darinc.amssync.progression.ProgressionDatabase
+import io.github.darinc.amssync.progression.ProgressionQueryService
 import io.github.darinc.amssync.progression.ProgressionRetentionTask
 import io.github.darinc.amssync.progression.ProgressionSnapshotTask
 import io.github.darinc.amssync.progression.ProgressionTrackingConfig
@@ -360,6 +363,30 @@ class AMSSyncPlugin : JavaPlugin() {
             logger.info("Whitelist management enabled")
         } else {
             logger.info("Whitelist management disabled in config")
+        }
+
+        // Progression chart command (only if progression tracking and image cards are both enabled)
+        val progressionDb = services.progression.database
+        val imgConfig = services.image.config
+        val avatarFetcher = services.image.avatarFetcher
+        if (progressionDb != null && imgConfig != null && avatarFetcher != null) {
+            val queryService = ProgressionQueryService(progressionDb, logger)
+            val chartRenderer = ProgressionChartRenderer(imgConfig.serverName)
+            handlers["amsprogress"] = AmsProgressCommand(
+                this,
+                imgConfig,
+                avatarFetcher,
+                chartRenderer,
+                queryService
+            )
+            logger.info("Progression chart command enabled")
+        } else {
+            if (progressionDb == null) {
+                logger.fine("Progression chart command disabled: progression tracking not enabled")
+            }
+            if (imgConfig == null || avatarFetcher == null) {
+                logger.fine("Progression chart command disabled: image cards not enabled")
+            }
         }
 
         logger.info("Registered ${handlers.size} slash command handler(s)")
