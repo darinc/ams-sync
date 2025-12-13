@@ -2,6 +2,7 @@ package io.github.darinc.amssync.progression
 
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldMatch
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -355,18 +356,22 @@ class ProgressionRetentionTaskTest : DescribeSpec({
 
                 runnableSlot.captured.run()
 
-                // Check that activity was logged
-                logSlot.captured shouldBe "Progression retention: hourly+0, daily+0, weekly+0, weekly-5, events-10"
+                // Check that activity was logged (timing varies, so check pattern)
+                logSlot.captured shouldMatch Regex(
+                    "Progression retention \\(\\d+ms\\): hourly\\+0, daily\\+0, weekly\\+0, weekly-5, events-10"
+                )
             }
 
             it("handles exceptions gracefully") {
                 val (plugin, database, logger) = createMocks()
                 val runnableSlot = slot<Runnable>()
+                val warningSlot = slot<String>()
                 val server = plugin.server
                 val scheduler = server.scheduler
 
                 every { scheduler.runTaskTimerAsynchronously(any(), capture(runnableSlot), any(), any()) } returns mockk(relaxed = true)
                 every { database.getSnapshotsForHourlyCompaction(any()) } throws RuntimeException("Test error")
+                every { logger.warning(capture(warningSlot)) } returns Unit
 
                 val config = RetentionConfig(
                     enabled = true,
@@ -379,7 +384,7 @@ class ProgressionRetentionTaskTest : DescribeSpec({
                 // Should not throw
                 runnableSlot.captured.run()
 
-                verify { logger.warning("Progression retention task failed: Test error") }
+                warningSlot.captured shouldMatch Regex("Progression retention task failed after \\d+ms: Test error")
             }
         }
     }

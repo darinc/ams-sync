@@ -1,6 +1,8 @@
 package io.github.darinc.amssync.progression
 
 import io.github.darinc.amssync.AMSSyncPlugin
+import io.github.darinc.amssync.metrics.CompressionStats
+import io.github.darinc.amssync.metrics.ErrorMetrics
 import org.bukkit.scheduler.BukkitTask
 import java.time.Instant
 import java.time.LocalDate
@@ -25,15 +27,23 @@ import java.time.temporal.IsoFields
 class ProgressionRetentionTask(
     private val plugin: AMSSyncPlugin,
     private val config: RetentionConfig,
-    private val database: ProgressionDatabase
+    private val database: ProgressionDatabase,
+    private val errorMetrics: ErrorMetrics? = null
 ) {
     private var task: BukkitTask? = null
+    @Volatile private var isCatchUp = false
     private val hourFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH")
         .withZone(ZoneId.systemDefault())
 
     companion object {
         /** Metadata key for tracking last compression time */
         const val METADATA_LAST_COMPRESSION = "last_compression"
+
+        /** Duration threshold for WARNING log (10 seconds) */
+        private const val WARNING_DURATION_MS = 10_000L
+
+        /** Duration threshold for SEVERE log (30 seconds) */
+        private const val CRITICAL_DURATION_MS = 30_000L
     }
 
     /**
@@ -88,6 +98,7 @@ class ProgressionRetentionTask(
         if (lastCompression == null || lastCompression.isBefore(threshold)) {
             val lastStr = lastCompression?.toString() ?: "never"
             plugin.logger.info("Compression overdue (last: $lastStr), running catch-up...")
+            isCatchUp = true
             plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable { runRetention() })
         }
     }
@@ -114,42 +125,94 @@ class ProgressionRetentionTask(
     /**
      * Run all retention operations in order.
      */
+    @Suppress("LongMethod")
     private fun runRetention() {
+        val startTime = System.currentTimeMillis()
+        val wasCatchUp = isCatchUp
+        isCatchUp = false // Reset for next run
+
+        var rawToHourlyMs: Long
+        var hourlyToDailyMs: Long
+        var dailyToWeeklyMs: Long
+        var cleanupMs: Long
+
         try {
             val tiers = config.tiers
             val stats = RetentionStats()
 
             // Step 1: Compact raw snapshots -> hourly (after rawDays)
+            var phaseStart = System.currentTimeMillis()
             stats.hourlyCompacted = compactSnapshotsToHourly(tiers.rawDays)
+            rawToHourlyMs = System.currentTimeMillis() - phaseStart
 
             // Step 2: Compact hourly -> daily (after hourlyDays)
+            phaseStart = System.currentTimeMillis()
             stats.dailyCompacted = compactHourlyToDaily(tiers.hourlyDays)
+            hourlyToDailyMs = System.currentTimeMillis() - phaseStart
 
             // Step 3: Compact daily -> weekly (after dailyDays)
+            phaseStart = System.currentTimeMillis()
             stats.weeklyCompacted = compactDailyToWeekly(tiers.dailyDays)
+            dailyToWeeklyMs = System.currentTimeMillis() - phaseStart
 
-            // Step 4: Delete old weekly summaries (after weeklyYears)
+            // Step 4: Delete old data
+            phaseStart = System.currentTimeMillis()
             stats.weeklyDeleted = deleteOldWeeklySummaries(tiers.weeklyYears)
-
-            // Step 5: Delete old level-up events (keep for full retention period)
             stats.levelUpsDeleted = deleteOldLevelUps(tiers.getTotalRetentionDays())
+            cleanupMs = System.currentTimeMillis() - phaseStart
+
+            val totalMs = System.currentTimeMillis() - startTime
 
             // Track successful compression time
             database.setMetadata(METADATA_LAST_COMPRESSION, Instant.now().toString())
 
+            // Record metrics
+            errorMetrics?.recordCompressionRun(
+                CompressionStats(
+                    totalDurationMs = totalMs,
+                    rawToHourlyMs = rawToHourlyMs,
+                    hourlyToDailyMs = hourlyToDailyMs,
+                    dailyToWeeklyMs = dailyToWeeklyMs,
+                    cleanupMs = cleanupMs,
+                    hourlyCreated = stats.hourlyCompacted,
+                    dailyCreated = stats.dailyCompacted,
+                    weeklyCreated = stats.weeklyCompacted,
+                    weeklyDeleted = stats.weeklyDeleted,
+                    levelupsDeleted = stats.levelUpsDeleted,
+                    wasCatchup = wasCatchUp,
+                    timestamp = Instant.now()
+                )
+            )
+
+            // Log warnings for slow compression
+            when {
+                totalMs > CRITICAL_DURATION_MS -> {
+                    plugin.logger.severe(
+                        "Compression critically slow: ${totalMs}ms - investigate database performance"
+                    )
+                }
+                totalMs > WARNING_DURATION_MS -> {
+                    plugin.logger.warning(
+                        "Compression took ${totalMs}ms (threshold: ${WARNING_DURATION_MS}ms)"
+                    )
+                }
+            }
+
             // Log summary if anything was done
             if (stats.hasActivity()) {
                 plugin.logger.info(
-                    "Progression retention: " +
+                    "Progression retention (${totalMs}ms): " +
                         "hourly+${stats.hourlyCompacted}, daily+${stats.dailyCompacted}, " +
                         "weekly+${stats.weeklyCompacted}, weekly-${stats.weeklyDeleted}, " +
                         "events-${stats.levelUpsDeleted}"
                 )
             } else {
-                plugin.logger.fine("Progression retention: no data to compact or delete")
+                plugin.logger.fine("Progression retention (${totalMs}ms): no data to compact or delete")
             }
         } catch (e: Exception) {
-            plugin.logger.warning("Progression retention task failed: ${e.message}")
+            val totalMs = System.currentTimeMillis() - startTime
+            plugin.logger.warning("Progression retention task failed after ${totalMs}ms: ${e.message}")
+            errorMetrics?.recordCompressionFailure(e.javaClass.simpleName)
         }
     }
 

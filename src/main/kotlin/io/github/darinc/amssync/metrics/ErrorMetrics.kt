@@ -48,6 +48,14 @@ class ErrorMetrics {
     private val connectionSuccessCount = AtomicLong(0)
     private val connectionFailureCount = AtomicLong(0)
 
+    // Compression metrics
+    private val compressionSuccessCount = AtomicLong(0)
+    private val compressionFailureCount = AtomicLong(0)
+    private val compressionCatchupCount = AtomicLong(0)
+    private val compressionScheduledCount = AtomicLong(0)
+    private val compressionDurations = ArrayDeque<Long>()
+    @Volatile private var lastCompressionStats: CompressionStats? = null
+
     // Maximum duration samples to keep per command (prevent unbounded memory growth)
     private val maxDurationSamples = 100
 
@@ -156,6 +164,63 @@ class ErrorMetrics {
     }
 
     /**
+     * Record a successful compression run.
+     *
+     * @param stats Compression statistics from the run
+     */
+    fun recordCompressionRun(stats: CompressionStats) {
+        compressionSuccessCount.incrementAndGet()
+        if (stats.wasCatchup) {
+            compressionCatchupCount.incrementAndGet()
+        } else {
+            compressionScheduledCount.incrementAndGet()
+        }
+
+        synchronized(compressionDurations) {
+            compressionDurations.addLast(stats.totalDurationMs)
+            while (compressionDurations.size > maxDurationSamples) {
+                compressionDurations.removeFirst()
+            }
+        }
+
+        lastCompressionStats = stats
+    }
+
+    /**
+     * Record a failed compression run.
+     *
+     * @param errorType Type of error that caused the failure
+     */
+    fun recordCompressionFailure(errorType: String) {
+        compressionFailureCount.incrementAndGet()
+        errorTypeCount
+            .computeIfAbsent("compression_$errorType") { AtomicLong(0) }
+            .incrementAndGet()
+    }
+
+    /**
+     * Get average compression duration in milliseconds.
+     */
+    fun getCompressionAverageLatency(): Double? {
+        synchronized(compressionDurations) {
+            if (compressionDurations.isEmpty()) return null
+            return compressionDurations.toList().average()
+        }
+    }
+
+    /**
+     * Get P95 compression duration in milliseconds.
+     */
+    fun getCompressionP95Latency(): Long? {
+        synchronized(compressionDurations) {
+            if (compressionDurations.isEmpty()) return null
+            val sorted = compressionDurations.toList().sorted()
+            val index = (sorted.size * 0.95).toInt().coerceAtMost(sorted.size - 1)
+            return sorted[index]
+        }
+    }
+
+    /**
      * Get uptime duration in seconds.
      */
     fun getUptimeSeconds(): Long {
@@ -256,6 +321,15 @@ class ErrorMetrics {
                 attemptCount = connectionAttemptCount.get(),
                 successCount = connectionSuccessCount.get(),
                 failureCount = connectionFailureCount.get()
+            ),
+            compressionStats = CompressionMetrics(
+                successCount = compressionSuccessCount.get(),
+                failureCount = compressionFailureCount.get(),
+                catchupCount = compressionCatchupCount.get(),
+                scheduledCount = compressionScheduledCount.get(),
+                avgTotalDurationMs = getCompressionAverageLatency(),
+                p95TotalDurationMs = getCompressionP95Latency(),
+                lastRunStats = lastCompressionStats
             )
         )
     }
@@ -300,6 +374,14 @@ class ErrorMetrics {
         connectionAttemptCount.set(0)
         connectionSuccessCount.set(0)
         connectionFailureCount.set(0)
+        compressionSuccessCount.set(0)
+        compressionFailureCount.set(0)
+        compressionCatchupCount.set(0)
+        compressionScheduledCount.set(0)
+        synchronized(compressionDurations) {
+            compressionDurations.clear()
+        }
+        lastCompressionStats = null
     }
 }
 
@@ -313,7 +395,8 @@ data class MetricsSnapshot(
     val errorStats: Map<String, Long>,
     val discordApiStats: DiscordApiStats,
     val circuitBreakerStats: CircuitBreakerStats,
-    val connectionStats: ConnectionStats
+    val connectionStats: ConnectionStats,
+    val compressionStats: CompressionMetrics
 ) {
     /**
      * Format metrics for console/chat display.
@@ -360,6 +443,38 @@ data class MetricsSnapshot(
                     appendLine("  $type: $count")
                 }
             }
+
+            appendLine()
+            appendLine("-- Compression --")
+            val totalRuns = compressionStats.successCount + compressionStats.failureCount
+            if (totalRuns > 0) {
+                appendLine("  Runs: ${compressionStats.successCount} successful" +
+                    " (${compressionStats.scheduledCount} scheduled, ${compressionStats.catchupCount} catch-up)")
+                if (compressionStats.failureCount > 0) {
+                    appendLine("  Failures: ${compressionStats.failureCount}")
+                }
+                compressionStats.avgTotalDurationMs?.let {
+                    appendLine("  Avg Duration: ${String.format("%.0f", it)}ms")
+                }
+                compressionStats.p95TotalDurationMs?.let {
+                    appendLine("  P95 Duration: ${it}ms")
+                }
+                compressionStats.lastRunStats?.let { last ->
+                    appendLine("  Last Run:")
+                    appendLine("    Total: ${last.totalDurationMs}ms")
+                    appendLine("    Phases: raw→hourly ${last.rawToHourlyMs}ms, " +
+                        "hourly→daily ${last.hourlyToDailyMs}ms, " +
+                        "daily→weekly ${last.dailyToWeeklyMs}ms, " +
+                        "cleanup ${last.cleanupMs}ms")
+                    appendLine("    Records: hourly+${last.hourlyCreated}, " +
+                        "daily+${last.dailyCreated}, weekly+${last.weeklyCreated}")
+                    if (last.weeklyDeleted > 0 || last.levelupsDeleted > 0) {
+                        appendLine("    Deleted: weekly=${last.weeklyDeleted}, levelups=${last.levelupsDeleted}")
+                    }
+                }
+            } else {
+                appendLine("  No compression runs yet")
+            }
         }
     }
 }
@@ -400,4 +515,35 @@ data class ConnectionStats(
     val attemptCount: Long,
     val successCount: Long,
     val failureCount: Long
+)
+
+/**
+ * Statistics from a single compression run.
+ */
+data class CompressionStats(
+    val totalDurationMs: Long,
+    val rawToHourlyMs: Long,
+    val hourlyToDailyMs: Long,
+    val dailyToWeeklyMs: Long,
+    val cleanupMs: Long,
+    val hourlyCreated: Int,
+    val dailyCreated: Int,
+    val weeklyCreated: Int,
+    val weeklyDeleted: Int,
+    val levelupsDeleted: Int,
+    val wasCatchup: Boolean,
+    val timestamp: Instant
+)
+
+/**
+ * Aggregated compression metrics.
+ */
+data class CompressionMetrics(
+    val successCount: Long,
+    val failureCount: Long,
+    val catchupCount: Long,
+    val scheduledCount: Long,
+    val avgTotalDurationMs: Double?,
+    val p95TotalDurationMs: Long?,
+    val lastRunStats: CompressionStats?
 )

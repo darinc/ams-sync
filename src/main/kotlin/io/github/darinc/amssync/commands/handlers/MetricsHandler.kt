@@ -75,5 +75,29 @@ class MetricsHandler : SubcommandHandler {
                 sender.sendMessage("  §c$type§7: $count")
             }
         }
+
+        // Compression stats
+        sender.sendMessage("")
+        sender.sendMessage("§e§lCompression:")
+        val compression = snapshot.compressionStats
+        val totalRuns = compression.successCount + compression.failureCount
+        if (totalRuns > 0) {
+            sender.sendMessage("  §aRuns: §f${compression.successCount} §7(${compression.scheduledCount} scheduled, ${compression.catchupCount} catch-up)")
+            if (compression.failureCount > 0) {
+                sender.sendMessage("  §cFailures: §f${compression.failureCount}")
+            }
+            compression.avgTotalDurationMs?.let {
+                sender.sendMessage("  §7Avg Duration: §f${String.format("%.0f", it)}ms")
+            }
+            compression.p95TotalDurationMs?.let {
+                sender.sendMessage("  §7P95 Duration: §f${it}ms")
+            }
+            compression.lastRunStats?.let { last ->
+                sender.sendMessage("  §7Last Run: §f${last.totalDurationMs}ms")
+                sender.sendMessage("    §7Records: §fhourly+${last.hourlyCreated}, daily+${last.dailyCreated}, weekly+${last.weeklyCreated}")
+            }
+        } else {
+            sender.sendMessage("  §7No compression runs yet")
+        }
     }
 }

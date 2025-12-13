@@ -183,7 +183,12 @@ class AMSSyncPlugin : JavaPlugin() {
 
         // Initialize retention task if enabled
         val retentionTask = if (progressionConfig.retention.enabled) {
-            ProgressionRetentionTask(this, progressionConfig.retention, database).also { it.start() }
+            ProgressionRetentionTask(
+                this,
+                progressionConfig.retention,
+                database,
+                services.errorMetrics
+            ).also { it.start() }
         } else {
             null
         }
