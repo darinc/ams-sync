@@ -1,6 +1,7 @@
 package io.github.darinc.amssync
 
 import io.github.darinc.amssync.audit.AuditLogger
+import java.io.File
 import io.github.darinc.amssync.commands.AMSSyncCommand
 import io.github.darinc.amssync.config.ConfigMigrator
 import io.github.darinc.amssync.config.ConfigValidator
@@ -46,20 +47,48 @@ import io.github.darinc.amssync.progression.ProgressionQueryService
 import io.github.darinc.amssync.progression.ProgressionRetentionTask
 import io.github.darinc.amssync.progression.ProgressionSnapshotTask
 import io.github.darinc.amssync.progression.ProgressionTrackingConfig
+import io.github.darinc.amssync.discord.CircuitBreaker
+import io.github.darinc.amssync.discord.RateLimiter
 import io.github.darinc.amssync.services.DiscordServices
 import io.github.darinc.amssync.services.EventServices
 import io.github.darinc.amssync.services.ImageServices
 import io.github.darinc.amssync.services.ProgressionServices
 import io.github.darinc.amssync.services.ResilienceServices
-import io.github.darinc.amssync.services.ServiceRegistry
 import org.bukkit.plugin.java.JavaPlugin
 
 class AMSSyncPlugin : JavaPlugin() {
 
-    /**
-     * Central service registry holding all plugin services.
-     */
-    val services = ServiceRegistry()
+    // Core services (always required)
+    lateinit var userMappingService: UserMappingService
+        private set
+
+    lateinit var mcmmoApi: McmmoApiWrapper
+        private set
+
+    lateinit var errorMetrics: ErrorMetrics
+        private set
+
+    lateinit var auditLogger: AuditLogger
+        private set
+
+    var rateLimiter: RateLimiter? = null
+        private set
+
+    // Grouped services
+    lateinit var resilience: ResilienceServices
+        private set
+
+    lateinit var discord: DiscordServices
+        private set
+
+    var image: ImageServices = ImageServices.disabled()
+        private set
+
+    var events: EventServices = EventServices.empty()
+        private set
+
+    var progression: ProgressionServices = ProgressionServices.disabled()
+        private set
 
     override fun onEnable() {
         // Ensure data folder exists for migration
@@ -88,10 +117,19 @@ class AMSSyncPlugin : JavaPlugin() {
         // Initialize image cards
         initializeImageCards()
 
+        // Create Discord API wrapper (before DiscordManager for proper dependency order)
+        val discordApiWrapper = DiscordApiWrapper(resilience.circuitBreaker, logger, errorMetrics)
+
         // Build slash command handlers and initialize Discord manager
         val commandHandlers = buildSlashCommandHandlers()
-        val discordManager = DiscordManager(this, commandHandlers)
-        connectToDiscord(discordManager, discordConfig.first, discordConfig.second, retryConfig)
+        val discordManager = DiscordManager(
+            logger,
+            discordApiWrapper,
+            rateLimiter,
+            auditLogger,
+            commandHandlers
+        )
+        connectToDiscord(discordManager, discordApiWrapper, discordConfig.first, discordConfig.second, retryConfig)
 
         logger.info("AMSSync plugin enabled successfully!")
     }
@@ -121,25 +159,26 @@ class AMSSyncPlugin : JavaPlugin() {
 
     private fun initializeCoreServices() {
         // Initialize error metrics
-        services.errorMetrics = ErrorMetrics()
+        errorMetrics = ErrorMetrics()
         logger.info("Error metrics initialized")
 
         // Initialize audit logger
-        services.auditLogger = AuditLogger(this)
+        auditLogger = AuditLogger(dataFolder, logger)
         logger.info("Audit logger initialized")
 
         // Initialize rate limiter if enabled
         initializeRateLimiter()
 
         // Load user mappings
-        services.userMappingService = UserMappingService(this)
-        services.userMappingService.loadMappings()
-        logger.info("Loaded ${services.userMappingService.getMappingCount()} user mapping(s)")
+        val configFile = File(dataFolder, "config.yml")
+        userMappingService = UserMappingService(configFile, logger)
+        userMappingService.loadMappings()
+        logger.info("Loaded ${userMappingService.getMappingCount()} user mapping(s)")
 
         // Initialize MCMMO API wrapper with configuration
         val maxPlayersToScan = config.getInt("mcmmo.leaderboard.max-players-to-scan", 1000)
         val cacheTtlSeconds = config.getInt("mcmmo.leaderboard.cache-ttl-seconds", 60)
-        services.mcmmoApi = McmmoApiWrapper(this, maxPlayersToScan, cacheTtlSeconds * 1000L)
+        mcmmoApi = McmmoApiWrapper(logger, maxPlayersToScan, cacheTtlSeconds * 1000L)
         logger.info("MCMMO leaderboard limits: max-scan=$maxPlayersToScan, cache-ttl=${cacheTtlSeconds}s")
 
         // Register commands
@@ -153,7 +192,7 @@ class AMSSyncPlugin : JavaPlugin() {
 
         if (!progressionConfig.enabled) {
             logger.info("Progression tracking disabled in config")
-            services.progression = ProgressionServices.disabled()
+            progression = ProgressionServices.disabled()
             return
         }
 
@@ -161,7 +200,7 @@ class AMSSyncPlugin : JavaPlugin() {
         val database = ProgressionDatabase(dataFolder, progressionConfig.databaseFile, logger)
         if (!database.initialize()) {
             logger.warning("Failed to initialize progression database - feature disabled")
-            services.progression = ProgressionServices.disabled()
+            progression = ProgressionServices.disabled()
             return
         }
 
@@ -187,13 +226,13 @@ class AMSSyncPlugin : JavaPlugin() {
                 this,
                 progressionConfig.retention,
                 database,
-                services.errorMetrics
+                errorMetrics
             ).also { it.start() }
         } else {
             null
         }
 
-        services.progression = ProgressionServices(
+        progression = ProgressionServices(
             config = progressionConfig,
             database = database,
             snapshotTask = snapshotTask,
@@ -221,7 +260,7 @@ class AMSSyncPlugin : JavaPlugin() {
                 penaltyCooldownMs = config.getLong("rate-limiting.penalty-cooldown-ms", 10000L),
                 maxRequestsPerMinute = config.getInt("rate-limiting.max-requests-per-minute", 60)
             )
-            services.rateLimiter = rateLimiterConfig.toRateLimiter(logger)
+            rateLimiter = rateLimiterConfig.toRateLimiter(logger)
             logger.info("Rate limiting enabled: penalty-cooldown=${rateLimiterConfig.penaltyCooldownMs}ms, max=${rateLimiterConfig.maxRequestsPerMinute}/min")
         } else {
             logger.info("Rate limiting disabled")
@@ -319,7 +358,7 @@ class AMSSyncPlugin : JavaPlugin() {
             )
         }
 
-        services.resilience = ResilienceServices(timeoutMgr, circuitBrkr)
+        resilience = ResilienceServices(timeoutMgr, circuitBrkr)
     }
 
     private fun initializeImageCards() {
@@ -327,7 +366,7 @@ class AMSSyncPlugin : JavaPlugin() {
 
         if (!imgConfig.enabled) {
             logger.info("Image cards are disabled in config")
-            services.image = ImageServices.disabled()
+            image = ImageServices.disabled()
             return
         }
 
@@ -345,7 +384,7 @@ class AMSSyncPlugin : JavaPlugin() {
         val statsCmd = AmsStatsCommand(this, imgConfig, fetcher, renderer)
         val topCmd = AmsTopCommand(this, imgConfig, fetcher, renderer)
 
-        services.image = ImageServices(imgConfig, fetcher, renderer, statsCmd, topCmd)
+        image = ImageServices(imgConfig, fetcher, renderer, statsCmd, topCmd)
         logger.info("Image cards enabled (provider=${imgConfig.avatarProvider}, cache=${imgConfig.avatarCacheTtlSeconds}s)")
     }
 
@@ -366,8 +405,8 @@ class AMSSyncPlugin : JavaPlugin() {
         handlers["amssync"] = DiscordLinkCommand(this)
 
         // Image card commands (only if enabled)
-        services.image.statsCommand?.let { handlers["amsstats"] = it }
-        services.image.topCommand?.let { handlers["amstop"] = it }
+        image.statsCommand?.let { handlers["amsstats"] = it }
+        image.topCommand?.let { handlers["amstop"] = it }
 
         // Whitelist command (only if enabled)
         val whitelistEnabled = config.getBoolean("whitelist.enabled", true)
@@ -379,9 +418,9 @@ class AMSSyncPlugin : JavaPlugin() {
         }
 
         // Progression chart command (only if progression tracking and image cards are both enabled)
-        val progressionDb = services.progression.database
-        val imgConfig = services.image.config
-        val avatarFetcher = services.image.avatarFetcher
+        val progressionDb = progression.database
+        val imgConfig = image.config
+        val avatarFetcher = image.avatarFetcher
         if (progressionDb != null && imgConfig != null && avatarFetcher != null) {
             val queryService = ProgressionQueryService(progressionDb, logger)
             val chartRenderer = ProgressionChartRenderer(imgConfig.serverName)
@@ -408,26 +447,28 @@ class AMSSyncPlugin : JavaPlugin() {
 
     private fun connectToDiscord(
         discordManager: DiscordManager,
+        apiWrapper: DiscordApiWrapper,
         token: String,
         guildId: String,
         retryConfig: RetryManager.RetryConfig
     ) {
         if (retryConfig.enabled) {
-            connectWithRetry(discordManager, token, guildId, retryConfig)
+            connectWithRetry(discordManager, apiWrapper, token, guildId, retryConfig)
         } else {
-            connectWithoutRetry(discordManager, token, guildId)
+            connectWithoutRetry(discordManager, apiWrapper, token, guildId)
         }
     }
 
     private fun connectWithRetry(
         discordManager: DiscordManager,
+        apiWrapper: DiscordApiWrapper,
         token: String,
         guildId: String,
         retryConfig: RetryManager.RetryConfig
     ) {
         val retryManager = retryConfig.toRetryManager(logger)
         val timeoutEnabled = config.getBoolean("discord.timeout.enabled", true)
-        val tm = services.resilience.timeoutManager
+        val tm = resilience.timeoutManager
 
         // Wrap retry+initialization with timeout protection
         val connectionResult = if (timeoutEnabled && tm != null) {
@@ -444,59 +485,65 @@ class AMSSyncPlugin : JavaPlugin() {
             )
         }
 
-        handleConnectionResult(discordManager, connectionResult)
+        handleConnectionResult(discordManager, apiWrapper, connectionResult)
     }
 
     private fun handleConnectionResult(
         discordManager: DiscordManager,
+        apiWrapper: DiscordApiWrapper,
         connectionResult: TimeoutManager.TimeoutResult<RetryManager.RetryResult<Unit>>
     ) {
         when (connectionResult) {
             is TimeoutManager.TimeoutResult.Success -> {
                 when (val retryResult = connectionResult.value) {
                     is RetryManager.RetryResult.Success -> {
-                        services.errorMetrics.recordConnectionAttempt(success = true)
+                        errorMetrics.recordConnectionAttempt(success = true)
                         logger.info("Discord bot successfully connected!")
-                        finalizeDiscordServices(discordManager)
+                        finalizeDiscordServices(discordManager, apiWrapper)
                     }
                     is RetryManager.RetryResult.Failure -> {
-                        services.errorMetrics.recordConnectionAttempt(success = false)
+                        errorMetrics.recordConnectionAttempt(success = false)
                         logDegradedModeError(
                             "Failed to connect to Discord after ${retryResult.attempts} attempts",
                             "Last error: ${retryResult.lastException.message}",
                             "Check your bot token and network connection"
                         )
                         // Still create discord services with disconnected manager
-                        finalizeDiscordServicesDisconnected(discordManager)
+                        finalizeDiscordServicesDisconnected(discordManager, apiWrapper)
                     }
                 }
             }
             is TimeoutManager.TimeoutResult.Timeout -> {
-                services.errorMetrics.recordConnectionAttempt(success = false)
+                errorMetrics.recordConnectionAttempt(success = false)
                 logDegradedModeError(
                     "Discord connection timed out after ${connectionResult.timeoutMs}ms",
                     null,
                     "This may indicate network issues or Discord API problems"
                 )
-                finalizeDiscordServicesDisconnected(discordManager)
+                finalizeDiscordServicesDisconnected(discordManager, apiWrapper)
             }
             is TimeoutManager.TimeoutResult.Failure -> {
-                services.errorMetrics.recordConnectionAttempt(success = false)
+                errorMetrics.recordConnectionAttempt(success = false)
                 logger.severe("Discord connection failed unexpectedly: ${connectionResult.exception.message}")
                 connectionResult.exception.printStackTrace()
-                finalizeDiscordServicesDisconnected(discordManager)
+                finalizeDiscordServicesDisconnected(discordManager, apiWrapper)
             }
         }
     }
 
-    private fun connectWithoutRetry(discordManager: DiscordManager, token: String, guildId: String) {
+    private fun connectWithoutRetry(
+        discordManager: DiscordManager,
+        apiWrapper: DiscordApiWrapper,
+        token: String,
+        guildId: String
+    ) {
         try {
             discordManager.initialize(token, guildId)
-            services.errorMetrics.recordConnectionAttempt(success = true)
+            errorMetrics.recordConnectionAttempt(success = true)
             logger.info("Discord bot successfully connected!")
-            finalizeDiscordServices(discordManager)
+            finalizeDiscordServices(discordManager, apiWrapper)
         } catch (e: Exception) {
-            services.errorMetrics.recordConnectionAttempt(success = false)
+            errorMetrics.recordConnectionAttempt(success = false)
             logger.severe("Failed to initialize Discord bot: ${e.message}")
             logger.severe("Retry logic is disabled. Plugin will be disabled.")
             logger.severe("Enable retry in config.yml: discord.retry.enabled = true")
@@ -508,17 +555,14 @@ class AMSSyncPlugin : JavaPlugin() {
     /**
      * Finalize Discord services after successful connection.
      */
-    private fun finalizeDiscordServices(discordManager: DiscordManager) {
-        // Initialize Discord API wrapper
-        val apiWrapper = DiscordApiWrapper(services.resilience.circuitBreaker, logger, services.errorMetrics)
-
+    private fun finalizeDiscordServices(discordManager: DiscordManager, apiWrapper: DiscordApiWrapper) {
         // Initialize presence and other Discord-dependent services
         val presence = initializePresence(discordManager)
         val statusChannel = initializeStatusChannel(discordManager)
         val (chatBridge, chatWebhook) = initializeChatBridge(discordManager)
         val (webhookMgr, eventServices) = initializeEventAnnouncements(discordManager)
 
-        services.discord = DiscordServices(
+        discord = DiscordServices(
             manager = discordManager,
             apiWrapper = apiWrapper,
             chatBridge = chatBridge,
@@ -528,15 +572,14 @@ class AMSSyncPlugin : JavaPlugin() {
             statusChannel = statusChannel
         )
 
-        services.events = eventServices
+        events = eventServices
     }
 
     /**
      * Create Discord services when connection failed (degraded mode).
      */
-    private fun finalizeDiscordServicesDisconnected(discordManager: DiscordManager) {
-        val apiWrapper = DiscordApiWrapper(services.resilience.circuitBreaker, logger, services.errorMetrics)
-        services.discord = DiscordServices(
+    private fun finalizeDiscordServicesDisconnected(discordManager: DiscordManager, apiWrapper: DiscordApiWrapper) {
+        discord = DiscordServices(
             manager = discordManager,
             apiWrapper = apiWrapper,
             chatBridge = null,
@@ -545,7 +588,7 @@ class AMSSyncPlugin : JavaPlugin() {
             presence = null,
             statusChannel = null
         )
-        services.events = EventServices.empty()
+        events = EventServices.empty()
     }
 
     private fun initializePresence(discordManager: DiscordManager): PlayerCountPresence? {
@@ -686,16 +729,16 @@ class AMSSyncPlugin : JavaPlugin() {
 
         // Initialize milestone card renderer if image cards are enabled
         val milestoneCardRenderer = if (announcementConfig.useImageCards) {
-            val serverName = services.image.config?.serverName ?: "Minecraft Server"
+            val serverName = image.config?.serverName ?: "Minecraft Server"
             MilestoneCardRenderer(serverName)
         } else null
 
         // Use existing avatar fetcher or create one for milestones
         val milestoneAvatarFetcher = if (announcementConfig.useImageCards && announcementConfig.showAvatars) {
-            services.image.avatarFetcher ?: AvatarFetcher(
+            image.avatarFetcher ?: AvatarFetcher(
                 logger,
-                services.image.config?.avatarCacheMaxSize ?: 100,
-                (services.image.config?.avatarCacheTtlSeconds ?: 300) * 1000L
+                image.config?.avatarCacheMaxSize ?: 100,
+                (image.config?.avatarCacheTtlSeconds ?: 300) * 1000L
             )
         } else null
 
@@ -735,13 +778,42 @@ class AMSSyncPlugin : JavaPlugin() {
 
     override fun onDisable() {
         logger.info("Shutting down AMSSync plugin...")
-        services.shutdown()
+        shutdownServices()
         logger.info("AMSSync plugin disabled")
+    }
+
+    /**
+     * Shutdown all services in proper order.
+     */
+    private fun shutdownServices() {
+        // Announce server stop before disconnecting
+        events.announceServerStop()
+
+        // Shutdown event services
+        events.shutdown()
+
+        // Shutdown Discord services
+        if (::discord.isInitialized) {
+            discord.shutdown()
+        }
+
+        // Shutdown resilience services
+        if (::resilience.isInitialized) {
+            resilience.shutdown()
+        }
+
+        // Shutdown progression services
+        progression.shutdown()
+
+        // Save user mappings
+        if (::userMappingService.isInitialized) {
+            userMappingService.saveMappings()
+        }
     }
 
     fun reloadPluginConfig() {
         reloadConfig()
-        services.userMappingService.loadMappings()
+        userMappingService.loadMappings()
         logger.info("Configuration reloaded")
     }
 }

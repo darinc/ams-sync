@@ -31,7 +31,7 @@ class ConfigMigrator(
 ) {
     companion object {
         const val CONFIG_VERSION_KEY = "config-version"
-        const val CURRENT_CONFIG_VERSION = 1
+        const val CURRENT_CONFIG_VERSION = 2
     }
 
     /**
@@ -114,15 +114,18 @@ class ConfigMigrator(
         // Step 3: Parse user values (without comments)
         val userValues = extractAllValues(userConfig)
 
+        // Step 3a: Apply version-specific migrations to user values
+        val migratedValues = applyVersionMigrations(userValues, fromVersion)
+
         // Step 4: Load default config to find added keys
         val defaultConfig = loadDefaultConfig()
         val defaultValues = extractAllValues(defaultConfig)
 
         // Step 5: Find what keys were added
-        val addedKeys = findAddedKeys(userValues, defaultValues)
+        val addedKeys = findAddedKeys(migratedValues, defaultValues)
 
         // Step 6: Merge - replace default values with user values where they exist
-        val mergedLines = mergeConfigs(defaultLines, userValues)
+        val mergedLines = mergeConfigs(defaultLines, migratedValues)
 
         // Step 7: Append user-mappings section if it exists
         val finalLines = appendUserMappings(mergedLines, userConfig)
@@ -363,6 +366,106 @@ class ConfigMigrator(
             }
             else -> "\"${value.toString().replace("\\", "\\\\").replace("\"", "\\\"")}\""
         }
+    }
+
+    /**
+     * Apply version-specific migrations to user config values.
+     * This remaps old config paths to new paths when the structure changes.
+     */
+    private fun applyVersionMigrations(
+        userValues: Map<String, Any?>,
+        fromVersion: Int
+    ): Map<String, Any?> {
+        var migratedValues = userValues.toMutableMap()
+
+        // Migration from v1 to v2: Feature-aligned structure
+        if (fromVersion < 2) {
+            migratedValues = migrateV1ToV2(migratedValues)
+        }
+
+        return migratedValues
+    }
+
+    /**
+     * Migrate config from version 1 to version 2.
+     * Moves keys from old discord.* structure to feature-aligned sections.
+     */
+    private fun migrateV1ToV2(userValues: Map<String, Any?>): MutableMap<String, Any?> {
+        val migrated = mutableMapOf<String, Any?>()
+
+        // Map of old paths to new paths
+        val pathMappings = mapOf(
+            // Event Announcements: MCMMO Milestones
+            "discord.announcements.enabled" to "event-announcements.mcmmo-milestones.enabled",
+            "discord.announcements.text-channel-id" to "event-announcements.mcmmo-milestones.channel-id",
+            "discord.announcements.webhook-url" to "event-announcements.webhook.url",
+            "discord.announcements.skill-milestone-interval" to "event-announcements.mcmmo-milestones.skill-milestone-interval",
+            "discord.announcements.power-milestone-interval" to "event-announcements.mcmmo-milestones.power-milestone-interval",
+            "discord.announcements.use-embeds" to "event-announcements.mcmmo-milestones.use-embeds",
+            "discord.announcements.use-image-cards" to "event-announcements.mcmmo-milestones.use-image-cards",
+            "discord.announcements.show-avatars" to "event-announcements.mcmmo-milestones.show-avatars",
+            "discord.announcements.avatar-provider" to "event-announcements.mcmmo-milestones.avatar-provider",
+
+            // Event Announcements: Server Events, Deaths, Achievements
+            "discord.events.enabled" to "event-announcements.server-events.enabled",
+            "discord.events.text-channel-id" to "event-announcements.server-events.channel-id",
+            "discord.events.webhook-url" to "event-announcements.webhook.url",
+            "discord.events.use-embeds" to "event-announcements.webhook.use-embeds",
+            "discord.events.show-avatars" to "event-announcements.webhook.show-avatars",
+            "discord.events.avatar-provider" to "event-announcements.webhook.avatar-provider",
+            "discord.events.server-start.enabled" to "event-announcements.server-events.start.enabled",
+            "discord.events.server-start.message" to "event-announcements.server-events.start.message",
+            "discord.events.server-stop.enabled" to "event-announcements.server-events.stop.enabled",
+            "discord.events.server-stop.message" to "event-announcements.server-events.stop.message",
+            "discord.events.player-deaths.enabled" to "event-announcements.player-deaths.enabled",
+            "discord.events.achievements.enabled" to "event-announcements.achievements.enabled",
+            "discord.events.achievements.exclude-recipes" to "event-announcements.achievements.exclude-recipes",
+
+            // Chat Bridge
+            "discord.chat-bridge.enabled" to "chat-bridge.enabled",
+            "discord.chat-bridge.channel-id" to "chat-bridge.channel-id",
+            "discord.chat-bridge.minecraft-to-discord" to "chat-bridge.minecraft-to-discord",
+            "discord.chat-bridge.discord-to-minecraft" to "chat-bridge.discord-to-minecraft",
+            "discord.chat-bridge.mc-format" to "chat-bridge.mc-format",
+            "discord.chat-bridge.discord-format" to "chat-bridge.discord-format",
+            "discord.chat-bridge.ignore-prefixes" to "chat-bridge.ignore-prefixes",
+            "discord.chat-bridge.suppress-notifications" to "chat-bridge.suppress-notifications",
+            "discord.chat-bridge.use-webhook" to "chat-bridge.use-webhook",
+            "discord.chat-bridge.webhook-url" to "chat-bridge.webhook-url",
+            "discord.chat-bridge.avatar-provider" to "chat-bridge.avatar-provider",
+            "discord.chat-bridge.resolve-mentions" to "chat-bridge.resolve-mentions",
+
+            // Player Count Display: Bot Presence
+            "discord.presence.enabled" to "player-count-display.bot-presence.enabled",
+            "discord.presence.min-update-interval-seconds" to "player-count-display.bot-presence.min-update-interval-seconds",
+            "discord.presence.debounce-seconds" to "player-count-display.bot-presence.debounce-seconds",
+            "discord.presence.activity.enabled" to "player-count-display.bot-presence.activity.enabled",
+            "discord.presence.activity.type" to "player-count-display.bot-presence.activity.type",
+            "discord.presence.activity.template" to "player-count-display.bot-presence.activity.template",
+            "discord.presence.nickname.enabled" to "player-count-display.bot-presence.nickname.enabled",
+            "discord.presence.nickname.template" to "player-count-display.bot-presence.nickname.template",
+            "discord.presence.nickname.graceful-fallback" to "player-count-display.bot-presence.nickname.graceful-fallback",
+
+            // Player Count Display: Status Channel
+            "discord.status-channel.enabled" to "player-count-display.status-channel.enabled",
+            "discord.status-channel.voice-channel-id" to "player-count-display.status-channel.channel-id",
+            "discord.status-channel.template" to "player-count-display.status-channel.template",
+            "discord.status-channel.update-interval-seconds" to "player-count-display.status-channel.update-interval-seconds"
+        )
+
+        // Apply path mappings
+        for ((key, value) in userValues) {
+            val newPath = pathMappings[key]
+            if (newPath != null) {
+                migrated[newPath] = value
+                logger.fine("Migrated config: $key -> $newPath")
+            } else {
+                // Keep paths that don't need migration
+                migrated[key] = value
+            }
+        }
+
+        return migrated
     }
 
     /**

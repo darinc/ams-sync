@@ -104,7 +104,7 @@ class ChatBridge(
      * Find Discord ID for a Minecraft username (case-insensitive).
      */
     private fun findDiscordIdCaseInsensitive(username: String): String? {
-        val mappings = plugin.services.userMappingService.getAllMappings()
+        val mappings = plugin.userMappingService.getAllMappings()
         // mappings is Discord ID -> Minecraft Username, need to search values
         val entry = mappings.entries.find { (_, mcUsername) ->
             mcUsername.equals(username, ignoreCase = true)
@@ -133,7 +133,7 @@ class ChatBridge(
         val sanitized = sanitizeDiscordMessage(message)
 
         try {
-            val circuitBreaker = plugin.services.resilience.circuitBreaker
+            val circuitBreaker = plugin.resilience.circuitBreaker
 
             val sendAction = {
                 channel.sendMessage(sanitized)

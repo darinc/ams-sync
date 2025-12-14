@@ -13,7 +13,7 @@ class MetricsHandler : SubcommandHandler {
 
     override fun execute(context: CommandContext, args: List<String>) {
         val (sender, plugin) = context
-        val snapshot = plugin.services.errorMetrics.getSnapshot()
+        val snapshot = plugin.errorMetrics.getSnapshot()
 
         sender.sendMessage("§6§l=== AMSSync Metrics ===")
         sender.sendMessage("§7Uptime: §f${snapshot.uptimeFormatted}")
@@ -40,7 +40,7 @@ class MetricsHandler : SubcommandHandler {
         sender.sendMessage("  §aRecoveries: §f${snapshot.circuitBreakerStats.recoveryCount}")
 
         // Current circuit state
-        plugin.services.discord.apiWrapper?.getCircuitState()?.let { state ->
+        plugin.discord.apiWrapper?.getCircuitState()?.let { state ->
             val stateColor = when (state) {
                 CircuitBreaker.State.CLOSED -> "§a"
                 CircuitBreaker.State.OPEN -> "§c"

@@ -76,7 +76,7 @@ class AMSSyncCommand(private val plugin: AMSSyncPlugin) : CommandExecutor, TabCo
             return true
         }
 
-        plugin.services.auditLogger.logSecurityEvent(
+        plugin.auditLogger.logSecurityEvent(
             event = SecurityEvent.PERMISSION_DENIED,
             actor = context.actorName,
             actorType = context.actorType,
@@ -92,7 +92,7 @@ class AMSSyncCommand(private val plugin: AMSSyncPlugin) : CommandExecutor, TabCo
             return true
         }
 
-        val rateLimiter = plugin.services.rateLimiter ?: return true
+        val rateLimiter = plugin.rateLimiter ?: return true
 
         if (sender !is Player) {
             return true
@@ -100,7 +100,7 @@ class AMSSyncCommand(private val plugin: AMSSyncPlugin) : CommandExecutor, TabCo
 
         when (val result = rateLimiter.checkRateLimit(sender.uniqueId.toString())) {
             is RateLimitResult.Cooldown -> {
-                plugin.services.auditLogger.logSecurityEvent(
+                plugin.auditLogger.logSecurityEvent(
                     event = SecurityEvent.RATE_LIMITED,
                     actor = context.actorName,
                     actorType = context.actorType,
@@ -110,7 +110,7 @@ class AMSSyncCommand(private val plugin: AMSSyncPlugin) : CommandExecutor, TabCo
                 return false
             }
             is RateLimitResult.BurstLimited -> {
-                plugin.services.auditLogger.logSecurityEvent(
+                plugin.auditLogger.logSecurityEvent(
                     event = SecurityEvent.RATE_LIMITED,
                     actor = context.actorName,
                     actorType = context.actorType,

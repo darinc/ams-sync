@@ -206,7 +206,7 @@ class PlayerCountPresence(
         }
 
         try {
-            val circuitBreaker = plugin.services.resilience.circuitBreaker
+            val circuitBreaker = plugin.resilience.circuitBreaker
 
             if (circuitBreaker != null) {
                 val result = circuitBreaker.execute("Update bot activity") {
@@ -251,7 +251,7 @@ class PlayerCountPresence(
         val nickname = formatTemplate(config.nickname.template, playerCount, botName)
 
         try {
-            val circuitBreaker = plugin.services.resilience.circuitBreaker
+            val circuitBreaker = plugin.resilience.circuitBreaker
 
             if (circuitBreaker != null) {
                 val result = circuitBreaker.execute("Update bot nickname") {

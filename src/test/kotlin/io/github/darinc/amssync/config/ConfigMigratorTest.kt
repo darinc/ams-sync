@@ -34,7 +34,7 @@ class ConfigMigratorTest : DescribeSpec({
 
     val minimalDefaultConfig = """
         # Configuration version
-        config-version: 1
+        config-version: 2
 
         # Settings
         discord:
@@ -69,10 +69,10 @@ class ConfigMigratorTest : DescribeSpec({
             it("returns UpToDate when config-version matches current") {
                 val tempDir = createTempDir()
                 try {
-                    // Create config with current version (1)
+                    // Create config with current version (2)
                     val configFile = File(tempDir, "config.yml")
                     configFile.writeText("""
-                        config-version: 1
+                        config-version: 2
                         discord:
                           token: "my-token"
                     """.trimIndent())
@@ -108,7 +108,7 @@ class ConfigMigratorTest : DescribeSpec({
                     result.shouldBeInstanceOf<ConfigMigrator.MigrationResult.Migrated>()
                     val migrated = result as ConfigMigrator.MigrationResult.Migrated
                     migrated.fromVersion shouldBe 0
-                    migrated.toVersion shouldBe 1
+                    migrated.toVersion shouldBe 2
                 } finally {
                     tempDir.deleteRecursively()
                 }
@@ -260,7 +260,7 @@ class ConfigMigratorTest : DescribeSpec({
                     migrator.migrateIfNeeded()
 
                     val migratedContent = configFile.readText()
-                    migratedContent shouldContain "config-version: 1"
+                    migratedContent shouldContain "config-version: 2"
                 } finally {
                     tempDir.deleteRecursively()
                 }
@@ -356,7 +356,7 @@ class ConfigMigratorTest : DescribeSpec({
                     """.trimIndent())
 
                     val defaultConfig = """
-                        config-version: 1
+                        config-version: 2
                         discord:
                           token: "YOUR_BOT_TOKEN_HERE"
                           retry:
@@ -390,7 +390,7 @@ class ConfigMigratorTest : DescribeSpec({
                     """.trimIndent())
 
                     val defaultConfig = """
-                        config-version: 1
+                        config-version: 2
                         discord:
                           token: "YOUR_BOT_TOKEN_HERE"
                           retry:

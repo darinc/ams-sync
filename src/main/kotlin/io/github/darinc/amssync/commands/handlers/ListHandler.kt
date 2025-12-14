@@ -13,7 +13,7 @@ class ListHandler : SubcommandHandler {
 
     override fun execute(context: CommandContext, args: List<String>) {
         val (sender, plugin) = context
-        val mappings = plugin.services.userMappingService.getAllMappings()
+        val mappings = plugin.userMappingService.getAllMappings()
 
         if (mappings.isEmpty()) {
             sender.sendMessage("§eNo user mappings configured yet.")
@@ -24,7 +24,7 @@ class ListHandler : SubcommandHandler {
         sender.sendMessage("§6§l=== Discord-Minecraft User Mappings (${mappings.size}) ===")
 
         // Try to fetch Discord member names
-        val jda = plugin.services.discord.manager.getJda()
+        val jda = plugin.discord.manager.getJda()
         if (jda == null) {
             // Discord bot not connected - show IDs only
             sender.sendMessage("§7(Discord bot offline - showing IDs only)")

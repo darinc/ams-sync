@@ -1,6 +1,6 @@
 package io.github.darinc.amssync.discord
 
-import io.github.darinc.amssync.AMSSyncPlugin
+import io.github.darinc.amssync.audit.AuditLogger
 import io.github.darinc.amssync.discord.commands.SlashCommandHandler
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
@@ -11,15 +11,22 @@ import net.dv8tion.jda.api.interactions.commands.build.OptionData
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData
 import net.dv8tion.jda.api.requests.GatewayIntent
+import java.util.logging.Logger
 
 /**
  * Manages the Discord bot lifecycle and slash command registration.
  *
- * @param plugin The plugin instance
+ * @param logger Logger for Discord events
+ * @param discordApiWrapper Discord API wrapper for protected API calls
+ * @param rateLimiter Rate limiter for command throttling
+ * @param auditLogger Audit logger for security events
  * @param commandHandlers Map of command names to their handlers for routing
  */
 class DiscordManager(
-    private val plugin: AMSSyncPlugin,
+    private val logger: Logger,
+    private val discordApiWrapper: DiscordApiWrapper?,
+    private val rateLimiter: RateLimiter?,
+    private val auditLogger: AuditLogger,
     private val commandHandlers: Map<String, SlashCommandHandler>
 ) {
 
@@ -35,23 +42,30 @@ class DiscordManager(
      * @throws Exception if connection fails (to be caught by retry logic)
      */
     fun initialize(token: String, guildId: String) {
-        plugin.logger.info("Connecting to Discord...")
+        logger.info("Connecting to Discord...")
 
         try {
             // Build JDA instance
             // Note: Activity is set by PlayerCountPresence after initialization
+            val slashCommandListener = SlashCommandListener(
+                discordApiWrapper,
+                rateLimiter,
+                auditLogger,
+                logger,
+                commandHandlers
+            )
             jda = JDABuilder.createDefault(token)
                 .enableIntents(
                     GatewayIntent.GUILD_MEMBERS,   // Needed for user lookups
                     GatewayIntent.GUILD_MESSAGES,  // Needed for chat bridge (receive messages)
                     GatewayIntent.MESSAGE_CONTENT  // Needed for chat bridge (read message content)
                 )
-                .addEventListeners(SlashCommandListener(plugin, commandHandlers))
+                .addEventListeners(slashCommandListener)
                 .build()
                 .awaitReady()
 
             connected = true
-            plugin.logger.fine("Discord bot is ready! Connected as ${jda?.selfUser?.name}")
+            logger.fine("Discord bot is ready! Connected as ${jda?.selfUser?.name}")
 
             // Register slash commands
             registerSlashCommands(guildId)
@@ -159,17 +173,17 @@ class DiscordManager(
             val guild = jda?.getGuildById(guildId)
             if (guild != null) {
                 guild.updateCommands().addCommands(commands).queue(
-                    { plugin.logger.info("Slash commands registered to guild: ${guild.name}") },
-                    { error -> plugin.logger.warning("Failed to register slash commands: ${error.message}") }
+                    { logger.info("Slash commands registered to guild: ${guild.name}") },
+                    { error -> logger.warning("Failed to register slash commands: ${error.message}") }
                 )
             } else {
-                plugin.logger.warning("Guild ID $guildId not found. Bot may not be in that server.")
+                logger.warning("Guild ID $guildId not found. Bot may not be in that server.")
             }
         } else {
             // Register globally (takes up to 1 hour)
             jda?.updateCommands()?.addCommands(commands)?.queue(
-                { plugin.logger.info("Slash commands registered globally (may take up to 1 hour to appear)") },
-                { error -> plugin.logger.warning("Failed to register slash commands: ${error.message}") }
+                { logger.info("Slash commands registered globally (may take up to 1 hour to appear)") },
+                { error -> logger.warning("Failed to register slash commands: ${error.message}") }
             )
         }
     }
@@ -182,12 +196,12 @@ class DiscordManager(
      * This prevents "zip file closed" errors from background threads.
      */
     fun shutdown() {
-        plugin.logger.info("Disconnecting from Discord...")
+        logger.info("Disconnecting from Discord...")
         jda?.let { instance ->
             instance.shutdown()
             // Wait up to 5 seconds for graceful shutdown
             if (!instance.awaitShutdown(java.time.Duration.ofSeconds(5))) {
-                plugin.logger.warning("JDA did not shutdown gracefully, forcing...")
+                logger.warning("JDA did not shutdown gracefully, forcing...")
                 instance.shutdownNow()
                 // Wait another 2 seconds for forced shutdown
                 instance.awaitShutdown(java.time.Duration.ofSeconds(2))

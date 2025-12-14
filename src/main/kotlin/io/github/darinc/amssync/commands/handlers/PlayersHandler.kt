@@ -25,9 +25,9 @@ class PlayersHandler : SubcommandHandler {
         if (onlinePlayers.isNotEmpty()) {
             sender.sendMessage("§a§lOnline (${onlinePlayers.size}):")
             onlinePlayers.forEach { player ->
-                val linkedStatus = if (plugin.services.userMappingService.isMinecraftLinked(player.name)) "§a✓ Linked" else "§8✗ Not Linked"
-                val discordInfo = if (plugin.services.userMappingService.isMinecraftLinked(player.name)) {
-                    val discordId = plugin.services.userMappingService.getDiscordId(player.name)
+                val linkedStatus = if (plugin.userMappingService.isMinecraftLinked(player.name)) "§a✓ Linked" else "§8✗ Not Linked"
+                val discordInfo = if (plugin.userMappingService.isMinecraftLinked(player.name)) {
+                    val discordId = plugin.userMappingService.getDiscordId(player.name)
                     " §7(Discord: $discordId)"
                 } else ""
                 sender.sendMessage("  §7[$index] $linkedStatus §f${player.name}$discordInfo")
@@ -51,9 +51,9 @@ class PlayersHandler : SubcommandHandler {
             sender.sendMessage(countMessage)
             whitelistedPlayers.take(15).forEach { offlinePlayer ->
                 val name = offlinePlayer.name ?: "Unknown"
-                val linkedStatus = if (plugin.services.userMappingService.isMinecraftLinked(name)) "§a✓ Linked" else "§8✗ Not Linked"
-                val discordInfo = if (plugin.services.userMappingService.isMinecraftLinked(name)) {
-                    val discordId = plugin.services.userMappingService.getDiscordId(name)
+                val linkedStatus = if (plugin.userMappingService.isMinecraftLinked(name)) "§a✓ Linked" else "§8✗ Not Linked"
+                val discordInfo = if (plugin.userMappingService.isMinecraftLinked(name)) {
+                    val discordId = plugin.userMappingService.getDiscordId(name)
                     " §7(Discord: $discordId)"
                 } else ""
                 sender.sendMessage("  §7[$index] $linkedStatus §f$name$discordInfo")

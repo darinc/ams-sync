@@ -59,8 +59,8 @@ class LinkHandler : SubcommandHandler {
 
         // Create the link
         sender.sendMessage("§aLinking §f$playerName §a(#$playerNum) to §f${discordData.displayName} §a(#$discordNum)...")
-        plugin.services.userMappingService.addMapping(discordData.id, playerName)
-        plugin.services.userMappingService.saveMappings()
+        plugin.userMappingService.addMapping(discordData.id, playerName)
+        plugin.userMappingService.saveMappings()
 
         sender.sendMessage("§aSuccessfully linked §f$playerName §a-> §f${discordData.displayName}§a!")
     }

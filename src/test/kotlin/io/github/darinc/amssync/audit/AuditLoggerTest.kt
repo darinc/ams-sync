@@ -1,6 +1,5 @@
 package io.github.darinc.amssync.audit
 
-import io.github.darinc.amssync.AMSSyncPlugin
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -14,15 +13,13 @@ import java.util.logging.Logger
 
 class AuditLoggerTest : DescribeSpec({
 
-    // Helper to create a mock plugin with temp directory
-    fun createMockPlugin(tempDir: File): Pair<AMSSyncPlugin, Logger> {
+    // Helper to create a test setup with temp directory and mock logger
+    fun createTestSetup(): Pair<File, Logger> {
+        val tempDir = File.createTempFile("audit-test", "").parentFile
+            .resolve("audit-test-${System.currentTimeMillis()}")
+        tempDir.mkdirs()
         val logger = mockk<Logger>(relaxed = true)
-        val plugin = mockk<AMSSyncPlugin>(relaxed = true)
-
-        every { plugin.dataFolder } returns tempDir
-        every { plugin.logger } returns logger
-
-        return Pair(plugin, logger)
+        return Pair(tempDir, logger)
     }
 
     describe("AuditLogger") {
@@ -30,10 +27,9 @@ class AuditLoggerTest : DescribeSpec({
         describe("logAdminAction") {
 
             it("logs to plugin logger at INFO level") {
-                val tempDir = createTempDir()
+                val (tempDir, logger) = createTestSetup()
                 try {
-                    val (plugin, pluginLogger) = createMockPlugin(tempDir)
-                    val auditLogger = AuditLogger(plugin)
+                    val auditLogger = AuditLogger(tempDir, logger)
 
                     auditLogger.logAdminAction(
                         action = AuditAction.LINK_USER,
@@ -41,20 +37,19 @@ class AuditLoggerTest : DescribeSpec({
                         actorType = ActorType.CONSOLE
                     )
 
-                    verify { pluginLogger.info(any<String>()) }
+                    verify { logger.info(any<String>()) }
                 } finally {
                     tempDir.deleteRecursively()
                 }
             }
 
             it("includes action display name in message") {
-                val tempDir = createTempDir()
+                val (tempDir, logger) = createTestSetup()
                 try {
-                    val (plugin, pluginLogger) = createMockPlugin(tempDir)
                     val messageSlot = slot<String>()
-                    every { pluginLogger.info(capture(messageSlot)) } returns Unit
+                    every { logger.info(capture(messageSlot)) } returns Unit
 
-                    val auditLogger = AuditLogger(plugin)
+                    val auditLogger = AuditLogger(tempDir, logger)
                     auditLogger.logAdminAction(
                         action = AuditAction.LINK_USER,
                         actor = "Admin",
@@ -68,13 +63,12 @@ class AuditLoggerTest : DescribeSpec({
             }
 
             it("includes actor and actor type") {
-                val tempDir = createTempDir()
+                val (tempDir, logger) = createTestSetup()
                 try {
-                    val (plugin, pluginLogger) = createMockPlugin(tempDir)
                     val messageSlot = slot<String>()
-                    every { pluginLogger.info(capture(messageSlot)) } returns Unit
+                    every { logger.info(capture(messageSlot)) } returns Unit
 
-                    val auditLogger = AuditLogger(plugin)
+                    val auditLogger = AuditLogger(tempDir, logger)
                     auditLogger.logAdminAction(
                         action = AuditAction.LINK_USER,
                         actor = "TestAdmin#1234",
@@ -89,13 +83,12 @@ class AuditLoggerTest : DescribeSpec({
             }
 
             it("includes target when provided") {
-                val tempDir = createTempDir()
+                val (tempDir, logger) = createTestSetup()
                 try {
-                    val (plugin, pluginLogger) = createMockPlugin(tempDir)
                     val messageSlot = slot<String>()
-                    every { pluginLogger.info(capture(messageSlot)) } returns Unit
+                    every { logger.info(capture(messageSlot)) } returns Unit
 
-                    val auditLogger = AuditLogger(plugin)
+                    val auditLogger = AuditLogger(tempDir, logger)
                     auditLogger.logAdminAction(
                         action = AuditAction.LINK_USER,
                         actor = "Admin",
@@ -110,13 +103,12 @@ class AuditLoggerTest : DescribeSpec({
             }
 
             it("includes details when provided") {
-                val tempDir = createTempDir()
+                val (tempDir, logger) = createTestSetup()
                 try {
-                    val (plugin, pluginLogger) = createMockPlugin(tempDir)
                     val messageSlot = slot<String>()
-                    every { pluginLogger.info(capture(messageSlot)) } returns Unit
+                    every { logger.info(capture(messageSlot)) } returns Unit
 
-                    val auditLogger = AuditLogger(plugin)
+                    val auditLogger = AuditLogger(tempDir, logger)
                     auditLogger.logAdminAction(
                         action = AuditAction.LINK_USER,
                         actor = "Admin",
@@ -132,13 +124,12 @@ class AuditLoggerTest : DescribeSpec({
             }
 
             it("uses + icon for success") {
-                val tempDir = createTempDir()
+                val (tempDir, logger) = createTestSetup()
                 try {
-                    val (plugin, pluginLogger) = createMockPlugin(tempDir)
                     val messageSlot = slot<String>()
-                    every { pluginLogger.info(capture(messageSlot)) } returns Unit
+                    every { logger.info(capture(messageSlot)) } returns Unit
 
-                    val auditLogger = AuditLogger(plugin)
+                    val auditLogger = AuditLogger(tempDir, logger)
                     auditLogger.logAdminAction(
                         action = AuditAction.LINK_USER,
                         actor = "Admin",
@@ -153,13 +144,12 @@ class AuditLoggerTest : DescribeSpec({
             }
 
             it("uses - icon for failure") {
-                val tempDir = createTempDir()
+                val (tempDir, logger) = createTestSetup()
                 try {
-                    val (plugin, pluginLogger) = createMockPlugin(tempDir)
                     val messageSlot = slot<String>()
-                    every { pluginLogger.info(capture(messageSlot)) } returns Unit
+                    every { logger.info(capture(messageSlot)) } returns Unit
 
-                    val auditLogger = AuditLogger(plugin)
+                    val auditLogger = AuditLogger(tempDir, logger)
                     auditLogger.logAdminAction(
                         action = AuditAction.PERMISSION_DENIED,
                         actor = "BadActor",
@@ -174,10 +164,9 @@ class AuditLoggerTest : DescribeSpec({
             }
 
             it("writes JSON line to audit file") {
-                val tempDir = createTempDir()
+                val (tempDir, logger) = createTestSetup()
                 try {
-                    val (plugin, _) = createMockPlugin(tempDir)
-                    val auditLogger = AuditLogger(plugin)
+                    val auditLogger = AuditLogger(tempDir, logger)
 
                     auditLogger.logAdminAction(
                         action = AuditAction.LINK_USER,
@@ -202,13 +191,12 @@ class AuditLoggerTest : DescribeSpec({
         describe("logSecurityEvent") {
 
             it("converts SecurityEvent to AuditAction") {
-                val tempDir = createTempDir()
+                val (tempDir, logger) = createTestSetup()
                 try {
-                    val (plugin, pluginLogger) = createMockPlugin(tempDir)
                     val messageSlot = slot<String>()
-                    every { pluginLogger.info(capture(messageSlot)) } returns Unit
+                    every { logger.info(capture(messageSlot)) } returns Unit
 
-                    val auditLogger = AuditLogger(plugin)
+                    val auditLogger = AuditLogger(tempDir, logger)
                     auditLogger.logSecurityEvent(
                         event = SecurityEvent.PERMISSION_DENIED,
                         actor = "UnauthorizedUser",
@@ -222,13 +210,12 @@ class AuditLoggerTest : DescribeSpec({
             }
 
             it("logs with success=false") {
-                val tempDir = createTempDir()
+                val (tempDir, logger) = createTestSetup()
                 try {
-                    val (plugin, pluginLogger) = createMockPlugin(tempDir)
                     val messageSlot = slot<String>()
-                    every { pluginLogger.info(capture(messageSlot)) } returns Unit
+                    every { logger.info(capture(messageSlot)) } returns Unit
 
-                    val auditLogger = AuditLogger(plugin)
+                    val auditLogger = AuditLogger(tempDir, logger)
                     auditLogger.logSecurityEvent(
                         event = SecurityEvent.RATE_LIMITED,
                         actor = "SpamUser",
@@ -249,10 +236,9 @@ class AuditLoggerTest : DescribeSpec({
         describe("JSON formatting") {
 
             it("produces valid JSON structure") {
-                val tempDir = createTempDir()
+                val (tempDir, logger) = createTestSetup()
                 try {
-                    val (plugin, _) = createMockPlugin(tempDir)
-                    val auditLogger = AuditLogger(plugin)
+                    val auditLogger = AuditLogger(tempDir, logger)
 
                     auditLogger.logAdminAction(
                         action = AuditAction.LINK_USER,
@@ -272,10 +258,9 @@ class AuditLoggerTest : DescribeSpec({
             }
 
             it("includes timestamp in ISO format") {
-                val tempDir = createTempDir()
+                val (tempDir, logger) = createTestSetup()
                 try {
-                    val (plugin, _) = createMockPlugin(tempDir)
-                    val auditLogger = AuditLogger(plugin)
+                    val auditLogger = AuditLogger(tempDir, logger)
 
                     auditLogger.logAdminAction(
                         action = AuditAction.LINK_USER,
@@ -295,10 +280,9 @@ class AuditLoggerTest : DescribeSpec({
             }
 
             it("escapes quotes in strings") {
-                val tempDir = createTempDir()
+                val (tempDir, logger) = createTestSetup()
                 try {
-                    val (plugin, _) = createMockPlugin(tempDir)
-                    val auditLogger = AuditLogger(plugin)
+                    val auditLogger = AuditLogger(tempDir, logger)
 
                     auditLogger.logAdminAction(
                         action = AuditAction.LINK_USER,
@@ -316,10 +300,9 @@ class AuditLoggerTest : DescribeSpec({
             }
 
             it("escapes newlines in strings") {
-                val tempDir = createTempDir()
+                val (tempDir, logger) = createTestSetup()
                 try {
-                    val (plugin, _) = createMockPlugin(tempDir)
-                    val auditLogger = AuditLogger(plugin)
+                    val auditLogger = AuditLogger(tempDir, logger)
 
                     auditLogger.logAdminAction(
                         action = AuditAction.LINK_USER,
@@ -338,10 +321,9 @@ class AuditLoggerTest : DescribeSpec({
             }
 
             it("escapes backslashes in strings") {
-                val tempDir = createTempDir()
+                val (tempDir, logger) = createTestSetup()
                 try {
-                    val (plugin, _) = createMockPlugin(tempDir)
-                    val auditLogger = AuditLogger(plugin)
+                    val auditLogger = AuditLogger(tempDir, logger)
 
                     auditLogger.logAdminAction(
                         action = AuditAction.LINK_USER,
@@ -359,10 +341,9 @@ class AuditLoggerTest : DescribeSpec({
             }
 
             it("handles string, number, boolean detail values") {
-                val tempDir = createTempDir()
+                val (tempDir, logger) = createTestSetup()
                 try {
-                    val (plugin, _) = createMockPlugin(tempDir)
-                    val auditLogger = AuditLogger(plugin)
+                    val auditLogger = AuditLogger(tempDir, logger)
 
                     auditLogger.logAdminAction(
                         action = AuditAction.LINK_USER,

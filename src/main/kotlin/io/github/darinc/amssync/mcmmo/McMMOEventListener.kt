@@ -112,8 +112,8 @@ class McMMOEventListener(
         skill: PrimarySkillType,
         newLevel: Int
     ) {
-        val database = plugin.services.progression.database ?: return
-        val config = plugin.services.progression.config
+        val database = plugin.progression.database ?: return
+        val config = plugin.progression.config
         if (!config.enabled || !config.events.enabled) return
 
         // Calculate old level (newLevel - 1 for single level-ups)
@@ -183,7 +183,7 @@ class McMMOEventListener(
         val channel = getAnnouncementChannel() ?: return
 
         try {
-            val circuitBreaker = plugin.services.resilience.circuitBreaker
+            val circuitBreaker = plugin.resilience.circuitBreaker
 
             val sendAction = {
                 if (config.useEmbeds) {
@@ -262,7 +262,7 @@ class McMMOEventListener(
         val channel = getAnnouncementChannel() ?: return
 
         try {
-            val circuitBreaker = plugin.services.resilience.circuitBreaker
+            val circuitBreaker = plugin.resilience.circuitBreaker
 
             val sendAction = {
                 if (config.useEmbeds) {
@@ -326,7 +326,7 @@ class McMMOEventListener(
      */
     private fun sendImageViaWebhook(imageBytes: ByteArray, filename: String, client: WebhookClient) {
         try {
-            val circuitBreaker = plugin.services.resilience.circuitBreaker
+            val circuitBreaker = plugin.resilience.circuitBreaker
 
             val sendAction = {
                 val message = WebhookMessageBuilder()
@@ -363,7 +363,7 @@ class McMMOEventListener(
         val channel = getAnnouncementChannel() ?: return
 
         try {
-            val circuitBreaker = plugin.services.resilience.circuitBreaker
+            val circuitBreaker = plugin.resilience.circuitBreaker
 
             val sendAction = {
                 channel.sendFiles(FileUpload.fromData(imageBytes, filename)).queue(

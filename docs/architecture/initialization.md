@@ -7,7 +7,203 @@
 
 AMSSync follows a carefully ordered initialization sequence in `onEnable()` to ensure all service dependencies are satisfied. The plugin supports graceful degradation - if Discord connection fails, Minecraft features continue working.
 
-## Initialization Sequence
+## Complete Initialization Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              AMSSyncPlugin.onEnable()                           │
+│                         (Central Coordinator - JavaPlugin)                      │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ PHASE 1: Config & Core Services (No Dependencies)                               │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐                  │
+│  │ ConfigMigrator  │  │  ErrorMetrics   │  │   AuditLogger   │                  │
+│  │ ─────────────── │  │ ─────────────── │  │ ─────────────── │                  │
+│  │ Migrates old    │  │ Tracks API      │  │ Logs admin      │                  │
+│  │ config versions │  │ success/failure │  │ actions to file │                  │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘                  │
+│                                                                                 │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐                  │
+│  │  RateLimiter    │  │UserMappingService│ │ McmmoApiWrapper │                  │
+│  │ ─────────────── │  │ ─────────────── │  │ ─────────────── │                  │
+│  │ Per-user cmd    │  │ Discord↔MC user │  │ MCMMO stats &   │                  │
+│  │ rate limiting   │  │ ID mappings     │  │ leaderboards    │                  │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘                  │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ PHASE 2: Progression Tracking (SQLite Database)                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  ┌───────────────────────────────────────────────────────────────────────────┐  │
+│  │                        ProgressionServices                                │  │
+│  │  ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐          │  │
+│  │  │ProgressionDatabase│ │SnapshotTask     │ │RetentionTask     │          │  │
+│  │  │ ──────────────── │ │ ──────────────── │ │ ──────────────── │          │  │
+│  │  │ SQLite storage   │ │ Periodic player  │ │ Compresses old   │          │  │
+│  │  │ for skill history│ │ skill snapshots  │ │ data (hourly→    │          │  │
+│  │  │                  │ │                  │ │ daily→weekly)    │          │  │
+│  │  └──────────────────┘ └──────────────────┘ └──────────────────┘          │  │
+│  └───────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ PHASE 3: Resilience Layer (Protects Discord Operations)                         │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  ┌───────────────────────────────────────────────────────────────────────────┐  │
+│  │                        ResilienceServices                                 │  │
+│  │  ┌──────────────────────────────┐  ┌──────────────────────────────┐      │  │
+│  │  │       TimeoutManager         │  │       CircuitBreaker         │      │  │
+│  │  │ ──────────────────────────── │  │ ──────────────────────────── │      │  │
+│  │  │ Cancels hanging operations   │  │ Fails fast during outages   │      │  │
+│  │  │ Warning @ 3s, Hard @ 10s     │  │ CLOSED→OPEN→HALF_OPEN       │      │  │
+│  │  └──────────────────────────────┘  └──────────────────────────────┘      │  │
+│  └───────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ PHASE 4: Image Card System                                                      │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  ┌───────────────────────────────────────────────────────────────────────────┐  │
+│  │                          ImageServices                                    │  │
+│  │  ┌────────────────┐  ┌────────────────┐  ┌────────────────────────────┐  │  │
+│  │  │  AvatarFetcher │  │PlayerCardRenderer│ │ AmsStatsCmd / AmsTopCmd   │  │  │
+│  │  │ ────────────── │  │ ────────────── │  │ ────────────────────────── │  │  │
+│  │  │ Downloads MC   │  │ Renders visual │  │ Discord slash commands    │  │  │
+│  │  │ head avatars   │  │ stats cards    │  │ for image-based stats     │  │  │
+│  │  └────────────────┘  └────────────────┘  └────────────────────────────┘  │  │
+│  └───────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ PHASE 5: Discord Connection                                                     │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  ┌─────────────────────┐      ┌─────────────────────┐                           │
+│  │   DiscordApiWrapper │ ──── │    RetryManager     │                           │
+│  │ ─────────────────── │      │ ─────────────────── │                           │
+│  │ Wraps JDA calls     │      │ Exponential backoff │                           │
+│  │ with CircuitBreaker │      │ for connection      │                           │
+│  └─────────────────────┘      └─────────────────────┘                           │
+│            │                                                                    │
+│            ▼                                                                    │
+│  ┌─────────────────────────────────────────────────────────────────┐            │
+│  │                      DiscordManager                             │            │
+│  │ ─────────────────────────────────────────────────────────────── │            │
+│  │ • Builds JDA instance and connects to Discord                   │            │
+│  │ • Registers slash commands (guild-specific or global)           │            │
+│  │ • Routes commands to SlashCommandHandler implementations        │            │
+│  └─────────────────────────────────────────────────────────────────┘            │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼ (Only if Discord connected)
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ PHASE 6: Discord-Dependent Services                                             │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  ┌───────────────────────────────────────────────────────────────────────────┐  │
+│  │                         DiscordServices                                   │  │
+│  │                                                                           │  │
+│  │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐        │  │
+│  │  │PlayerCountPresence│ │StatusChannelMgr  │  │   ChatBridge     │        │  │
+│  │  │ ──────────────── │  │ ──────────────── │  │ ──────────────── │        │  │
+│  │  │ Updates bot      │  │ Updates voice    │  │ MC↔Discord chat  │        │  │
+│  │  │ activity status  │  │ channel name     │  │ relay (2-way)    │        │  │
+│  │  └──────────────────┘  └──────────────────┘  └──────────────────┘        │  │
+│  │                                                                           │  │
+│  │  ┌──────────────────┐  ┌──────────────────┐                              │  │
+│  │  │  WebhookManager  │  │ChatWebhookManager│                              │  │
+│  │  │ ──────────────── │  │ ──────────────── │                              │  │
+│  │  │ Event webhooks   │  │ Chat webhooks    │                              │  │
+│  │  │ with avatars     │  │ with MC heads    │                              │  │
+│  │  └──────────────────┘  └──────────────────┘                              │  │
+│  └───────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                 │
+│  ┌───────────────────────────────────────────────────────────────────────────┐  │
+│  │                          EventServices                                    │  │
+│  │                                                                           │  │
+│  │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐        │  │
+│  │  │McMMOEventListener│  │ServerEventListener│ │PlayerDeathListener│       │  │
+│  │  │ ──────────────── │  │ ──────────────── │  │ ──────────────── │        │  │
+│  │  │ Skill milestone  │  │ Server start/    │  │ Death messages   │        │  │
+│  │  │ announcements    │  │ stop messages    │  │ to Discord       │        │  │
+│  │  └──────────────────┘  └──────────────────┘  └──────────────────┘        │  │
+│  │                                                                           │  │
+│  │  ┌──────────────────┐                                                    │  │
+│  │  │AchievementListener│                                                   │  │
+│  │  │ ──────────────── │                                                    │  │
+│  │  │ Achievement/     │                                                    │  │
+│  │  │ advancement msgs │                                                    │  │
+│  │  └──────────────────┘                                                    │  │
+│  └───────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+## Slash Command Handlers
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                            Slash Command Handlers                               │
+│                    (Registered in buildSlashCommandHandlers())                  │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  Always Enabled:                        Conditionally Enabled:                  │
+│  ┌────────────────┐ ┌────────────────┐  ┌────────────────┐ ┌────────────────┐  │
+│  │  /mcstats      │ │  /mctop        │  │  /amsstats     │ │  /amstop       │  │
+│  │  Embed-based   │ │  Embed-based   │  │  Image cards   │ │  Image cards   │  │
+│  │  player stats  │ │  leaderboard   │  │  (if enabled)  │ │  (if enabled)  │  │
+│  └────────────────┘ └────────────────┘  └────────────────┘ └────────────────┘  │
+│                                                                                 │
+│  ┌────────────────┐ ┌────────────────┐  ┌────────────────┐                     │
+│  │  /amssync      │ │ /amswhitelist  │  │  /amsprogress  │                     │
+│  │  Link Discord  │ │  Server white- │  │  Progression   │                     │
+│  │  to MC account │ │  list mgmt     │  │  charts        │                     │
+│  └────────────────┘ └────────────────┘  └────────────────┘                     │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+## File Locations
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              File Locations                                     │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  AMSSyncPlugin.kt      → Main coordinator, all initialization logic             │
+│  services/             → Grouped service data classes (DiscordServices, etc.)   │
+│  discord/              → Discord integration (JDA, commands, chat, webhooks)    │
+│  mcmmo/                → MCMMO API wrapper and event listeners                  │
+│  image/                → Image card rendering (avatars, stats cards)            │
+│  progression/          → SQLite-based skill history tracking                    │
+│  linking/              → Discord↔Minecraft user mapping                         │
+│  commands/             → Minecraft /amssync command and handlers                │
+│  config/               → Config migration and validation                        │
+│  audit/                → Admin action logging                                   │
+│  metrics/              → Error and performance tracking                         │
+│  validation/           → Input validation utilities                             │
+│  exceptions/           → Custom exception types                                 │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+## Simplified Sequence
 
 ```
 onEnable()

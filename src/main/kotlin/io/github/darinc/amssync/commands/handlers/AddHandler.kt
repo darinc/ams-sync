@@ -30,7 +30,7 @@ class AddHandler : SubcommandHandler {
 
         // Validate Discord ID
         if (!Validators.isValidDiscordId(discordId)) {
-            plugin.services.auditLogger.logSecurityEvent(
+            plugin.auditLogger.logSecurityEvent(
                 event = SecurityEvent.INVALID_INPUT,
                 actor = actorName,
                 actorType = actorType,
@@ -43,7 +43,7 @@ class AddHandler : SubcommandHandler {
 
         // Validate Minecraft username
         if (!Validators.isValidMinecraftUsername(minecraftUsername)) {
-            plugin.services.auditLogger.logSecurityEvent(
+            plugin.auditLogger.logSecurityEvent(
                 event = SecurityEvent.INVALID_INPUT,
                 actor = actorName,
                 actorType = actorType,
@@ -58,10 +58,10 @@ class AddHandler : SubcommandHandler {
         }
 
         // Add the mapping
-        plugin.services.userMappingService.addMapping(discordId, minecraftUsername)
-        plugin.services.userMappingService.saveMappings()
+        plugin.userMappingService.addMapping(discordId, minecraftUsername)
+        plugin.userMappingService.saveMappings()
 
-        plugin.services.auditLogger.logAdminAction(
+        plugin.auditLogger.logAdminAction(
             action = AuditAction.LINK_USER,
             actor = actorName,
             actorType = actorType,

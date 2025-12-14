@@ -34,9 +34,9 @@ class AmsProgressCommand(
     override val commandName = "amsprogress"
 
     private val discordApi: DiscordApiWrapper?
-        get() = plugin.services.discord.apiWrapper
+        get() = plugin.discord.apiWrapper
 
-    private val usernameResolver = UsernameResolver(plugin.services.userMappingService)
+    private val usernameResolver = UsernameResolver(plugin.userMappingService)
 
     override fun handle(event: SlashCommandInteractionEvent) {
         // Defer reply immediately to avoid timeout (chart generation takes time)
@@ -60,7 +60,7 @@ class AmsProgressCommand(
                 val mcUsername = usernameResolver.resolve(usernameOption, invokerDiscordId)
 
                 // Get player UUID
-                val player = plugin.services.mcmmoApi.getOfflinePlayer(mcUsername)
+                val player = plugin.mcmmoApi.getOfflinePlayer(mcUsername)
                 val uuid = player?.uniqueId
 
                 if (uuid == null) {

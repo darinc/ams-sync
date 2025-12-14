@@ -189,7 +189,7 @@ class StatusChannelManager(
         val newName = formatTemplate(config.template, playerCount)
 
         try {
-            val circuitBreaker = plugin.services.resilience.circuitBreaker
+            val circuitBreaker = plugin.resilience.circuitBreaker
 
             if (circuitBreaker != null) {
                 val result = circuitBreaker.execute("Update status channel") {

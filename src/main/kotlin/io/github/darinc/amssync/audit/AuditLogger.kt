@@ -1,19 +1,22 @@
 package io.github.darinc.amssync.audit
 
-import io.github.darinc.amssync.AMSSyncPlugin
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.logging.Logger
 
 /**
  * Audit logger for tracking admin actions and security events.
  * Logs to both server console (INFO level) and a dedicated audit.log file.
  */
-class AuditLogger(private val plugin: AMSSyncPlugin) {
+class AuditLogger(
+    private val dataFolder: File,
+    private val logger: Logger
+) {
 
     private val auditFile: File by lazy {
-        File(plugin.dataFolder, "audit.log").also {
+        File(dataFolder, "audit.log").also {
             if (!it.exists()) {
                 it.createNewFile()
             }
@@ -52,7 +55,7 @@ class AuditLogger(private val plugin: AMSSyncPlugin) {
         val consoleMessage = "[AUDIT] [$statusIcon] ${action.displayName}: $actor ($actorType)$targetStr$detailsStr"
 
         // Log to console at INFO level
-        plugin.logger.info(consoleMessage)
+        logger.info(consoleMessage)
 
         // Build JSON line for audit file
         val jsonLine = buildJsonLine(
@@ -69,7 +72,7 @@ class AuditLogger(private val plugin: AMSSyncPlugin) {
         try {
             auditFile.appendText("$jsonLine\n")
         } catch (e: Exception) {
-            plugin.logger.warning("Failed to write to audit log: ${e.message}")
+            logger.warning("Failed to write to audit log: ${e.message}")
         }
     }
 

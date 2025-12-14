@@ -25,14 +25,14 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) : SlashCommandHandle
     override val commandName = "amssync"
 
     private val discordApi: DiscordApiWrapper?
-        get() = plugin.services.discord.apiWrapper
+        get() = plugin.discord.apiWrapper
 
     override fun handle(event: SlashCommandInteractionEvent) {
         val actorName = "${event.user.name} (${event.user.id})"
 
         // Check admin permission
         if (event.member?.hasPermission(Permission.MANAGE_SERVER) != true) {
-            plugin.services.auditLogger.logSecurityEvent(
+            plugin.auditLogger.logSecurityEvent(
                 event = SecurityEvent.PERMISSION_DENIED,
                 actor = actorName,
                 actorType = ActorType.DISCORD_USER,
@@ -128,7 +128,7 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) : SlashCommandHandle
 
         // Validate Minecraft username
         if (!Validators.isValidMinecraftUsername(minecraftName)) {
-            plugin.services.auditLogger.logSecurityEvent(
+            plugin.auditLogger.logSecurityEvent(
                 event = SecurityEvent.INVALID_INPUT,
                 actor = actorName,
                 actorType = ActorType.DISCORD_USER,
@@ -149,7 +149,7 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) : SlashCommandHandle
                 val discordId = targetUser.id
 
                 // Check if already linked
-                val existingLink = plugin.services.userMappingService.getMinecraftUsername(discordId)
+                val existingLink = plugin.userMappingService.getMinecraftUsername(discordId)
                 if (existingLink != null) {
                     sendEphemeralMessage(
                         event.hook,
@@ -160,10 +160,10 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) : SlashCommandHandle
                 }
 
                 // Add the mapping
-                plugin.services.userMappingService.addMapping(discordId, minecraftName)
-                plugin.services.userMappingService.saveMappings()
+                plugin.userMappingService.addMapping(discordId, minecraftName)
+                plugin.userMappingService.saveMappings()
 
-                plugin.services.auditLogger.logAdminAction(
+                plugin.auditLogger.logAdminAction(
                     action = AuditAction.LINK_USER,
                     actor = actorName,
                     actorType = ActorType.DISCORD_USER,
@@ -221,10 +221,10 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) : SlashCommandHandle
         Bukkit.getScheduler().runTask(plugin, Runnable {
             try {
                 val discordId = targetUser.id
-                val minecraftName = plugin.services.userMappingService.getMinecraftUsername(discordId)
+                val minecraftName = plugin.userMappingService.getMinecraftUsername(discordId)
 
                 if (minecraftName == null) {
-                    plugin.services.auditLogger.logAdminAction(
+                    plugin.auditLogger.logAdminAction(
                         action = AuditAction.UNLINK_USER,
                         actor = actorName,
                         actorType = ActorType.DISCORD_USER,
@@ -239,10 +239,10 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) : SlashCommandHandle
                     return@Runnable
                 }
 
-                plugin.services.userMappingService.removeMappingByDiscordId(discordId)
-                plugin.services.userMappingService.saveMappings()
+                plugin.userMappingService.removeMappingByDiscordId(discordId)
+                plugin.userMappingService.saveMappings()
 
-                plugin.services.auditLogger.logAdminAction(
+                plugin.auditLogger.logAdminAction(
                     action = AuditAction.UNLINK_USER,
                     actor = actorName,
                     actorType = ActorType.DISCORD_USER,
@@ -287,7 +287,7 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) : SlashCommandHandle
         deferReply(event, ephemeral = false)
 
         // First, fetch all Discord users asynchronously, then build the embed
-        val mappings = plugin.services.userMappingService.getAllMappings()
+        val mappings = plugin.userMappingService.getAllMappings()
 
         if (mappings.isEmpty()) {
             sendMessage(event.hook, "📋 No user mappings configured yet.")
@@ -403,7 +403,7 @@ class DiscordLinkCommand(private val plugin: AMSSyncPlugin) : SlashCommandHandle
         Bukkit.getScheduler().runTask(plugin, Runnable {
             try {
                 val discordId = targetUser.id
-                val minecraftName = plugin.services.userMappingService.getMinecraftUsername(discordId)
+                val minecraftName = plugin.userMappingService.getMinecraftUsername(discordId)
 
                 val embed = EmbedBuilder()
                     .setTitle("🔍 Link Status Check")

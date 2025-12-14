@@ -1,6 +1,6 @@
 # Configuration version - DO NOT MODIFY
 # Used internally to detect when new config options are available
-config-version: 1
+config-version: 2
 
 # AMSSync Plugin Configuration
 #
@@ -10,6 +10,9 @@ config-version: 1
 #   - AMS_DISCORD_TOKEN: Bot token (takes precedence over config file)
 #   - AMS_GUILD_ID: Guild ID (takes precedence over config file)
 
+# ============================================================================
+# CORE DISCORD SETTINGS
+# ============================================================================
 discord:
   # Your Discord bot token from https://discord.com/developers/applications
   token: "YOUR_BOT_TOKEN_HERE"
@@ -77,216 +80,9 @@ discord:
     # Example: 2 successful calls = circuit closes and normal operation resumes
     success-threshold: 2
 
-  # Player count presence display
-  # Shows current player count in bot status and/or nickname
-  presence:
-    # Master enable/disable for all presence features
-    enabled: true
-
-    # Minimum seconds between Discord API updates
-    # Discord rate limits presence updates to ~5/minute
-    # Recommended: 30-60 seconds to stay well under limits
-    min-update-interval-seconds: 30
-
-    # Debounce delay in seconds
-    # Waits this long after player join/quit before updating
-    # Helps batch rapid changes (e.g., server restart, mass teleport)
-    debounce-seconds: 5
-
-    # Bot Activity/Status display
-    # Shows in Discord under the bot's name (e.g., "Playing 12 players online")
-    activity:
-      # Enable/disable activity updates
-      enabled: true
-      # Activity type: playing, watching, listening, competing
-      type: "playing"
-      # Message template
-      # Available placeholders: {count} = current player count, {max} = max players
-      template: "{count} players online"
-
-    # Bot Nickname display (per-guild)
-    # Changes the bot's nickname in your Discord server
-    # IMPORTANT: Bot needs CHANGE_NICKNAME permission in your server
-    nickname:
-      # Enable/disable nickname updates (disabled by default - requires permission)
-      enabled: false
-      # Nickname template
-      # Available placeholders: {count} = player count, {name} = original bot name, {max} = max players
-      template: "[{count}] {name}"
-      # If true, logs warning and continues if nickname change fails
-      # If false, disables nickname updates after first failure
-      graceful-fallback: true
-
-  # Voice channel showing player count
-  # Updates the channel name to show current player count (e.g., "5 AMS Online")
-  # NOTE: Discord limits channel renames to 2 per 10 minutes, so updates are batched
-  status-channel:
-    # Enable/disable status channel updates
-    enabled: false
-    # Voice channel ID to update (right-click channel -> Copy ID)
-    voice-channel-id: ""
-    # Channel name template
-    # Available placeholders: {count} = current player count, {max} = max players
-    template: "{count} AMS Online"
-    # Minimum seconds between channel name updates
-    # Discord rate limit is 2 updates per 10 minutes - recommend 300+ seconds
-    update-interval-seconds: 300
-
-  # MCMMO milestone announcements
-  # Posts to a Discord channel when players reach skill/power level milestones
-  announcements:
-    # Enable/disable milestone announcements
-    enabled: false
-    # Text channel ID for announcements (right-click channel -> Copy ID)
-    text-channel-id: ""
-    # Optional webhook URL for richer messages with custom avatars
-    # Leave empty to use standard bot messages
-    # Create a webhook: Channel Settings -> Integrations -> Webhooks -> New Webhook
-    webhook-url: ""
-    # Announce when a skill reaches a multiple of this level (0 = disabled)
-    # Example: 100 = announce at level 100, 200, 300, etc.
-    skill-milestone-interval: 100
-    # Announce when power level reaches a multiple of this level (0 = disabled)
-    # Example: 500 = announce at power level 500, 1000, 1500, etc.
-    power-milestone-interval: 500
-    # Use rich embeds (true) or plain text (false)
-    # Note: Ignored when use-image-cards is true
-    use-embeds: true
-    # Generate visual image cards for milestone announcements
-    # When true, sends attractive celebration cards with skill badges and player avatars
-    # When false, uses standard embeds or plain text
-    use-image-cards: true
-    # Show player Minecraft avatars in milestone cards
-    show-avatars: true
-    # Avatar provider: "mc-heads" or "crafatar"
-    avatar-provider: "mc-heads"
-
-  # Event announcements (server start/stop, deaths, achievements)
-  # Announces various server events to a Discord channel
-  events:
-    # Enable/disable event announcements
-    enabled: false
-    # Text channel ID for event announcements (right-click channel -> Copy ID)
-    text-channel-id: ""
-    # Optional webhook URL for prettier messages with custom avatars
-    # Leave empty to use standard bot messages
-    # Create a webhook: Channel Settings -> Integrations -> Webhooks -> New Webhook
-    webhook-url: ""
-    # Use rich embeds (true) or plain text (false)
-    use-embeds: true
-    # Show player Minecraft avatars in embeds/webhook messages
-    show-avatars: true
-    # Avatar provider: "mc-heads" or "crafatar"
-    avatar-provider: "mc-heads"
-
-    # Server start announcement
-    server-start:
-      enabled: true
-      message: "Server is now online!"
-
-    # Server stop announcement
-    server-stop:
-      enabled: true
-      message: "Server is shutting down..."
-
-    # Player death announcements
-    player-deaths:
-      enabled: true
-
-    # Achievement/advancement announcements
-    achievements:
-      enabled: true
-      # Exclude recipe unlock advancements (only show real achievements)
-      exclude-recipes: true
-
-  # Two-way chat bridge between Minecraft and Discord
-  # Relays messages between a Discord channel and in-game chat
-  chat-bridge:
-    # Enable/disable chat bridge
-    enabled: false
-    # Text channel ID for chat relay (right-click channel -> Copy ID)
-    channel-id: ""
-    # Relay Minecraft chat to Discord
-    minecraft-to-discord: true
-    # Relay Discord chat to Minecraft
-    discord-to-minecraft: true
-    # Format for Discord messages shown in Minecraft
-    # Available placeholders: {author} = Discord username, {message} = message content
-    # Supports color codes with &
-    mc-format: "&7[Discord] &b{author}&7: {message}"
-    # Format for Minecraft messages shown in Discord
-    # Available placeholders: {player} = Minecraft username, {message} = message content
-    # Supports Discord markdown (**bold**, *italic*, etc.)
-    # NOTE: When use-webhook is true, discord-format is ignored - messages show
-    # directly with player name and avatar
-    discord-format: "**{player}**: {message}"
-    # Message prefixes to ignore (e.g., don't relay commands)
-    ignore-prefixes:
-      - "/"
-    # Suppress Discord notifications for bridged messages
-    # When true, messages from Minecraft won't trigger Discord push notifications
-    # Users will still see messages but won't get pinged
-    # NOTE: Only applies when use-webhook is false
-    suppress-notifications: true
-    # Use webhook for richer Discord messages
-    # When true, Minecraft messages appear with player's head as avatar and username
-    # When false, messages appear as bot messages with discord-format template
-    use-webhook: false
-    # Optional webhook URL for chat bridge
-    # Leave empty to use standard bot messages (use-webhook must be true for this to work)
-    # Create a webhook: Channel Settings -> Integrations -> Webhooks -> New Webhook
-    webhook-url: ""
-    # Avatar provider for player heads in webhook messages
-    # Options: "mc-heads" or "crafatar"
-    avatar-provider: "mc-heads"
-    # Convert @username mentions to Discord mentions for linked users
-    # When a Minecraft player types @Username, if that user has linked their
-    # Discord account via /amssync, the message will ping them on Discord
-    # Users not linked will appear as plain @username text (no notification)
-    resolve-mentions: true
-
-# Whitelist management via Discord
-# Allows Discord admins to add/remove players from the server whitelist
-whitelist:
-  # Enable/disable the /amswhitelist Discord command
-  # When disabled, the command will not be registered with Discord
-  enabled: true
-
-# Visual image cards for /amsstats and /amstop commands
-# Generates visual player cards and podium leaderboards as images
-image-cards:
-  # Enable/disable image card generation
-  # When disabled, /amsstats and /amstop will show a message to use text commands instead
-  enabled: true
-  # Avatar/skin provider for player images
-  # Options: "mc-heads" or "crafatar"
-  # mc-heads: Uses player name (faster, no UUID needed)
-  # crafatar: Uses player UUID (more accurate for name changes)
-  avatar-provider: "mc-heads"
-  # Server name shown in card footer
-  server-name: "Minecraft Server"
-  # Avatar cache time-to-live in seconds
-  # Caches downloaded player avatars to reduce API calls
-  avatar-cache-ttl-seconds: 300
-  # Maximum number of cached avatars
-  avatar-cache-max-size: 100
-
-# Rate limiting for commands
-# Prevents spam and abuse of plugin commands
-rate-limiting:
-  # Enable/disable rate limiting
-  enabled: true
-
-  # Cooldown applied after exceeding the rate limit (milliseconds)
-  # Users can make requests freely until they hit the limit, then must wait
-  # Example: 10000 = 10 second penalty after exceeding rate limit
-  penalty-cooldown-ms: 10000
-
-  # Maximum requests per minute per user (burst protection)
-  # Example: 60 = max 60 commands per minute
-  max-requests-per-minute: 60
-
-# MCMMO Integration Settings
+# ============================================================================
+# MCMMO INTEGRATION
+# ============================================================================
 mcmmo:
   leaderboard:
     # Maximum number of players to scan when generating leaderboards
@@ -301,9 +97,279 @@ mcmmo:
     # Recommended: 60 seconds (provides ~60x performance improvement)
     cache-ttl-seconds: 60
 
-# Skill Progression Tracking
+# ============================================================================
+# RATE LIMITING (Applied to all commands)
+# ============================================================================
+rate-limiting:
+  # Enable/disable rate limiting
+  enabled: true
+
+  # Cooldown applied after exceeding the rate limit (milliseconds)
+  # Users can make requests freely until they hit the limit, then must wait
+  # Example: 10000 = 10 second penalty after exceeding rate limit
+  penalty-cooldown-ms: 10000
+
+  # Maximum requests per minute per user (burst protection)
+  # Example: 60 = max 60 commands per minute
+  max-requests-per-minute: 60
+
+# ============================================================================
+# WHITELIST MANAGEMENT
+# Allows Discord admins to add/remove players from the server whitelist
+# ============================================================================
+whitelist:
+  # Enable/disable the /amswhitelist Discord command
+  # When disabled, the command will not be registered with Discord
+  enabled: true
+
+# ============================================================================
+# FEATURE: IMAGE CARDS
+# Generates visual player cards and podium leaderboards as images
+# Used by /amsstats and /amstop commands
+# ============================================================================
+image-cards:
+  # Enable/disable image card generation
+  # When disabled, /amsstats and /amstop will show a message to use text commands instead
+  enabled: true
+
+  # Server name shown in card footer
+  server-name: "Minecraft Server"
+
+  # Avatar/skin provider for player images
+  # Options: "mc-heads" or "crafatar"
+  # mc-heads: Uses player name (faster, no UUID needed)
+  # crafatar: Uses player UUID (more accurate for name changes)
+  avatar-provider: "mc-heads"
+
+  # Avatar cache settings
+  avatar-cache:
+    # Cache time-to-live in seconds
+    # Caches downloaded player avatars to reduce API calls
+    ttl-seconds: 300
+
+    # Maximum number of cached avatars
+    max-size: 100
+
+# ============================================================================
+# FEATURE: EVENT ANNOUNCEMENTS
+# Posts Minecraft events to Discord channels (MCMMO milestones, deaths, etc.)
+# ============================================================================
+event-announcements:
+  # MCMMO milestone announcements
+  # Posts when players reach skill/power level milestones
+  mcmmo-milestones:
+    # Enable/disable milestone announcements
+    enabled: false
+
+    # Text channel ID for announcements (right-click channel -> Copy ID)
+    channel-id: ""
+
+    # Announce when a skill reaches a multiple of this level (0 = disabled)
+    # Example: 100 = announce at level 100, 200, 300, etc.
+    skill-milestone-interval: 100
+
+    # Announce when power level reaches a multiple of this level (0 = disabled)
+    # Example: 500 = announce at power level 500, 1000, 1500, etc.
+    power-milestone-interval: 500
+
+    # Generate visual image cards for milestone announcements
+    # When true, sends attractive celebration cards with skill badges and player avatars
+    # When false, uses standard embeds or plain text
+    use-image-cards: true
+
+    # Use rich embeds (true) or plain text (false)
+    # Note: Ignored when use-image-cards is true
+    use-embeds: true
+
+    # Show player Minecraft avatars in milestone cards/embeds
+    show-avatars: true
+
+    # Avatar provider: "mc-heads" or "crafatar"
+    avatar-provider: "mc-heads"
+
+  # Server lifecycle events (start/stop)
+  # Announces server start and stop to Discord
+  server-events:
+    # Enable/disable server event announcements
+    enabled: false
+
+    # Text channel ID for event announcements (right-click channel -> Copy ID)
+    channel-id: ""
+
+    # Server start announcement
+    start:
+      enabled: true
+      message: "Server is now online!"
+
+    # Server stop announcement
+    stop:
+      enabled: true
+      message: "Server is shutting down..."
+
+  # Player death announcements
+  # Posts player death messages to Discord
+  player-deaths:
+    # Enable/disable death announcements
+    enabled: false
+
+    # Text channel ID for death announcements (right-click channel -> Copy ID)
+    channel-id: ""
+
+  # Achievement/advancement announcements
+  # Posts player achievements to Discord
+  achievements:
+    # Enable/disable achievement announcements
+    enabled: false
+
+    # Text channel ID for achievement announcements (right-click channel -> Copy ID)
+    channel-id: ""
+
+    # Exclude recipe unlock advancements (only show real achievements)
+    exclude-recipes: true
+
+  # Webhook configuration (shared across all event types)
+  # Optional webhook URL for prettier messages with custom avatars
+  # Leave empty to use standard bot messages
+  # Create a webhook: Channel Settings -> Integrations -> Webhooks -> New Webhook
+  webhook:
+    url: ""
+    # Use rich embeds (true) or plain text (false)
+    use-embeds: true
+    # Show player Minecraft avatars in embeds/webhook messages
+    show-avatars: true
+    # Avatar provider: "mc-heads" or "crafatar"
+    avatar-provider: "mc-heads"
+
+# ============================================================================
+# FEATURE: CHAT BRIDGE
+# Two-way chat relay between Minecraft and Discord
+# ============================================================================
+chat-bridge:
+  # Enable/disable chat bridge
+  enabled: false
+
+  # Text channel ID for chat relay (right-click channel -> Copy ID)
+  channel-id: ""
+
+  # Relay Minecraft chat to Discord
+  minecraft-to-discord: true
+
+  # Relay Discord chat to Minecraft
+  discord-to-minecraft: true
+
+  # Format for Discord messages shown in Minecraft
+  # Available placeholders: {author} = Discord username, {message} = message content
+  # Supports color codes with &
+  mc-format: "&7[Discord] &b{author}&7: {message}"
+
+  # Format for Minecraft messages shown in Discord
+  # Available placeholders: {player} = Minecraft username, {message} = message content
+  # Supports Discord markdown (**bold**, *italic*, etc.)
+  # NOTE: When use-webhook is true, discord-format is ignored - messages show
+  # directly with player name and avatar
+  discord-format: "**{player}**: {message}"
+
+  # Message prefixes to ignore (e.g., don't relay commands)
+  ignore-prefixes:
+    - "/"
+
+  # Suppress Discord notifications for bridged messages
+  # When true, messages from Minecraft won't trigger Discord push notifications
+  # Users will still see messages but won't get pinged
+  # NOTE: Only applies when use-webhook is false
+  suppress-notifications: true
+
+  # Use webhook for richer Discord messages
+  # When true, Minecraft messages appear with player's head as avatar and username
+  # When false, messages appear as bot messages with discord-format template
+  use-webhook: false
+
+  # Optional webhook URL for chat bridge
+  # Leave empty to use standard bot messages (use-webhook must be true for this to work)
+  # Create a webhook: Channel Settings -> Integrations -> Webhooks -> New Webhook
+  webhook-url: ""
+
+  # Avatar provider for player heads in webhook messages
+  # Options: "mc-heads" or "crafatar"
+  avatar-provider: "mc-heads"
+
+  # Convert @username mentions to Discord mentions for linked users
+  # When a Minecraft player types @Username, if that user has linked their
+  # Discord account via /amssync, the message will ping them on Discord
+  # Users not linked will appear as plain @username text (no notification)
+  resolve-mentions: true
+
+# ============================================================================
+# FEATURE: PLAYER COUNT DISPLAY
+# Shows current player count in Discord bot status and/or voice channel name
+# ============================================================================
+player-count-display:
+  # Bot Activity/Status display
+  # Shows in Discord under the bot's name (e.g., "Playing 12 players online")
+  bot-presence:
+    # Enable/disable bot activity updates
+    enabled: true
+
+    # Minimum seconds between Discord API updates
+    # Discord rate limits presence updates to ~5/minute
+    # Recommended: 30-60 seconds to stay well under limits
+    min-update-interval-seconds: 30
+
+    # Debounce delay in seconds
+    # Waits this long after player join/quit before updating
+    # Helps batch rapid changes (e.g., server restart, mass teleport)
+    debounce-seconds: 5
+
+    # Activity configuration
+    activity:
+      # Enable/disable activity updates
+      enabled: true
+
+      # Activity type: playing, watching, listening, competing
+      type: "playing"
+
+      # Message template
+      # Available placeholders: {count} = current player count, {max} = max players
+      template: "{count} players online"
+
+    # Bot Nickname display (per-guild)
+    # Changes the bot's nickname in your Discord server
+    # IMPORTANT: Bot needs CHANGE_NICKNAME permission in your server
+    nickname:
+      # Enable/disable nickname updates (disabled by default - requires permission)
+      enabled: false
+
+      # Nickname template
+      # Available placeholders: {count} = player count, {name} = original bot name, {max} = max players
+      template: "[{count}] {name}"
+
+      # If true, logs warning and continues if nickname change fails
+      # If false, disables nickname updates after first failure
+      graceful-fallback: true
+
+  # Voice channel showing player count
+  # Updates the channel name to show current player count (e.g., "5 AMS Online")
+  # NOTE: Discord limits channel renames to 2 per 10 minutes, so updates are batched
+  status-channel:
+    # Enable/disable status channel updates
+    enabled: false
+
+    # Voice channel ID to update (right-click channel -> Copy ID)
+    channel-id: ""
+
+    # Channel name template
+    # Available placeholders: {count} = current player count, {max} = max players
+    template: "{count} AMS Online"
+
+    # Minimum seconds between channel name updates
+    # Discord rate limit is 2 updates per 10 minutes - recommend 300+ seconds
+    update-interval-seconds: 300
+
+# ============================================================================
+# FEATURE: PROGRESSION TRACKING
 # Records level-up events and periodic snapshots for analytics and graphs
 # Data is stored in a SQLite database (uses Paper's bundled SQLite JDBC)
+# ============================================================================
 progression-tracking:
   # Master enable/disable for all progression tracking features
   # When disabled, no data is collected or stored
@@ -325,10 +391,12 @@ progression-tracking:
   snapshots:
     # Enable/disable periodic snapshots
     enabled: true
+
     # Interval between snapshots in minutes
     # Lower = more granular data but larger database
     # Recommended: 5-15 minutes
     interval-minutes: 5
+
     # Only snapshot online players (recommended)
     # When true, only captures players currently on the server
     online-only: true
@@ -339,6 +407,7 @@ progression-tracking:
   retention:
     # Enable/disable automatic data cleanup and compaction
     enabled: true
+
     # How often to run the cleanup/compaction task (in hours)
     # Runs asynchronously to avoid blocking server
     cleanup-interval-hours: 24
@@ -366,7 +435,9 @@ progression-tracking:
       # Example: 5 = keep weekly data for 5 years
       weekly-years: 5
 
-# Discord User ID to Minecraft Username mappings
+# ============================================================================
+# USER MAPPINGS (Discord ID <-> Minecraft Username)
+# ============================================================================
 # Format: "discord_user_id": "MinecraftUsername"
 #
 # IMPORTANT: Use Minecraft USERNAMES (not UUIDs) as values!
@@ -378,4 +449,4 @@ progression-tracking:
 #     "987654321098765432": "Alex"
 #
 # Use /amslink command in-game or Discord to add mappings
-user-mappings:
+user-mappings: {}

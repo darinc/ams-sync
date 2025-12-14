@@ -1,10 +1,12 @@
 package io.github.darinc.amssync.linking
 
-import io.github.darinc.amssync.AMSSyncPlugin
 import io.github.darinc.amssync.config.ConfigValidator
 import io.github.darinc.amssync.exceptions.DuplicateMappingException
 import io.github.darinc.amssync.exceptions.InvalidDiscordIdException
 import io.github.darinc.amssync.exceptions.MappingNotFoundException
+import org.bukkit.configuration.file.YamlConfiguration
+import java.io.File
+import java.util.logging.Logger
 
 /**
  * Manages mappings between Discord user IDs and Minecraft usernames.
@@ -22,7 +24,10 @@ import io.github.darinc.amssync.exceptions.MappingNotFoundException
  * If concurrent access is ever needed, wrap calls with `synchronized(this)` or
  * convert the backing maps to ConcurrentHashMap.
  */
-class UserMappingService(private val plugin: AMSSyncPlugin) {
+class UserMappingService(
+    private val configFile: File,
+    private val logger: Logger
+) {
 
     // Discord ID -> Minecraft Username
     // NOT thread-safe - access only from Bukkit main thread
@@ -53,7 +58,13 @@ class UserMappingService(private val plugin: AMSSyncPlugin) {
         discordToMinecraft.clear()
         minecraftToDiscord.clear()
 
-        val mappingsSection = plugin.config.getConfigurationSection("user-mappings")
+        if (!configFile.exists()) {
+            logger.fine("UserMappingService: config file not found, starting with empty mappings")
+            return
+        }
+
+        val config = YamlConfiguration.loadConfiguration(configFile)
+        val mappingsSection = config.getConfigurationSection("user-mappings")
         if (mappingsSection != null) {
             for (key in mappingsSection.getKeys(false)) {
                 val minecraftUsername = mappingsSection.getString(key)
@@ -63,7 +74,7 @@ class UserMappingService(private val plugin: AMSSyncPlugin) {
             }
         }
 
-        plugin.logger.fine("UserMappingService loaded ${discordToMinecraft.size} mapping(s)")
+        logger.fine("UserMappingService loaded ${discordToMinecraft.size} mapping(s)")
     }
 
     /**
@@ -74,18 +85,23 @@ class UserMappingService(private val plugin: AMSSyncPlugin) {
      */
     fun saveMappings() {
         // Reload config from disk to get any manual changes
-        plugin.reloadConfig()
+        val config = if (configFile.exists()) {
+            YamlConfiguration.loadConfiguration(configFile)
+        } else {
+            YamlConfiguration()
+        }
 
         // Clear existing mappings section
-        plugin.config.set("user-mappings", null)
+        config.set("user-mappings", null)
 
         // Save all mappings
         for ((discordId, minecraftUsername) in discordToMinecraft) {
-            plugin.config.set("user-mappings.$discordId", minecraftUsername)
+            config.set("user-mappings.$discordId", minecraftUsername)
         }
 
-        plugin.saveConfig()
-        plugin.logger.info("Saved ${discordToMinecraft.size} user mapping(s)")
+        // Write to file
+        config.save(configFile)
+        logger.info("Saved ${discordToMinecraft.size} user mapping(s)")
     }
 
     /**
@@ -123,7 +139,7 @@ class UserMappingService(private val plugin: AMSSyncPlugin) {
         discordToMinecraft[discordId]?.let { oldUsername ->
             minecraftToDiscord.remove(oldUsername)
             if (oldUsername != minecraftUsername) {
-                plugin.logger.info("Replaced mapping for Discord $discordId: $oldUsername -> $minecraftUsername")
+                logger.info("Replaced mapping for Discord $discordId: $oldUsername -> $minecraftUsername")
             }
         }
 
@@ -131,7 +147,7 @@ class UserMappingService(private val plugin: AMSSyncPlugin) {
         minecraftToDiscord[minecraftUsername]?.let { oldDiscordId ->
             if (oldDiscordId != discordId) {
                 discordToMinecraft.remove(oldDiscordId)
-                plugin.logger.info("Removed old Discord ID $oldDiscordId for Minecraft username $minecraftUsername")
+                logger.info("Removed old Discord ID $oldDiscordId for Minecraft username $minecraftUsername")
             }
         }
 
@@ -139,7 +155,7 @@ class UserMappingService(private val plugin: AMSSyncPlugin) {
         discordToMinecraft[discordId] = minecraftUsername
         minecraftToDiscord[minecraftUsername] = discordId
 
-        plugin.logger.fine("Added mapping: Discord $discordId -> Minecraft $minecraftUsername")
+        logger.fine("Added mapping: Discord $discordId -> Minecraft $minecraftUsername")
     }
 
     /**
@@ -157,7 +173,7 @@ class UserMappingService(private val plugin: AMSSyncPlugin) {
         val minecraftUsername = discordToMinecraft.remove(discordId)
         if (minecraftUsername != null) {
             minecraftToDiscord.remove(minecraftUsername)
-            plugin.logger.fine("Removed mapping for Discord ID: $discordId")
+            logger.fine("Removed mapping for Discord ID: $discordId")
             return true
         }
 
@@ -179,7 +195,7 @@ class UserMappingService(private val plugin: AMSSyncPlugin) {
         val discordId = minecraftToDiscord.remove(minecraftUsername)
         if (discordId != null) {
             discordToMinecraft.remove(discordId)
-            plugin.logger.fine("Removed mapping for Minecraft username: $minecraftUsername")
+            logger.fine("Removed mapping for Minecraft username: $minecraftUsername")
             return true
         }
 

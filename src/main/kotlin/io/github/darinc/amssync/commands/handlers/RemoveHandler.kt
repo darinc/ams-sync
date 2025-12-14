@@ -25,12 +25,12 @@ class RemoveHandler : SubcommandHandler {
         val discordId = args[0]
 
         // Get the linked username before removal for audit logging
-        val linkedUsername = plugin.services.userMappingService.getMinecraftUsername(discordId)
+        val linkedUsername = plugin.userMappingService.getMinecraftUsername(discordId)
 
-        if (plugin.services.userMappingService.removeMappingByDiscordId(discordId)) {
-            plugin.services.userMappingService.saveMappings()
+        if (plugin.userMappingService.removeMappingByDiscordId(discordId)) {
+            plugin.userMappingService.saveMappings()
 
-            plugin.services.auditLogger.logAdminAction(
+            plugin.auditLogger.logAdminAction(
                 action = AuditAction.UNLINK_USER,
                 actor = actorName,
                 actorType = actorType,
@@ -41,7 +41,7 @@ class RemoveHandler : SubcommandHandler {
 
             sender.sendMessage("§aSuccessfully removed mapping for Discord ID §f$discordId")
         } else {
-            plugin.services.auditLogger.logAdminAction(
+            plugin.auditLogger.logAdminAction(
                 action = AuditAction.UNLINK_USER,
                 actor = actorName,
                 actorType = actorType,
@@ -56,7 +56,7 @@ class RemoveHandler : SubcommandHandler {
 
     override fun tabComplete(context: CommandContext, args: List<String>): List<String> {
         return when (args.size) {
-            1 -> context.plugin.services.userMappingService.getAllMappings().keys.toList()
+            1 -> context.plugin.userMappingService.getAllMappings().keys.toList()
             else -> emptyList()
         }
     }

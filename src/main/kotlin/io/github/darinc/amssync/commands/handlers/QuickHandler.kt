@@ -40,7 +40,7 @@ class QuickHandler(private val linkHandler: LinkHandler) : SubcommandHandler {
         allPlayers.forEachIndexed { index, name ->
             val num = index + 1
             playerNumbers[num] = name
-            val linkedStatus = if (plugin.services.userMappingService.isMinecraftLinked(name)) "§a✓" else "§8✗"
+            val linkedStatus = if (plugin.userMappingService.isMinecraftLinked(name)) "§a✓" else "§8✗"
             sender.sendMessage("  §7[$num] $linkedStatus §f$name")
         }
 
@@ -52,7 +52,7 @@ class QuickHandler(private val linkHandler: LinkHandler) : SubcommandHandler {
         sender.sendMessage("§7Loading Discord members...")
 
         // Get Discord members
-        val jda = plugin.services.discord.manager.getJda()
+        val jda = plugin.discord.manager.getJda()
         if (jda == null) {
             sender.sendMessage("§cDiscord bot is not connected!")
             // Store player session anyway
@@ -87,7 +87,7 @@ class QuickHandler(private val linkHandler: LinkHandler) : SubcommandHandler {
                     val num = index + 1
                     discordNumbers[num] = DiscordData(member.id, member.effectiveName)
 
-                    val linkedStatus = if (plugin.services.userMappingService.isDiscordLinked(member.id)) "§a✓" else "§8✗"
+                    val linkedStatus = if (plugin.userMappingService.isDiscordLinked(member.id)) "§a✓" else "§8✗"
                     sender.sendMessage("  §7[$num] $linkedStatus §f${member.effectiveName} §8(${member.user.name})")
                 }
 

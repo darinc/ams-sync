@@ -15,7 +15,7 @@ class DiscordHandler : SubcommandHandler {
     override fun execute(context: CommandContext, args: List<String>) {
         val (sender, plugin, sessionManager) = context
 
-        val jda = plugin.services.discord.manager.getJda()
+        val jda = plugin.discord.manager.getJda()
         if (jda == null) {
             sender.sendMessage("§cDiscord bot is not connected!")
             return
@@ -53,8 +53,8 @@ class DiscordHandler : SubcommandHandler {
                     val num = index + 1
                     discordNumbers[num] = DiscordData(member.id, member.effectiveName)
 
-                    val linkedStatus = if (plugin.services.userMappingService.isDiscordLinked(member.id)) {
-                        val mcName = plugin.services.userMappingService.getMinecraftUsername(member.id)
+                    val linkedStatus = if (plugin.userMappingService.isDiscordLinked(member.id)) {
+                        val mcName = plugin.userMappingService.getMinecraftUsername(member.id)
                         "§a✓ -> $mcName"
                     } else {
                         "§8✗ Not Linked"

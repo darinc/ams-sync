@@ -29,14 +29,14 @@ class AmsTopCommand(
     private val leaderboardSize = 10
 
     private val discordApi: DiscordApiWrapper?
-        get() = plugin.services.discord.apiWrapper
+        get() = plugin.discord.apiWrapper
 
     override fun handle(event: SlashCommandInteractionEvent) {
         // Defer reply immediately (image generation takes time)
         CommandUtils.deferReply(event, "/amstop", discordApi, plugin.logger)
 
         val skillName = event.getOption("skill")?.asString
-        val timeoutManager = plugin.services.resilience.timeoutManager
+        val timeoutManager = plugin.resilience.timeoutManager
 
         // Determine if power level or skill leaderboard
         val isPowerLevel = skillName == null ||
@@ -88,7 +88,7 @@ class AmsTopCommand(
     }
 
     private fun handlePowerLevelLeaderboard(event: SlashCommandInteractionEvent) {
-        val leaderboard = plugin.services.mcmmoApi.getPowerLevelLeaderboard(leaderboardSize)
+        val leaderboard = plugin.mcmmoApi.getPowerLevelLeaderboard(leaderboardSize)
 
         if (leaderboard.isEmpty()) {
             CommandUtils.sendEphemeralMessage(
@@ -107,7 +107,7 @@ class AmsTopCommand(
     private fun handleSkillLeaderboard(event: SlashCommandInteractionEvent, skillName: String) {
         // Parse and validate skill name
         val skill = try {
-            plugin.services.mcmmoApi.parseSkillType(skillName)
+            plugin.mcmmoApi.parseSkillType(skillName)
         } catch (e: InvalidSkillException) {
             CommandUtils.sendEphemeralMessage(
                 event.hook,
@@ -119,7 +119,7 @@ class AmsTopCommand(
             return
         }
 
-        val leaderboard = plugin.services.mcmmoApi.getLeaderboard(skill.name, leaderboardSize)
+        val leaderboard = plugin.mcmmoApi.getLeaderboard(skill.name, leaderboardSize)
 
         if (leaderboard.isEmpty()) {
             CommandUtils.sendEphemeralMessage(
@@ -143,7 +143,7 @@ class AmsTopCommand(
         // Fetch head avatars for top 10 players in parallel
         val playerNames = leaderboard.map { it.first }
         val playersWithUuids = playerNames.map { name ->
-            val player = plugin.services.mcmmoApi.getOfflinePlayer(name)
+            val player = plugin.mcmmoApi.getOfflinePlayer(name)
             name to player?.uniqueId
         }
 

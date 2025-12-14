@@ -21,7 +21,7 @@ class McTopCommand(private val plugin: AMSSyncPlugin) : SlashCommandHandler {
     private val leaderboardSize = 10
 
     private val discordApi: DiscordApiWrapper?
-        get() = plugin.services.discord.apiWrapper
+        get() = plugin.discord.apiWrapper
 
     override fun handle(event: SlashCommandInteractionEvent) {
         // Defer reply immediately to avoid timeout
@@ -30,7 +30,7 @@ class McTopCommand(private val plugin: AMSSyncPlugin) : SlashCommandHandler {
         val skillName = event.getOption("skill")?.asString
 
         // Get timeout manager if available
-        val timeoutManager = plugin.services.resilience.timeoutManager
+        val timeoutManager = plugin.resilience.timeoutManager
 
         // If no skill specified, default to power level leaderboard
         if (skillName == null) {
@@ -152,8 +152,8 @@ class McTopCommand(private val plugin: AMSSyncPlugin) : SlashCommandHandler {
 
     private fun handleSkillLeaderboard(event: SlashCommandInteractionEvent, skillName: String) {
         // Throws InvalidSkillException if skill invalid
-        val skill = plugin.services.mcmmoApi.parseSkillType(skillName)
-        val leaderboard = plugin.services.mcmmoApi.getLeaderboard(skill.name, leaderboardSize)
+        val skill = plugin.mcmmoApi.parseSkillType(skillName)
+        val leaderboard = plugin.mcmmoApi.getLeaderboard(skill.name, leaderboardSize)
 
         if (leaderboard.isEmpty()) {
             CommandUtils.sendEphemeralMessage(
@@ -190,7 +190,7 @@ class McTopCommand(private val plugin: AMSSyncPlugin) : SlashCommandHandler {
     }
 
     private fun handlePowerLevelLeaderboard(event: SlashCommandInteractionEvent) {
-        val leaderboard = plugin.services.mcmmoApi.getPowerLevelLeaderboard(leaderboardSize)
+        val leaderboard = plugin.mcmmoApi.getPowerLevelLeaderboard(leaderboardSize)
 
         if (leaderboard.isEmpty()) {
             CommandUtils.sendEphemeralMessage(

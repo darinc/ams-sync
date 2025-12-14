@@ -3,23 +3,23 @@ package io.github.darinc.amssync.mcmmo
 import com.gmail.nossr50.datatypes.skills.PrimarySkillType
 import com.gmail.nossr50.mcMMO
 import com.gmail.nossr50.util.player.UserManager
-import io.github.darinc.amssync.AMSSyncPlugin
 import io.github.darinc.amssync.exceptions.InvalidSkillException
 import io.github.darinc.amssync.exceptions.PlayerDataNotFoundException
 import org.bukkit.Bukkit
 import org.bukkit.OfflinePlayer
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.logging.Logger
 
 /**
  * Wrapper for MCMMO API calls with performance optimizations.
  *
- * @property plugin The parent plugin instance
+ * @property logger Logger for debug/error messages
  * @property maxPlayersToScan Maximum number of players to scan for leaderboards (prevents timeout)
  * @property cacheTtlMs Cache time-to-live in milliseconds for leaderboard results
  */
 class McmmoApiWrapper(
-    private val plugin: AMSSyncPlugin,
+    private val logger: Logger,
     private val maxPlayersToScan: Int = 1000,
     private val cacheTtlMs: Long = 60000L // 60 seconds default
 ) {
@@ -45,11 +45,11 @@ class McmmoApiWrapper(
     fun getPlayerStats(playerName: String): Map<String, Int> {
         val offlinePlayer = getOfflinePlayer(playerName)
         if (offlinePlayer == null) {
-            plugin.logger.warning("Player lookup failed for '$playerName' - player not found in server records")
+            logger.warning("Player lookup failed for '$playerName' - player not found in server records")
             throw PlayerDataNotFoundException(playerName)
         }
 
-        plugin.logger.info("Found player '$playerName' with UUID ${offlinePlayer.uniqueId}, hasPlayedBefore=${offlinePlayer.hasPlayedBefore()}")
+        logger.info("Found player '$playerName' with UUID ${offlinePlayer.uniqueId}, hasPlayedBefore=${offlinePlayer.hasPlayedBefore()}")
 
         // For flatfile storage, must load profile from database manager
         // UserManager only returns LOADED profiles, not from disk
@@ -57,7 +57,7 @@ class McmmoApiWrapper(
         val profile = mcMMO.getDatabaseManager().loadPlayerProfile(offlinePlayer.uniqueId)
 
         if (!profile.isLoaded) {
-            plugin.logger.warning("MCMMO profile not loaded for player '$playerName' (UUID: ${offlinePlayer.uniqueId})")
+            logger.warning("MCMMO profile not loaded for player '$playerName' (UUID: ${offlinePlayer.uniqueId})")
             throw PlayerDataNotFoundException(playerName)
         }
 
@@ -66,7 +66,7 @@ class McmmoApiWrapper(
             .filter { !it.isChildSkill }
             .sumOf { profile.getSkillLevel(it) }
 
-        plugin.logger.info("Successfully loaded MCMMO profile for '$playerName', power level: $powerLevel")
+        logger.info("Successfully loaded MCMMO profile for '$playerName', power level: $powerLevel")
 
         return PrimarySkillType.values()
             .filter { !it.isChildSkill } // Exclude child skills
@@ -137,18 +137,18 @@ class McmmoApiWrapper(
         // Check cache first
         val cached = leaderboardCache[cacheKey]
         if (cached != null && System.currentTimeMillis() - cached.timestamp < cacheTtlMs) {
-            plugin.logger.fine("Returning cached leaderboard for ${skill.name}")
+            logger.fine("Returning cached leaderboard for ${skill.name}")
             return cached.data
         }
 
-        plugin.logger.fine("Generating leaderboard for ${skill.name} (scanning up to $maxPlayersToScan players)")
+        logger.fine("Generating leaderboard for ${skill.name} (scanning up to $maxPlayersToScan players)")
 
         // Get all offline players with hard limit
         val allPlayers = Bukkit.getOfflinePlayers()
         val playersToScan = allPlayers.take(maxPlayersToScan)
 
         if (allPlayers.size > maxPlayersToScan) {
-            plugin.logger.warning(
+            logger.warning(
                 "Server has ${allPlayers.size} players, only scanning first $maxPlayersToScan for leaderboard. " +
                 "Increase 'mcmmo.leaderboard.max-players-to-scan' in config.yml for more complete results."
             )
@@ -192,18 +192,18 @@ class McmmoApiWrapper(
         // Check cache first
         val cached = leaderboardCache[cacheKey]
         if (cached != null && System.currentTimeMillis() - cached.timestamp < cacheTtlMs) {
-            plugin.logger.fine("Returning cached power level leaderboard")
+            logger.fine("Returning cached power level leaderboard")
             return cached.data
         }
 
-        plugin.logger.fine("Generating power level leaderboard (scanning up to $maxPlayersToScan players)")
+        logger.fine("Generating power level leaderboard (scanning up to $maxPlayersToScan players)")
 
         // Get all offline players with hard limit
         val allPlayers = Bukkit.getOfflinePlayers()
         val playersToScan = allPlayers.take(maxPlayersToScan)
 
         if (allPlayers.size > maxPlayersToScan) {
-            plugin.logger.warning(
+            logger.warning(
                 "Server has ${allPlayers.size} players, only scanning first $maxPlayersToScan for leaderboard. " +
                 "Increase 'mcmmo.leaderboard.max-players-to-scan' in config.yml for more complete results."
             )
@@ -280,38 +280,38 @@ class McmmoApiWrapper(
      * which won't match the player's actual UUID if they haven't joined recently.
      */
     fun getOfflinePlayer(playerName: String): OfflinePlayer? {
-        plugin.logger.info("Searching for player: '$playerName'")
+        logger.info("Searching for player: '$playerName'")
 
         // First check online players (most efficient)
         val onlinePlayer = Bukkit.getOnlinePlayers().find {
             it.name.equals(playerName, ignoreCase = true)
         }
         if (onlinePlayer != null) {
-            plugin.logger.info("Found '$playerName' in online players")
+            logger.info("Found '$playerName' in online players")
             return onlinePlayer
         }
 
         // Search through all offline players for exact name match
         val allOfflinePlayers = Bukkit.getOfflinePlayers()
-        plugin.logger.info("Searching through ${allOfflinePlayers.size} offline players for '$playerName'")
+        logger.info("Searching through ${allOfflinePlayers.size} offline players for '$playerName'")
 
         val offlinePlayer = allOfflinePlayers.find {
             it.name?.equals(playerName, ignoreCase = true) == true
         }
 
         if (offlinePlayer == null) {
-            plugin.logger.warning("Player '$playerName' not found in ${allOfflinePlayers.size} offline players")
-            plugin.logger.info("Available player names: ${allOfflinePlayers.mapNotNull { it.name }.take(10).joinToString(", ")}...")
+            logger.warning("Player '$playerName' not found in ${allOfflinePlayers.size} offline players")
+            logger.info("Available player names: ${allOfflinePlayers.mapNotNull { it.name }.take(10).joinToString(", ")}...")
             return null
         }
 
         // Check if player has ever played
         if (!offlinePlayer.hasPlayedBefore() && !offlinePlayer.isOnline) {
-            plugin.logger.warning("Player '$playerName' found but hasPlayedBefore=false")
+            logger.warning("Player '$playerName' found but hasPlayedBefore=false")
             return null
         }
 
-        plugin.logger.info("Found offline player '$playerName' (UUID: ${offlinePlayer.uniqueId})")
+        logger.info("Found offline player '$playerName' (UUID: ${offlinePlayer.uniqueId})")
         return offlinePlayer
     }
 }

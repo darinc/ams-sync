@@ -25,9 +25,9 @@ class AmsStatsCommand(
     override val commandName = "amsstats"
 
     private val discordApi: DiscordApiWrapper?
-        get() = plugin.services.discord.apiWrapper
+        get() = plugin.discord.apiWrapper
 
-    private val usernameResolver = UsernameResolver(plugin.services.userMappingService)
+    private val usernameResolver = UsernameResolver(plugin.userMappingService)
 
     override fun handle(event: SlashCommandInteractionEvent) {
         // Defer reply immediately to avoid timeout (image generation takes time)
@@ -43,11 +43,11 @@ class AmsStatsCommand(
                 val mcUsername = usernameResolver.resolve(usernameOption, invokerDiscordId)
 
                 // Get player stats and power level
-                val stats = plugin.services.mcmmoApi.getPlayerStats(mcUsername)
-                val powerLevel = plugin.services.mcmmoApi.getPowerLevel(mcUsername)
+                val stats = plugin.mcmmoApi.getPlayerStats(mcUsername)
+                val powerLevel = plugin.mcmmoApi.getPowerLevel(mcUsername)
 
                 // Get player UUID for avatar fetching
-                val player = plugin.services.mcmmoApi.getOfflinePlayer(mcUsername)
+                val player = plugin.mcmmoApi.getOfflinePlayer(mcUsername)
                 val uuid = player?.uniqueId
 
                 // Fetch body render (async but we wait for it)

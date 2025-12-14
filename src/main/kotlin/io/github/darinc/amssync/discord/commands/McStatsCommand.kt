@@ -19,9 +19,9 @@ class McStatsCommand(private val plugin: AMSSyncPlugin) : SlashCommandHandler {
     override val commandName = "mcstats"
 
     private val discordApi: DiscordApiWrapper?
-        get() = plugin.services.discord.apiWrapper
+        get() = plugin.discord.apiWrapper
 
-    private val usernameResolver = UsernameResolver(plugin.services.userMappingService)
+    private val usernameResolver = UsernameResolver(plugin.userMappingService)
 
     override fun handle(event: SlashCommandInteractionEvent) {
         // Defer reply immediately to avoid timeout
@@ -87,8 +87,8 @@ class McStatsCommand(private val plugin: AMSSyncPlugin) : SlashCommandHandler {
 
     private fun handleAllSkills(event: SlashCommandInteractionEvent, mcUsername: String, invokerTag: String) {
         // Throws PlayerDataNotFoundException if player not found
-        val stats = plugin.services.mcmmoApi.getPlayerStats(mcUsername)
-        val powerLevel = plugin.services.mcmmoApi.getPowerLevel(mcUsername)
+        val stats = plugin.mcmmoApi.getPlayerStats(mcUsername)
+        val powerLevel = plugin.mcmmoApi.getPowerLevel(mcUsername)
 
         val embed = EmbedBuilder()
             .setTitle("MCMMO Stats for $mcUsername")
@@ -109,10 +109,10 @@ class McStatsCommand(private val plugin: AMSSyncPlugin) : SlashCommandHandler {
 
     private fun handleSpecificSkill(event: SlashCommandInteractionEvent, mcUsername: String, skillName: String, invokerTag: String) {
         // Throws InvalidSkillException if skill invalid
-        val skill = plugin.services.mcmmoApi.parseSkillType(skillName)
+        val skill = plugin.mcmmoApi.parseSkillType(skillName)
 
         // Throws PlayerDataNotFoundException if player not found
-        val level = plugin.services.mcmmoApi.getPlayerSkillLevel(mcUsername, skill.name)
+        val level = plugin.mcmmoApi.getPlayerSkillLevel(mcUsername, skill.name)
 
         val embed = EmbedBuilder()
             .setTitle("${Validators.formatSkillName(skill.name)} Stats for $mcUsername")

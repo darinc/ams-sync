@@ -60,6 +60,8 @@ mvn install -DskipTests
 
 ## Architecture
 
+> **Detailed Diagrams**: See [docs/architecture/initialization.md](docs/architecture/initialization.md) for complete initialization diagrams showing all 6 phases, service groupings, and file locations.
+
 ### Plugin Initialization Flow
 
 1. `AMSSyncPlugin.onEnable()` loads config and initializes services in order:
@@ -77,6 +79,24 @@ mvn install -DskipTests
    - All layers are configurable and can be disabled
 
 3. Plugin runs in degraded mode if Discord connection fails - Minecraft commands continue working
+
+### Service Architecture
+
+Services are exposed as direct properties on `AMSSyncPlugin`:
+
+**Core Services (always initialized):**
+- `plugin.userMappingService` - Discord-Minecraft user mappings
+- `plugin.mcmmoApi` - MCMMO data access wrapper
+- `plugin.errorMetrics` - Error tracking and metrics
+- `plugin.auditLogger` - Administrative action logging
+- `plugin.rateLimiter` - Command rate limiting (nullable, config-dependent)
+
+**Grouped Services (logical groupings):**
+- `plugin.resilience` - `ResilienceServices` (timeoutManager, circuitBreaker)
+- `plugin.discord` - `DiscordServices` (manager, apiWrapper, chatBridge, webhooks, presence, statusChannel)
+- `plugin.image` - `ImageServices` (config, avatarFetcher, renderer, commands)
+- `plugin.events` - `EventServices` (mcmmoListener, serverListener, deathListener, achievementListener)
+- `plugin.progression` - `ProgressionServices` (config, database, snapshotTask, retentionTask)
 
 ### Core Services
 
@@ -283,10 +303,14 @@ All configuration lives in `src/main/resources/config.yml`:
 
 ### Adding New Discord Slash Commands
 
-1. Create command handler in `discord/commands/` implementing command logic
-2. Register in `DiscordManager.registerSlashCommands()` using JDA's Commands builder
-3. Route in `SlashCommandListener.onSlashCommandInteraction()`
-4. Use `plugin.discordApiWrapper?.executeWithCircuitBreaker()` for MCMMO queries
+1. Create command handler in `discord/commands/` implementing `SlashCommandHandler` interface
+2. Add handler to `AMSSyncPlugin.buildSlashCommandHandlers()` map
+3. Register slash command definition in `DiscordManager.registerSlashCommands()` using JDA's Commands builder
+4. Access services via direct plugin properties:
+   - `plugin.mcmmoApi` for MCMMO data
+   - `plugin.userMappingService` for Discord-Minecraft mappings
+   - `plugin.discord.apiWrapper` for circuit-breaker-protected Discord API calls
+   - `plugin.resilience.circuitBreaker` for manual circuit breaker checks
 
 ### Error Handling
 
@@ -316,8 +340,10 @@ All configuration lives in `src/main/resources/config.yml`:
 
 - Kotlin 1.9.21 with Java 21 toolchain
 - Detekt for static analysis (config: `detekt-config.yml`)
-- Use `lateinit` for plugin services initialized in `onEnable()`
-- Nullable types for optional services (e.g., `timeoutManager`, `circuitBreaker`)
+- Use `lateinit` for required plugin services initialized in `onEnable()`
+- Nullable types for optional services (e.g., `rateLimiter`, `timeoutManager`, `circuitBreaker`)
+- Services exposed as direct properties on `AMSSyncPlugin` (access via `plugin.serviceName`)
+- Grouped services use wrapper data classes (e.g., `DiscordServices`, `ResilienceServices`)
 - Prefer sealed classes for result types (e.g., `RetryResult`, `TimeoutResult`)
 - Config data classes with companion `fromConfig()` factory methods (e.g., `ImageConfig`, `PresenceConfig`)
 - Testing with Kotest (spec style) and MockK for mocking
