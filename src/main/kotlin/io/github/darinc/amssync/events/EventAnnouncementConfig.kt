@@ -34,37 +34,48 @@ data class EventAnnouncementConfig(
          * Load event announcement configuration from Bukkit config file.
          */
         fun fromConfig(config: FileConfiguration): EventAnnouncementConfig {
-            val webhookUrl = config.getString("discord.events.webhook-url", "") ?: ""
+            val webhookUrl = config.getString("event-announcements.webhook.url", "") ?: ""
 
             return EventAnnouncementConfig(
-                enabled = config.getBoolean("discord.events.enabled", false),
-                channelId = config.getString("discord.events.text-channel-id", "") ?: "",
+                enabled = config.getBoolean("event-announcements.enabled", false),
+                channelId = config.getString("event-announcements.server-events.channel-id", "") ?: "",
                 webhookUrl = webhookUrl.ifBlank { null },
-                useEmbeds = config.getBoolean("discord.events.use-embeds", true),
-                showAvatars = config.getBoolean("discord.events.show-avatars", true),
-                avatarProvider = config.getString("discord.events.avatar-provider", "mc-heads") ?: "mc-heads",
+                useEmbeds = config.getBoolean("event-announcements.webhook.use-embeds", true),
+                showAvatars = config.getBoolean("event-announcements.webhook.show-avatars", true),
+                avatarProvider = config.getString("event-announcements.webhook.avatar-provider", "mc-heads")
+                    ?: "mc-heads",
                 serverStart = ServerStartConfig(
-                    enabled = config.getBoolean("discord.events.server-start.enabled", true),
-                    message = config.getString("discord.events.server-start.message", "Server is now online!")
-                        ?: "Server is now online!"
+                    enabled = config.getBoolean("event-announcements.server-events.start.enabled", true),
+                    message = config.getString(
+                        "event-announcements.server-events.start.message",
+                        "Server is now online!"
+                    ) ?: "Server is now online!"
                 ),
                 serverStop = ServerStopConfig(
-                    enabled = config.getBoolean("discord.events.server-stop.enabled", true),
-                    message = config.getString("discord.events.server-stop.message", "Server is shutting down...")
-                        ?: "Server is shutting down..."
+                    enabled = config.getBoolean("event-announcements.server-events.stop.enabled", true),
+                    message = config.getString(
+                        "event-announcements.server-events.stop.message",
+                        "Server is shutting down..."
+                    ) ?: "Server is shutting down..."
                 ),
                 playerDeaths = PlayerDeathConfig(
-                    enabled = config.getBoolean("discord.events.player-deaths.enabled", true),
-                    commentaryEnabled = config.getBoolean("discord.events.player-deaths.commentary.enabled", true),
-                    mcmmoRoastsEnabled = config.getBoolean("discord.events.player-deaths.commentary.mcmmo-roasts", true),
+                    enabled = config.getBoolean("event-announcements.player-deaths.enabled", true),
+                    commentaryEnabled = config.getBoolean(
+                        "event-announcements.player-deaths.commentary.enabled",
+                        true
+                    ),
+                    mcmmoRoastsEnabled = config.getBoolean(
+                        "event-announcements.player-deaths.commentary.mcmmo-roasts",
+                        true
+                    ),
                     mcmmoRoastThreshold = config.getInt(
-                        "discord.events.player-deaths.commentary.mcmmo-roast-threshold",
+                        "event-announcements.player-deaths.commentary.mcmmo-roast-threshold",
                         DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
                     )
                 ),
                 achievements = AchievementConfig(
-                    enabled = config.getBoolean("discord.events.achievements.enabled", true),
-                    excludeRecipes = config.getBoolean("discord.events.achievements.exclude-recipes", true)
+                    enabled = config.getBoolean("event-announcements.achievements.enabled", true),
+                    excludeRecipes = config.getBoolean("event-announcements.achievements.exclude-recipes", true)
                 )
             )
         }

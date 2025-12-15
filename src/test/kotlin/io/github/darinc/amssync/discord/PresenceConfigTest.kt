@@ -14,15 +14,15 @@ class PresenceConfigTest : DescribeSpec({
 
             it("loads all values from config") {
                 val config = mockk<FileConfiguration>()
-                every { config.getBoolean("discord.presence.enabled", true) } returns true
-                every { config.getInt("discord.presence.min-update-interval-seconds", 30) } returns 60
-                every { config.getInt("discord.presence.debounce-seconds", 5) } returns 10
-                every { config.getBoolean("discord.presence.activity.enabled", true) } returns true
-                every { config.getString("discord.presence.activity.type", "playing") } returns "watching"
-                every { config.getString("discord.presence.activity.template", "{count} players online") } returns "{count}/{max} online"
-                every { config.getBoolean("discord.presence.nickname.enabled", false) } returns true
-                every { config.getString("discord.presence.nickname.template", "[{count}] {name}") } returns "[{count}/{max}] {name}"
-                every { config.getBoolean("discord.presence.nickname.graceful-fallback", true) } returns false
+                every { config.getBoolean("player-count-display.bot-presence.enabled", true) } returns true
+                every { config.getInt("player-count-display.bot-presence.min-update-interval-seconds", 30) } returns 60
+                every { config.getInt("player-count-display.bot-presence.debounce-seconds", 5) } returns 10
+                every { config.getBoolean("player-count-display.bot-presence.activity.enabled", true) } returns true
+                every { config.getString("player-count-display.bot-presence.activity.type", "playing") } returns "watching"
+                every { config.getString("player-count-display.bot-presence.activity.template", "{count} players online") } returns "{count}/{max} online"
+                every { config.getBoolean("player-count-display.bot-presence.nickname.enabled", false) } returns true
+                every { config.getString("player-count-display.bot-presence.nickname.template", "[{count}] {name}") } returns "[{count}/{max}] {name}"
+                every { config.getBoolean("player-count-display.bot-presence.nickname.graceful-fallback", true) } returns false
 
                 val presenceConfig = PresenceConfig.fromConfig(config)
 
@@ -39,15 +39,15 @@ class PresenceConfigTest : DescribeSpec({
 
             it("uses default values when config keys missing") {
                 val config = mockk<FileConfiguration>()
-                every { config.getBoolean("discord.presence.enabled", true) } returns true
-                every { config.getInt("discord.presence.min-update-interval-seconds", 30) } returns 30
-                every { config.getInt("discord.presence.debounce-seconds", 5) } returns 5
-                every { config.getBoolean("discord.presence.activity.enabled", true) } returns true
-                every { config.getString("discord.presence.activity.type", "playing") } returns "playing"
-                every { config.getString("discord.presence.activity.template", "{count} players online") } returns "{count} players online"
-                every { config.getBoolean("discord.presence.nickname.enabled", false) } returns false
-                every { config.getString("discord.presence.nickname.template", "[{count}] {name}") } returns "[{count}] {name}"
-                every { config.getBoolean("discord.presence.nickname.graceful-fallback", true) } returns true
+                every { config.getBoolean("player-count-display.bot-presence.enabled", true) } returns true
+                every { config.getInt("player-count-display.bot-presence.min-update-interval-seconds", 30) } returns 30
+                every { config.getInt("player-count-display.bot-presence.debounce-seconds", 5) } returns 5
+                every { config.getBoolean("player-count-display.bot-presence.activity.enabled", true) } returns true
+                every { config.getString("player-count-display.bot-presence.activity.type", "playing") } returns "playing"
+                every { config.getString("player-count-display.bot-presence.activity.template", "{count} players online") } returns "{count} players online"
+                every { config.getBoolean("player-count-display.bot-presence.nickname.enabled", false) } returns false
+                every { config.getString("player-count-display.bot-presence.nickname.template", "[{count}] {name}") } returns "[{count}] {name}"
+                every { config.getBoolean("player-count-display.bot-presence.nickname.graceful-fallback", true) } returns true
 
                 val presenceConfig = PresenceConfig.fromConfig(config)
 
@@ -64,15 +64,15 @@ class PresenceConfigTest : DescribeSpec({
 
             it("converts seconds to milliseconds correctly") {
                 val config = mockk<FileConfiguration>()
-                every { config.getBoolean("discord.presence.enabled", true) } returns true
-                every { config.getInt("discord.presence.min-update-interval-seconds", 30) } returns 120
-                every { config.getInt("discord.presence.debounce-seconds", 5) } returns 15
-                every { config.getBoolean("discord.presence.activity.enabled", true) } returns true
-                every { config.getString("discord.presence.activity.type", "playing") } returns "playing"
-                every { config.getString("discord.presence.activity.template", "{count} players online") } returns "{count} players online"
-                every { config.getBoolean("discord.presence.nickname.enabled", false) } returns false
-                every { config.getString("discord.presence.nickname.template", "[{count}] {name}") } returns "[{count}] {name}"
-                every { config.getBoolean("discord.presence.nickname.graceful-fallback", true) } returns true
+                every { config.getBoolean("player-count-display.bot-presence.enabled", true) } returns true
+                every { config.getInt("player-count-display.bot-presence.min-update-interval-seconds", 30) } returns 120
+                every { config.getInt("player-count-display.bot-presence.debounce-seconds", 5) } returns 15
+                every { config.getBoolean("player-count-display.bot-presence.activity.enabled", true) } returns true
+                every { config.getString("player-count-display.bot-presence.activity.type", "playing") } returns "playing"
+                every { config.getString("player-count-display.bot-presence.activity.template", "{count} players online") } returns "{count} players online"
+                every { config.getBoolean("player-count-display.bot-presence.nickname.enabled", false) } returns false
+                every { config.getString("player-count-display.bot-presence.nickname.template", "[{count}] {name}") } returns "[{count}] {name}"
+                every { config.getBoolean("player-count-display.bot-presence.nickname.graceful-fallback", true) } returns true
 
                 val presenceConfig = PresenceConfig.fromConfig(config)
 
@@ -82,15 +82,15 @@ class PresenceConfigTest : DescribeSpec({
 
             it("handles null string values with defaults") {
                 val config = mockk<FileConfiguration>()
-                every { config.getBoolean("discord.presence.enabled", true) } returns true
-                every { config.getInt("discord.presence.min-update-interval-seconds", 30) } returns 30
-                every { config.getInt("discord.presence.debounce-seconds", 5) } returns 5
-                every { config.getBoolean("discord.presence.activity.enabled", true) } returns true
-                every { config.getString("discord.presence.activity.type", "playing") } returns null
-                every { config.getString("discord.presence.activity.template", "{count} players online") } returns null
-                every { config.getBoolean("discord.presence.nickname.enabled", false) } returns false
-                every { config.getString("discord.presence.nickname.template", "[{count}] {name}") } returns null
-                every { config.getBoolean("discord.presence.nickname.graceful-fallback", true) } returns true
+                every { config.getBoolean("player-count-display.bot-presence.enabled", true) } returns true
+                every { config.getInt("player-count-display.bot-presence.min-update-interval-seconds", 30) } returns 30
+                every { config.getInt("player-count-display.bot-presence.debounce-seconds", 5) } returns 5
+                every { config.getBoolean("player-count-display.bot-presence.activity.enabled", true) } returns true
+                every { config.getString("player-count-display.bot-presence.activity.type", "playing") } returns null
+                every { config.getString("player-count-display.bot-presence.activity.template", "{count} players online") } returns null
+                every { config.getBoolean("player-count-display.bot-presence.nickname.enabled", false) } returns false
+                every { config.getString("player-count-display.bot-presence.nickname.template", "[{count}] {name}") } returns null
+                every { config.getBoolean("player-count-display.bot-presence.nickname.graceful-fallback", true) } returns true
 
                 val presenceConfig = PresenceConfig.fromConfig(config)
 
@@ -101,15 +101,15 @@ class PresenceConfigTest : DescribeSpec({
 
             it("handles disabled state") {
                 val config = mockk<FileConfiguration>()
-                every { config.getBoolean("discord.presence.enabled", true) } returns false
-                every { config.getInt("discord.presence.min-update-interval-seconds", 30) } returns 30
-                every { config.getInt("discord.presence.debounce-seconds", 5) } returns 5
-                every { config.getBoolean("discord.presence.activity.enabled", true) } returns false
-                every { config.getString("discord.presence.activity.type", "playing") } returns "playing"
-                every { config.getString("discord.presence.activity.template", "{count} players online") } returns "{count} players online"
-                every { config.getBoolean("discord.presence.nickname.enabled", false) } returns false
-                every { config.getString("discord.presence.nickname.template", "[{count}] {name}") } returns "[{count}] {name}"
-                every { config.getBoolean("discord.presence.nickname.graceful-fallback", true) } returns true
+                every { config.getBoolean("player-count-display.bot-presence.enabled", true) } returns false
+                every { config.getInt("player-count-display.bot-presence.min-update-interval-seconds", 30) } returns 30
+                every { config.getInt("player-count-display.bot-presence.debounce-seconds", 5) } returns 5
+                every { config.getBoolean("player-count-display.bot-presence.activity.enabled", true) } returns false
+                every { config.getString("player-count-display.bot-presence.activity.type", "playing") } returns "playing"
+                every { config.getString("player-count-display.bot-presence.activity.template", "{count} players online") } returns "{count} players online"
+                every { config.getBoolean("player-count-display.bot-presence.nickname.enabled", false) } returns false
+                every { config.getString("player-count-display.bot-presence.nickname.template", "[{count}] {name}") } returns "[{count}] {name}"
+                every { config.getBoolean("player-count-display.bot-presence.nickname.graceful-fallback", true) } returns true
 
                 val presenceConfig = PresenceConfig.fromConfig(config)
 

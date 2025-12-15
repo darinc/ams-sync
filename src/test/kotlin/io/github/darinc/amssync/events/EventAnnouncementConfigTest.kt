@@ -16,27 +16,27 @@ class EventAnnouncementConfigTest : DescribeSpec({
 
             it("loads all values from config") {
                 val config = mockk<FileConfiguration>()
-                every { config.getBoolean("discord.events.enabled", false) } returns true
-                every { config.getString("discord.events.text-channel-id", "") } returns "123456789012345678"
-                every { config.getString("discord.events.webhook-url", "") } returns "https://discord.com/api/webhooks/123/abc"
-                every { config.getBoolean("discord.events.use-embeds", true) } returns true
-                every { config.getBoolean("discord.events.show-avatars", true) } returns true
-                every { config.getString("discord.events.avatar-provider", "mc-heads") } returns "crafatar"
-                every { config.getBoolean("discord.events.server-start.enabled", true) } returns true
-                every { config.getString("discord.events.server-start.message", "Server is now online!") } returns "Server started!"
-                every { config.getBoolean("discord.events.server-stop.enabled", true) } returns true
-                every { config.getString("discord.events.server-stop.message", "Server is shutting down...") } returns "Server stopping..."
-                every { config.getBoolean("discord.events.player-deaths.enabled", true) } returns true
-                every { config.getBoolean("discord.events.player-deaths.commentary.enabled", true) } returns true
-                every { config.getBoolean("discord.events.player-deaths.commentary.mcmmo-roasts", true) } returns true
+                every { config.getBoolean("event-announcements.enabled", false) } returns true
+                every { config.getString("event-announcements.server-events.channel-id", "") } returns "123456789012345678"
+                every { config.getString("event-announcements.webhook.url", "") } returns "https://discord.com/api/webhooks/123/abc"
+                every { config.getBoolean("event-announcements.webhook.use-embeds", true) } returns true
+                every { config.getBoolean("event-announcements.webhook.show-avatars", true) } returns true
+                every { config.getString("event-announcements.webhook.avatar-provider", "mc-heads") } returns "crafatar"
+                every { config.getBoolean("event-announcements.server-events.start.enabled", true) } returns true
+                every { config.getString("event-announcements.server-events.start.message", "Server is now online!") } returns "Server started!"
+                every { config.getBoolean("event-announcements.server-events.stop.enabled", true) } returns true
+                every { config.getString("event-announcements.server-events.stop.message", "Server is shutting down...") } returns "Server stopping..."
+                every { config.getBoolean("event-announcements.player-deaths.enabled", true) } returns true
+                every { config.getBoolean("event-announcements.player-deaths.commentary.enabled", true) } returns true
+                every { config.getBoolean("event-announcements.player-deaths.commentary.mcmmo-roasts", true) } returns true
                 every {
                     config.getInt(
-                        "discord.events.player-deaths.commentary.mcmmo-roast-threshold",
+                        "event-announcements.player-deaths.commentary.mcmmo-roast-threshold",
                         DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
                     )
                 } returns 5000
-                every { config.getBoolean("discord.events.achievements.enabled", true) } returns true
-                every { config.getBoolean("discord.events.achievements.exclude-recipes", true) } returns false
+                every { config.getBoolean("event-announcements.achievements.enabled", true) } returns true
+                every { config.getBoolean("event-announcements.achievements.exclude-recipes", true) } returns false
 
                 val eventConfig = EventAnnouncementConfig.fromConfig(config)
 
@@ -60,27 +60,27 @@ class EventAnnouncementConfigTest : DescribeSpec({
 
             it("uses default values when config keys missing") {
                 val config = mockk<FileConfiguration>()
-                every { config.getBoolean("discord.events.enabled", false) } returns false
-                every { config.getString("discord.events.text-channel-id", "") } returns ""
-                every { config.getString("discord.events.webhook-url", "") } returns ""
-                every { config.getBoolean("discord.events.use-embeds", true) } returns true
-                every { config.getBoolean("discord.events.show-avatars", true) } returns true
-                every { config.getString("discord.events.avatar-provider", "mc-heads") } returns "mc-heads"
-                every { config.getBoolean("discord.events.server-start.enabled", true) } returns true
-                every { config.getString("discord.events.server-start.message", "Server is now online!") } returns "Server is now online!"
-                every { config.getBoolean("discord.events.server-stop.enabled", true) } returns true
-                every { config.getString("discord.events.server-stop.message", "Server is shutting down...") } returns "Server is shutting down..."
-                every { config.getBoolean("discord.events.player-deaths.enabled", true) } returns true
-                every { config.getBoolean("discord.events.player-deaths.commentary.enabled", true) } returns true
-                every { config.getBoolean("discord.events.player-deaths.commentary.mcmmo-roasts", true) } returns true
+                every { config.getBoolean("event-announcements.enabled", false) } returns false
+                every { config.getString("event-announcements.server-events.channel-id", "") } returns ""
+                every { config.getString("event-announcements.webhook.url", "") } returns ""
+                every { config.getBoolean("event-announcements.webhook.use-embeds", true) } returns true
+                every { config.getBoolean("event-announcements.webhook.show-avatars", true) } returns true
+                every { config.getString("event-announcements.webhook.avatar-provider", "mc-heads") } returns "mc-heads"
+                every { config.getBoolean("event-announcements.server-events.start.enabled", true) } returns true
+                every { config.getString("event-announcements.server-events.start.message", "Server is now online!") } returns "Server is now online!"
+                every { config.getBoolean("event-announcements.server-events.stop.enabled", true) } returns true
+                every { config.getString("event-announcements.server-events.stop.message", "Server is shutting down...") } returns "Server is shutting down..."
+                every { config.getBoolean("event-announcements.player-deaths.enabled", true) } returns true
+                every { config.getBoolean("event-announcements.player-deaths.commentary.enabled", true) } returns true
+                every { config.getBoolean("event-announcements.player-deaths.commentary.mcmmo-roasts", true) } returns true
                 every {
                     config.getInt(
-                        "discord.events.player-deaths.commentary.mcmmo-roast-threshold",
+                        "event-announcements.player-deaths.commentary.mcmmo-roast-threshold",
                         DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
                     )
                 } returns DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
-                every { config.getBoolean("discord.events.achievements.enabled", true) } returns true
-                every { config.getBoolean("discord.events.achievements.exclude-recipes", true) } returns true
+                every { config.getBoolean("event-announcements.achievements.enabled", true) } returns true
+                every { config.getBoolean("event-announcements.achievements.exclude-recipes", true) } returns true
 
                 val eventConfig = EventAnnouncementConfig.fromConfig(config)
 
@@ -104,27 +104,27 @@ class EventAnnouncementConfigTest : DescribeSpec({
 
             it("converts blank webhook URL to null") {
                 val config = mockk<FileConfiguration>()
-                every { config.getBoolean("discord.events.enabled", false) } returns true
-                every { config.getString("discord.events.text-channel-id", "") } returns "123456789012345678"
-                every { config.getString("discord.events.webhook-url", "") } returns "   "
-                every { config.getBoolean("discord.events.use-embeds", true) } returns true
-                every { config.getBoolean("discord.events.show-avatars", true) } returns true
-                every { config.getString("discord.events.avatar-provider", "mc-heads") } returns "mc-heads"
-                every { config.getBoolean("discord.events.server-start.enabled", true) } returns true
-                every { config.getString("discord.events.server-start.message", "Server is now online!") } returns "Server is now online!"
-                every { config.getBoolean("discord.events.server-stop.enabled", true) } returns true
-                every { config.getString("discord.events.server-stop.message", "Server is shutting down...") } returns "Server is shutting down..."
-                every { config.getBoolean("discord.events.player-deaths.enabled", true) } returns true
-                every { config.getBoolean("discord.events.player-deaths.commentary.enabled", true) } returns true
-                every { config.getBoolean("discord.events.player-deaths.commentary.mcmmo-roasts", true) } returns true
+                every { config.getBoolean("event-announcements.enabled", false) } returns true
+                every { config.getString("event-announcements.server-events.channel-id", "") } returns "123456789012345678"
+                every { config.getString("event-announcements.webhook.url", "") } returns "   "
+                every { config.getBoolean("event-announcements.webhook.use-embeds", true) } returns true
+                every { config.getBoolean("event-announcements.webhook.show-avatars", true) } returns true
+                every { config.getString("event-announcements.webhook.avatar-provider", "mc-heads") } returns "mc-heads"
+                every { config.getBoolean("event-announcements.server-events.start.enabled", true) } returns true
+                every { config.getString("event-announcements.server-events.start.message", "Server is now online!") } returns "Server is now online!"
+                every { config.getBoolean("event-announcements.server-events.stop.enabled", true) } returns true
+                every { config.getString("event-announcements.server-events.stop.message", "Server is shutting down...") } returns "Server is shutting down..."
+                every { config.getBoolean("event-announcements.player-deaths.enabled", true) } returns true
+                every { config.getBoolean("event-announcements.player-deaths.commentary.enabled", true) } returns true
+                every { config.getBoolean("event-announcements.player-deaths.commentary.mcmmo-roasts", true) } returns true
                 every {
                     config.getInt(
-                        "discord.events.player-deaths.commentary.mcmmo-roast-threshold",
+                        "event-announcements.player-deaths.commentary.mcmmo-roast-threshold",
                         DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
                     )
                 } returns DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
-                every { config.getBoolean("discord.events.achievements.enabled", true) } returns true
-                every { config.getBoolean("discord.events.achievements.exclude-recipes", true) } returns true
+                every { config.getBoolean("event-announcements.achievements.enabled", true) } returns true
+                every { config.getBoolean("event-announcements.achievements.exclude-recipes", true) } returns true
 
                 val eventConfig = EventAnnouncementConfig.fromConfig(config)
 
@@ -133,27 +133,27 @@ class EventAnnouncementConfigTest : DescribeSpec({
 
             it("handles null string values with defaults") {
                 val config = mockk<FileConfiguration>()
-                every { config.getBoolean("discord.events.enabled", false) } returns true
-                every { config.getString("discord.events.text-channel-id", "") } returns null
-                every { config.getString("discord.events.webhook-url", "") } returns null
-                every { config.getBoolean("discord.events.use-embeds", true) } returns true
-                every { config.getBoolean("discord.events.show-avatars", true) } returns true
-                every { config.getString("discord.events.avatar-provider", "mc-heads") } returns null
-                every { config.getBoolean("discord.events.server-start.enabled", true) } returns true
-                every { config.getString("discord.events.server-start.message", "Server is now online!") } returns null
-                every { config.getBoolean("discord.events.server-stop.enabled", true) } returns true
-                every { config.getString("discord.events.server-stop.message", "Server is shutting down...") } returns null
-                every { config.getBoolean("discord.events.player-deaths.enabled", true) } returns true
-                every { config.getBoolean("discord.events.player-deaths.commentary.enabled", true) } returns true
-                every { config.getBoolean("discord.events.player-deaths.commentary.mcmmo-roasts", true) } returns true
+                every { config.getBoolean("event-announcements.enabled", false) } returns true
+                every { config.getString("event-announcements.server-events.channel-id", "") } returns null
+                every { config.getString("event-announcements.webhook.url", "") } returns null
+                every { config.getBoolean("event-announcements.webhook.use-embeds", true) } returns true
+                every { config.getBoolean("event-announcements.webhook.show-avatars", true) } returns true
+                every { config.getString("event-announcements.webhook.avatar-provider", "mc-heads") } returns null
+                every { config.getBoolean("event-announcements.server-events.start.enabled", true) } returns true
+                every { config.getString("event-announcements.server-events.start.message", "Server is now online!") } returns null
+                every { config.getBoolean("event-announcements.server-events.stop.enabled", true) } returns true
+                every { config.getString("event-announcements.server-events.stop.message", "Server is shutting down...") } returns null
+                every { config.getBoolean("event-announcements.player-deaths.enabled", true) } returns true
+                every { config.getBoolean("event-announcements.player-deaths.commentary.enabled", true) } returns true
+                every { config.getBoolean("event-announcements.player-deaths.commentary.mcmmo-roasts", true) } returns true
                 every {
                     config.getInt(
-                        "discord.events.player-deaths.commentary.mcmmo-roast-threshold",
+                        "event-announcements.player-deaths.commentary.mcmmo-roast-threshold",
                         DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
                     )
                 } returns DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
-                every { config.getBoolean("discord.events.achievements.enabled", true) } returns true
-                every { config.getBoolean("discord.events.achievements.exclude-recipes", true) } returns true
+                every { config.getBoolean("event-announcements.achievements.enabled", true) } returns true
+                every { config.getBoolean("event-announcements.achievements.exclude-recipes", true) } returns true
 
                 val eventConfig = EventAnnouncementConfig.fromConfig(config)
 
@@ -166,27 +166,27 @@ class EventAnnouncementConfigTest : DescribeSpec({
 
             it("handles disabled sub-features") {
                 val config = mockk<FileConfiguration>()
-                every { config.getBoolean("discord.events.enabled", false) } returns true
-                every { config.getString("discord.events.text-channel-id", "") } returns "123456789012345678"
-                every { config.getString("discord.events.webhook-url", "") } returns ""
-                every { config.getBoolean("discord.events.use-embeds", true) } returns false
-                every { config.getBoolean("discord.events.show-avatars", true) } returns false
-                every { config.getString("discord.events.avatar-provider", "mc-heads") } returns "mc-heads"
-                every { config.getBoolean("discord.events.server-start.enabled", true) } returns false
-                every { config.getString("discord.events.server-start.message", "Server is now online!") } returns "Server is now online!"
-                every { config.getBoolean("discord.events.server-stop.enabled", true) } returns false
-                every { config.getString("discord.events.server-stop.message", "Server is shutting down...") } returns "Server is shutting down..."
-                every { config.getBoolean("discord.events.player-deaths.enabled", true) } returns false
-                every { config.getBoolean("discord.events.player-deaths.commentary.enabled", true) } returns false
-                every { config.getBoolean("discord.events.player-deaths.commentary.mcmmo-roasts", true) } returns false
+                every { config.getBoolean("event-announcements.enabled", false) } returns true
+                every { config.getString("event-announcements.server-events.channel-id", "") } returns "123456789012345678"
+                every { config.getString("event-announcements.webhook.url", "") } returns ""
+                every { config.getBoolean("event-announcements.webhook.use-embeds", true) } returns false
+                every { config.getBoolean("event-announcements.webhook.show-avatars", true) } returns false
+                every { config.getString("event-announcements.webhook.avatar-provider", "mc-heads") } returns "mc-heads"
+                every { config.getBoolean("event-announcements.server-events.start.enabled", true) } returns false
+                every { config.getString("event-announcements.server-events.start.message", "Server is now online!") } returns "Server is now online!"
+                every { config.getBoolean("event-announcements.server-events.stop.enabled", true) } returns false
+                every { config.getString("event-announcements.server-events.stop.message", "Server is shutting down...") } returns "Server is shutting down..."
+                every { config.getBoolean("event-announcements.player-deaths.enabled", true) } returns false
+                every { config.getBoolean("event-announcements.player-deaths.commentary.enabled", true) } returns false
+                every { config.getBoolean("event-announcements.player-deaths.commentary.mcmmo-roasts", true) } returns false
                 every {
                     config.getInt(
-                        "discord.events.player-deaths.commentary.mcmmo-roast-threshold",
+                        "event-announcements.player-deaths.commentary.mcmmo-roast-threshold",
                         DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
                     )
                 } returns DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
-                every { config.getBoolean("discord.events.achievements.enabled", true) } returns false
-                every { config.getBoolean("discord.events.achievements.exclude-recipes", true) } returns true
+                every { config.getBoolean("event-announcements.achievements.enabled", true) } returns false
+                every { config.getBoolean("event-announcements.achievements.exclude-recipes", true) } returns true
 
                 val eventConfig = EventAnnouncementConfig.fromConfig(config)
 

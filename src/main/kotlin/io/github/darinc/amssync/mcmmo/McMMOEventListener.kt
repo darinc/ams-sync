@@ -503,18 +503,26 @@ data class AnnouncementConfig(
          * @return AnnouncementConfig with loaded or default values
          */
         fun fromConfig(config: FileConfiguration): AnnouncementConfig {
-            val webhookUrl = config.getString("discord.announcements.webhook-url", "") ?: ""
+            // MCMMO milestones can use the shared webhook URL
+            val webhookUrl = config.getString("event-announcements.webhook.url", "") ?: ""
 
             return AnnouncementConfig(
-                enabled = config.getBoolean("discord.announcements.enabled", false),
-                channelId = config.getString("discord.announcements.text-channel-id", "") ?: "",
+                enabled = config.getBoolean("event-announcements.mcmmo-milestones.enabled", false),
+                channelId = config.getString("event-announcements.mcmmo-milestones.channel-id", "") ?: "",
                 webhookUrl = webhookUrl.ifBlank { null },
-                skillMilestoneInterval = config.getInt("discord.announcements.skill-milestone-interval", 100),
-                powerMilestoneInterval = config.getInt("discord.announcements.power-milestone-interval", 500),
-                useEmbeds = config.getBoolean("discord.announcements.use-embeds", true),
-                useImageCards = config.getBoolean("discord.announcements.use-image-cards", true),
-                showAvatars = config.getBoolean("discord.announcements.show-avatars", true),
-                avatarProvider = config.getString("discord.announcements.avatar-provider", "mc-heads") ?: "mc-heads"
+                skillMilestoneInterval = config.getInt(
+                    "event-announcements.mcmmo-milestones.skill-milestone-interval",
+                    100
+                ),
+                powerMilestoneInterval = config.getInt(
+                    "event-announcements.mcmmo-milestones.power-milestone-interval",
+                    500
+                ),
+                useEmbeds = config.getBoolean("event-announcements.mcmmo-milestones.use-embeds", true),
+                useImageCards = config.getBoolean("event-announcements.mcmmo-milestones.use-image-cards", true),
+                showAvatars = config.getBoolean("event-announcements.mcmmo-milestones.show-avatars", true),
+                avatarProvider = config.getString("event-announcements.mcmmo-milestones.avatar-provider", "mc-heads")
+                    ?: "mc-heads"
             )
         }
     }

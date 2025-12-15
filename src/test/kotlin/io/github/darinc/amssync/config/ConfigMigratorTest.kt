@@ -34,7 +34,7 @@ class ConfigMigratorTest : DescribeSpec({
 
     val minimalDefaultConfig = """
         # Configuration version
-        config-version: 2
+        config-version: 4
 
         # Settings
         discord:
@@ -69,10 +69,10 @@ class ConfigMigratorTest : DescribeSpec({
             it("returns UpToDate when config-version matches current") {
                 val tempDir = createTempDir()
                 try {
-                    // Create config with current version (2)
+                    // Create config with current version (4)
                     val configFile = File(tempDir, "config.yml")
                     configFile.writeText("""
-                        config-version: 2
+                        config-version: 4
                         discord:
                           token: "my-token"
                     """.trimIndent())
@@ -108,7 +108,7 @@ class ConfigMigratorTest : DescribeSpec({
                     result.shouldBeInstanceOf<ConfigMigrator.MigrationResult.Migrated>()
                     val migrated = result as ConfigMigrator.MigrationResult.Migrated
                     migrated.fromVersion shouldBe 0
-                    migrated.toVersion shouldBe 2
+                    migrated.toVersion shouldBe 4
                 } finally {
                     tempDir.deleteRecursively()
                 }
@@ -260,7 +260,7 @@ class ConfigMigratorTest : DescribeSpec({
                     migrator.migrateIfNeeded()
 
                     val migratedContent = configFile.readText()
-                    migratedContent shouldContain "config-version: 2"
+                    migratedContent shouldContain "config-version: 4"
                 } finally {
                     tempDir.deleteRecursively()
                 }

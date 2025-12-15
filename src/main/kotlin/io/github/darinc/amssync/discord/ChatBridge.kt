@@ -275,20 +275,20 @@ data class ChatBridgeConfig(
          */
         fun fromConfig(config: FileConfiguration): ChatBridgeConfig {
             return ChatBridgeConfig(
-                enabled = config.getBoolean("discord.chat-bridge.enabled", false),
-                channelId = config.getString("discord.chat-bridge.channel-id", "") ?: "",
-                minecraftToDiscord = config.getBoolean("discord.chat-bridge.minecraft-to-discord", true),
-                discordToMinecraft = config.getBoolean("discord.chat-bridge.discord-to-minecraft", true),
-                mcFormat = config.getString("discord.chat-bridge.mc-format", "&7[Discord] &b{author}&7: {message}")
+                enabled = config.getBoolean("chat-bridge.enabled", false),
+                channelId = config.getString("chat-bridge.channel-id", "") ?: "",
+                minecraftToDiscord = config.getBoolean("chat-bridge.minecraft-to-discord", true),
+                discordToMinecraft = config.getBoolean("chat-bridge.discord-to-minecraft", true),
+                mcFormat = config.getString("chat-bridge.mc-format", "&7[Discord] &b{author}&7: {message}")
                     ?: "&7[Discord] &b{author}&7: {message}",
-                discordFormat = config.getString("discord.chat-bridge.discord-format", "**{player}**: {message}")
+                discordFormat = config.getString("chat-bridge.discord-format", "**{player}**: {message}")
                     ?: "**{player}**: {message}",
-                ignorePrefixes = config.getStringList("discord.chat-bridge.ignore-prefixes").ifEmpty { listOf("/") },
-                suppressNotifications = config.getBoolean("discord.chat-bridge.suppress-notifications", true),
-                useWebhook = config.getBoolean("discord.chat-bridge.use-webhook", false),
-                webhookUrl = config.getString("discord.chat-bridge.webhook-url", "")?.takeIf { it.isNotBlank() },
-                avatarProvider = config.getString("discord.chat-bridge.avatar-provider", "mc-heads") ?: "mc-heads",
-                resolveMentions = config.getBoolean("discord.chat-bridge.resolve-mentions", true)
+                ignorePrefixes = config.getStringList("chat-bridge.ignore-prefixes").ifEmpty { listOf("/") },
+                suppressNotifications = config.getBoolean("chat-bridge.suppress-notifications", true),
+                useWebhook = config.getBoolean("chat-bridge.use-webhook", false),
+                webhookUrl = config.getString("chat-bridge.webhook-url", "")?.takeIf { it.isNotBlank() },
+                avatarProvider = config.getString("chat-bridge.avatar-provider", "mc-heads") ?: "mc-heads",
+                resolveMentions = config.getBoolean("chat-bridge.resolve-mentions", true)
             )
         }
 

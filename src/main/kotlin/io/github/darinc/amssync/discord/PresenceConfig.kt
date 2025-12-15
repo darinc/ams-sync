@@ -5,7 +5,7 @@ import org.bukkit.configuration.file.FileConfiguration
 /**
  * Configuration for player count presence display.
  *
- * Loaded from config.yml under discord.presence section.
+ * Loaded from config.yml under player-count-display.bot-presence section.
  *
  * @property enabled Master enable/disable for all presence features
  * @property minIntervalMs Minimum milliseconds between Discord API updates
@@ -21,6 +21,8 @@ data class PresenceConfig(
     val nickname: NicknameConfig
 ) {
     companion object {
+        private const val PREFIX = "player-count-display.bot-presence"
+
         /**
          * Load presence configuration from Bukkit config file.
          *
@@ -29,20 +31,20 @@ data class PresenceConfig(
          */
         fun fromConfig(config: FileConfiguration): PresenceConfig {
             return PresenceConfig(
-                enabled = config.getBoolean("discord.presence.enabled", true),
-                minIntervalMs = config.getInt("discord.presence.min-update-interval-seconds", 30) * 1000L,
-                debounceMs = config.getInt("discord.presence.debounce-seconds", 5) * 1000L,
+                enabled = config.getBoolean("$PREFIX.enabled", true),
+                minIntervalMs = config.getInt("$PREFIX.min-update-interval-seconds", 30) * 1000L,
+                debounceMs = config.getInt("$PREFIX.debounce-seconds", 5) * 1000L,
                 activity = ActivityConfig(
-                    enabled = config.getBoolean("discord.presence.activity.enabled", true),
-                    type = config.getString("discord.presence.activity.type", "playing") ?: "playing",
-                    template = config.getString("discord.presence.activity.template", "{count} players online")
+                    enabled = config.getBoolean("$PREFIX.activity.enabled", true),
+                    type = config.getString("$PREFIX.activity.type", "playing") ?: "playing",
+                    template = config.getString("$PREFIX.activity.template", "{count} players online")
                         ?: "{count} players online"
                 ),
                 nickname = NicknameConfig(
-                    enabled = config.getBoolean("discord.presence.nickname.enabled", false),
-                    template = config.getString("discord.presence.nickname.template", "[{count}] {name}")
+                    enabled = config.getBoolean("$PREFIX.nickname.enabled", false),
+                    template = config.getString("$PREFIX.nickname.template", "[{count}] {name}")
                         ?: "[{count}] {name}",
-                    gracefulFallback = config.getBoolean("discord.presence.nickname.graceful-fallback", true)
+                    gracefulFallback = config.getBoolean("$PREFIX.nickname.graceful-fallback", true)
                 )
             )
         }

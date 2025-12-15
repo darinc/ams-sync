@@ -1,6 +1,6 @@
 # Configuration version - DO NOT MODIFY
 # Used internally to detect when new config options are available
-config-version: 3
+config-version: 4
 
 # AMSSync Plugin Configuration
 #
@@ -155,6 +155,10 @@ image-cards:
 # Posts Minecraft events to Discord channels (MCMMO milestones, deaths, etc.)
 # ============================================================================
 event-announcements:
+  # Master enable/disable for all event announcements
+  # When false, no events will be posted to Discord regardless of sub-feature settings
+  enabled: false
+
   # MCMMO milestone announcements
   # Posts when players reach skill/power level milestones
   mcmmo-milestones:

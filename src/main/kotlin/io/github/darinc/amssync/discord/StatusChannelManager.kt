@@ -273,11 +273,14 @@ data class StatusChannelConfig(
          */
         fun fromConfig(config: FileConfiguration): StatusChannelConfig {
             return StatusChannelConfig(
-                enabled = config.getBoolean("discord.status-channel.enabled", false),
-                channelId = config.getString("discord.status-channel.voice-channel-id", "") ?: "",
-                template = config.getString("discord.status-channel.template", "{count} AMS Online")
+                enabled = config.getBoolean("player-count-display.status-channel.enabled", false),
+                channelId = config.getString("player-count-display.status-channel.channel-id", "") ?: "",
+                template = config.getString("player-count-display.status-channel.template", "{count} AMS Online")
                     ?: "{count} AMS Online",
-                updateIntervalMs = config.getInt("discord.status-channel.update-interval-seconds", 300) * 1000L
+                updateIntervalMs = config.getInt(
+                    "player-count-display.status-channel.update-interval-seconds",
+                    300
+                ) * 1000L
             )
         }
     }
