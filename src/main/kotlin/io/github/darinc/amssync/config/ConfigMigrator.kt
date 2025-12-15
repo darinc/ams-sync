@@ -31,7 +31,7 @@ class ConfigMigrator(
 ) {
     companion object {
         const val CONFIG_VERSION_KEY = "config-version"
-        const val CURRENT_CONFIG_VERSION = 2
+        const val CURRENT_CONFIG_VERSION = 3
     }
 
     /**

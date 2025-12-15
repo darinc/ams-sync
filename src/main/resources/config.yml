@@ -1,6 +1,6 @@
 # Configuration version - DO NOT MODIFY
 # Used internally to detect when new config options are available
-config-version: 2
+config-version: 3
 
 # AMSSync Plugin Configuration
 #
