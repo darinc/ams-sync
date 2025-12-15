@@ -54,7 +54,13 @@ data class EventAnnouncementConfig(
                         ?: "Server is shutting down..."
                 ),
                 playerDeaths = PlayerDeathConfig(
-                    enabled = config.getBoolean("discord.events.player-deaths.enabled", true)
+                    enabled = config.getBoolean("discord.events.player-deaths.enabled", true),
+                    commentaryEnabled = config.getBoolean("discord.events.player-deaths.commentary.enabled", true),
+                    mcmmoRoastsEnabled = config.getBoolean("discord.events.player-deaths.commentary.mcmmo-roasts", true),
+                    mcmmoRoastThreshold = config.getInt(
+                        "discord.events.player-deaths.commentary.mcmmo-roast-threshold",
+                        DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
+                    )
                 ),
                 achievements = AchievementConfig(
                     enabled = config.getBoolean("discord.events.achievements.enabled", true),
@@ -102,9 +108,17 @@ data class ServerStopConfig(
 
 /**
  * Configuration for player death announcements.
+ *
+ * @property enabled Enable/disable death announcements
+ * @property commentaryEnabled Enable funny commentary after death messages
+ * @property mcmmoRoastsEnabled Enable extra roasts for high-level MCMMO players
+ * @property mcmmoRoastThreshold Power level threshold for MCMMO roasts
  */
 data class PlayerDeathConfig(
-    val enabled: Boolean
+    val enabled: Boolean,
+    val commentaryEnabled: Boolean = true,
+    val mcmmoRoastsEnabled: Boolean = true,
+    val mcmmoRoastThreshold: Int = DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
 )
 
 /**

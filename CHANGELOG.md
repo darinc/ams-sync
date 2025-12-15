@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.25.0] - 2025-12-15
+
+### Added
+
+- Fun death message commentary system with 100+ humorous messages for Discord death announcements
+- Death type categorization for targeted humor (creeper, skeleton, fall, lava, drowning, etc.)
+- MCMMO elite roasts for high-level players dying to embarrassing causes (starvation, cactus, bee)
+- Configurable commentary settings: enable/disable, MCMMO roasts toggle, power level threshold
+
 ## [0.24.0] - 2025-12-14
 
 ### Changed

@@ -215,6 +215,21 @@ event-announcements:
     # Text channel ID for death announcements (right-click channel -> Copy ID)
     channel-id: ""
 
+    # Funny commentary added after death messages
+    # Example: "PlayerX fell from a high place" + "Gravity always wins."
+    commentary:
+      # Enable/disable funny commentary after death messages
+      enabled: true
+
+      # Enable extra roasts for high-level MCMMO players dying to embarrassing causes
+      # (starvation, cactus, drowning, berry bush, bee, slime, etc.)
+      # Example: Level 5000 player drowns → "Elite player, amateur swimmer."
+      mcmmo-roasts: true
+
+      # Minimum MCMMO power level for elite roasts
+      # Players below this threshold won't get the extra roast messages
+      mcmmo-roast-threshold: 3000
+
   # Achievement/advancement announcements
   # Posts player achievements to Discord
   achievements:

@@ -27,6 +27,14 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 every { config.getBoolean("discord.events.server-stop.enabled", true) } returns true
                 every { config.getString("discord.events.server-stop.message", "Server is shutting down...") } returns "Server stopping..."
                 every { config.getBoolean("discord.events.player-deaths.enabled", true) } returns true
+                every { config.getBoolean("discord.events.player-deaths.commentary.enabled", true) } returns true
+                every { config.getBoolean("discord.events.player-deaths.commentary.mcmmo-roasts", true) } returns true
+                every {
+                    config.getInt(
+                        "discord.events.player-deaths.commentary.mcmmo-roast-threshold",
+                        DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
+                    )
+                } returns 5000
                 every { config.getBoolean("discord.events.achievements.enabled", true) } returns true
                 every { config.getBoolean("discord.events.achievements.exclude-recipes", true) } returns false
 
@@ -43,6 +51,9 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 eventConfig.serverStop.enabled shouldBe true
                 eventConfig.serverStop.message shouldBe "Server stopping..."
                 eventConfig.playerDeaths.enabled shouldBe true
+                eventConfig.playerDeaths.commentaryEnabled shouldBe true
+                eventConfig.playerDeaths.mcmmoRoastsEnabled shouldBe true
+                eventConfig.playerDeaths.mcmmoRoastThreshold shouldBe 5000
                 eventConfig.achievements.enabled shouldBe true
                 eventConfig.achievements.excludeRecipes shouldBe false
             }
@@ -60,6 +71,14 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 every { config.getBoolean("discord.events.server-stop.enabled", true) } returns true
                 every { config.getString("discord.events.server-stop.message", "Server is shutting down...") } returns "Server is shutting down..."
                 every { config.getBoolean("discord.events.player-deaths.enabled", true) } returns true
+                every { config.getBoolean("discord.events.player-deaths.commentary.enabled", true) } returns true
+                every { config.getBoolean("discord.events.player-deaths.commentary.mcmmo-roasts", true) } returns true
+                every {
+                    config.getInt(
+                        "discord.events.player-deaths.commentary.mcmmo-roast-threshold",
+                        DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
+                    )
+                } returns DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
                 every { config.getBoolean("discord.events.achievements.enabled", true) } returns true
                 every { config.getBoolean("discord.events.achievements.exclude-recipes", true) } returns true
 
@@ -76,6 +95,9 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 eventConfig.serverStop.enabled shouldBe true
                 eventConfig.serverStop.message shouldBe "Server is shutting down..."
                 eventConfig.playerDeaths.enabled shouldBe true
+                eventConfig.playerDeaths.commentaryEnabled shouldBe true
+                eventConfig.playerDeaths.mcmmoRoastsEnabled shouldBe true
+                eventConfig.playerDeaths.mcmmoRoastThreshold shouldBe DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
                 eventConfig.achievements.enabled shouldBe true
                 eventConfig.achievements.excludeRecipes shouldBe true
             }
@@ -93,6 +115,14 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 every { config.getBoolean("discord.events.server-stop.enabled", true) } returns true
                 every { config.getString("discord.events.server-stop.message", "Server is shutting down...") } returns "Server is shutting down..."
                 every { config.getBoolean("discord.events.player-deaths.enabled", true) } returns true
+                every { config.getBoolean("discord.events.player-deaths.commentary.enabled", true) } returns true
+                every { config.getBoolean("discord.events.player-deaths.commentary.mcmmo-roasts", true) } returns true
+                every {
+                    config.getInt(
+                        "discord.events.player-deaths.commentary.mcmmo-roast-threshold",
+                        DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
+                    )
+                } returns DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
                 every { config.getBoolean("discord.events.achievements.enabled", true) } returns true
                 every { config.getBoolean("discord.events.achievements.exclude-recipes", true) } returns true
 
@@ -114,6 +144,14 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 every { config.getBoolean("discord.events.server-stop.enabled", true) } returns true
                 every { config.getString("discord.events.server-stop.message", "Server is shutting down...") } returns null
                 every { config.getBoolean("discord.events.player-deaths.enabled", true) } returns true
+                every { config.getBoolean("discord.events.player-deaths.commentary.enabled", true) } returns true
+                every { config.getBoolean("discord.events.player-deaths.commentary.mcmmo-roasts", true) } returns true
+                every {
+                    config.getInt(
+                        "discord.events.player-deaths.commentary.mcmmo-roast-threshold",
+                        DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
+                    )
+                } returns DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
                 every { config.getBoolean("discord.events.achievements.enabled", true) } returns true
                 every { config.getBoolean("discord.events.achievements.exclude-recipes", true) } returns true
 
@@ -139,6 +177,14 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 every { config.getBoolean("discord.events.server-stop.enabled", true) } returns false
                 every { config.getString("discord.events.server-stop.message", "Server is shutting down...") } returns "Server is shutting down..."
                 every { config.getBoolean("discord.events.player-deaths.enabled", true) } returns false
+                every { config.getBoolean("discord.events.player-deaths.commentary.enabled", true) } returns false
+                every { config.getBoolean("discord.events.player-deaths.commentary.mcmmo-roasts", true) } returns false
+                every {
+                    config.getInt(
+                        "discord.events.player-deaths.commentary.mcmmo-roast-threshold",
+                        DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
+                    )
+                } returns DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
                 every { config.getBoolean("discord.events.achievements.enabled", true) } returns false
                 every { config.getBoolean("discord.events.achievements.exclude-recipes", true) } returns true
 
@@ -149,6 +195,8 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 eventConfig.serverStart.enabled shouldBe false
                 eventConfig.serverStop.enabled shouldBe false
                 eventConfig.playerDeaths.enabled shouldBe false
+                eventConfig.playerDeaths.commentaryEnabled shouldBe false
+                eventConfig.playerDeaths.mcmmoRoastsEnabled shouldBe false
                 eventConfig.achievements.enabled shouldBe false
             }
         }
@@ -231,6 +279,39 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 val config = PlayerDeathConfig(enabled = true)
 
                 config.enabled shouldBe true
+            }
+
+            it("stores all commentary config values") {
+                val config = PlayerDeathConfig(
+                    enabled = true,
+                    commentaryEnabled = true,
+                    mcmmoRoastsEnabled = true,
+                    mcmmoRoastThreshold = 5000
+                )
+
+                config.enabled shouldBe true
+                config.commentaryEnabled shouldBe true
+                config.mcmmoRoastsEnabled shouldBe true
+                config.mcmmoRoastThreshold shouldBe 5000
+            }
+
+            it("uses default commentary values") {
+                val config = PlayerDeathConfig(enabled = true)
+
+                config.commentaryEnabled shouldBe true
+                config.mcmmoRoastsEnabled shouldBe true
+                config.mcmmoRoastThreshold shouldBe DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
+            }
+
+            it("can disable commentary features") {
+                val config = PlayerDeathConfig(
+                    enabled = true,
+                    commentaryEnabled = false,
+                    mcmmoRoastsEnabled = false
+                )
+
+                config.commentaryEnabled shouldBe false
+                config.mcmmoRoastsEnabled shouldBe false
             }
         }
 
