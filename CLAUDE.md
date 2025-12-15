@@ -91,12 +91,18 @@ Services are exposed as direct properties on `AMSSyncPlugin`:
 - `plugin.auditLogger` - Administrative action logging
 - `plugin.rateLimiter` - Command rate limiting (nullable, config-dependent)
 
-**Grouped Services (logical groupings):**
+**Grouped Services:**
 - `plugin.resilience` - `ResilienceServices` (timeoutManager, circuitBreaker)
-- `plugin.discord` - `DiscordServices` (manager, apiWrapper, chatBridge, webhooks, presence, statusChannel)
-- `plugin.image` - `ImageServices` (config, avatarFetcher, renderer, commands)
-- `plugin.events` - `EventServices` (mcmmoListener, serverListener, deathListener, achievementListener)
-- `plugin.progression` - `ProgressionServices` (config, database, snapshotTask, retentionTask)
+- `plugin.discord` - `DiscordServices` (manager, apiWrapper, webhookManager)
+
+**Feature Coordinators** (`features/`):
+Features manage lifecycle (initialize/shutdown) of related services. Each implements the `Feature` interface with `isEnabled`, `initialize()`, and `shutdown()` methods.
+
+- `plugin.imageFeature` - `ImageCardFeature` (avatarFetcher, cardRenderer, statsCommand, topCommand)
+- `plugin.eventsFeature` - `EventAnnouncementFeature` (mcmmoListener, serverListener, deathListener, achievementListener)
+- `plugin.chatBridgeFeature` - `ChatBridgeFeature` (chatBridge, chatWebhookManager)
+- `plugin.playerCountFeature` - `PlayerCountDisplayFeature` (presence, statusChannel)
+- `plugin.progressionFeature` - `ProgressionTrackingFeature` (database, snapshotTask, retentionTask)
 
 ### Core Services
 
@@ -311,6 +317,8 @@ All configuration lives in `src/main/resources/config.yml`:
    - `plugin.userMappingService` for Discord-Minecraft mappings
    - `plugin.discord.apiWrapper` for circuit-breaker-protected Discord API calls
    - `plugin.resilience.circuitBreaker` for manual circuit breaker checks
+   - `plugin.imageFeature?.avatarFetcher` for avatar fetching
+   - `plugin.progressionFeature?.database` for progression data
 
 ### Error Handling
 
@@ -341,8 +349,9 @@ All configuration lives in `src/main/resources/config.yml`:
 - Kotlin 1.9.21 with Java 21 toolchain
 - Detekt for static analysis (config: `detekt-config.yml`)
 - Use `lateinit` for required plugin services initialized in `onEnable()`
-- Nullable types for optional services (e.g., `rateLimiter`, `timeoutManager`, `circuitBreaker`)
+- Nullable types for optional services and features (e.g., `rateLimiter`, `imageFeature`)
 - Services exposed as direct properties on `AMSSyncPlugin` (access via `plugin.serviceName`)
+- Feature coordinators implement `Feature` interface for lifecycle management
 - Grouped services use wrapper data classes (e.g., `DiscordServices`, `ResilienceServices`)
 - Prefer sealed classes for result types (e.g., `RetryResult`, `TimeoutResult`)
 - Config data classes with companion `fromConfig()` factory methods (e.g., `ImageConfig`, `PresenceConfig`)
