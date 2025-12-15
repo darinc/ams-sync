@@ -11,7 +11,7 @@ import java.util.logging.Logger
  */
 class ChatBridgeFeature(
     private val logger: Logger,
-    private val config: ChatBridgeConfig
+    val config: ChatBridgeConfig
 ) : Feature {
 
     var chatBridge: ChatBridge? = null
@@ -24,8 +24,7 @@ class ChatBridgeFeature(
         get() = config.enabled
 
     override fun initialize() {
-        // Note: Actual initialization requires DiscordManager
-        // This will be fully implemented when integrating with AMSSyncPlugin
+        // Chat bridge initialization requires DiscordManager - use setBridge() after connection
         if (!isEnabled) {
             logger.info("Chat bridge is disabled in config")
         }
@@ -40,13 +39,8 @@ class ChatBridgeFeature(
     }
 
     override fun shutdown() {
-        // ChatBridge and ChatWebhookManager don't require explicit shutdown
+        chatWebhookManager?.shutdown()
         chatBridge = null
         chatWebhookManager = null
     }
-
-    /**
-     * Get the chat bridge configuration.
-     */
-    fun getConfig(): ChatBridgeConfig = config
 }

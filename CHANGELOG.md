@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.0] - 2025-12-14
+
+### Changed
+
+- Integrated Feature coordinators for lifecycle management of plugin services
+- Features now manage: ImageCard, ProgressionTracking, EventAnnouncement, ChatBridge, PlayerCountDisplay
+- Simplified DiscordServices to only hold core Discord manager and event webhook
+
+### Removed
+
+- Deleted unused service wrappers: ImageServices, EventServices, ProgressionServices
+
 ## [0.23.0] - 2025-12-14
 
 ### Changed

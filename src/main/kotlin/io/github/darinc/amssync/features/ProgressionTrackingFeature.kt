@@ -1,5 +1,6 @@
 package io.github.darinc.amssync.features
 
+import io.github.darinc.amssync.AMSSyncPlugin
 import io.github.darinc.amssync.progression.ProgressionDatabase
 import io.github.darinc.amssync.progression.ProgressionRetentionTask
 import io.github.darinc.amssync.progression.ProgressionSnapshotTask
@@ -12,7 +13,7 @@ import java.util.logging.Logger
  */
 class ProgressionTrackingFeature(
     private val logger: Logger,
-    private val config: ProgressionTrackingConfig
+    val config: ProgressionTrackingConfig
 ) : Feature {
 
     var database: ProgressionDatabase? = null
@@ -28,24 +29,71 @@ class ProgressionTrackingFeature(
         get() = config.enabled
 
     override fun initialize() {
-        // Note: Actual initialization requires plugin instance for tasks
-        // This will be fully implemented when integrating with AMSSyncPlugin
         if (!isEnabled) {
             logger.info("Progression tracking is disabled in config")
         }
+        // Full initialization requires plugin reference - use initializeWithPlugin()
     }
 
     /**
-     * Set the progression services after initialization.
+     * Initialize progression tracking with plugin reference.
+     * Creates database, snapshot task, and retention task as configured.
+     *
+     * @return true if initialization succeeded, false otherwise
      */
-    fun setServices(
-        db: ProgressionDatabase?,
-        snapshot: ProgressionSnapshotTask?,
-        retention: ProgressionRetentionTask?
-    ) {
+    fun initializeWithPlugin(plugin: AMSSyncPlugin): Boolean {
+        if (!isEnabled) {
+            return false
+        }
+
+        // Initialize the SQLite database
+        val db = ProgressionDatabase(plugin.dataFolder, config.databaseFile, logger)
+        if (!db.initialize()) {
+            logger.warning("Failed to initialize progression database - feature disabled")
+            return false
+        }
         database = db
-        snapshotTask = snapshot
-        retentionTask = retention
+
+        // Record retention config in history (for hybrid query tier boundaries)
+        val tiers = config.retention.tiers
+        db.recordConfigIfChanged(
+            rawDays = tiers.rawDays,
+            hourlyDays = tiers.hourlyDays,
+            dailyDays = tiers.dailyDays,
+            weeklyYears = tiers.weeklyYears
+        )
+
+        // Initialize snapshot task if enabled
+        if (config.snapshots.enabled) {
+            snapshotTask = ProgressionSnapshotTask(plugin, config.snapshots, db).also { it.start() }
+        }
+
+        // Initialize retention task if enabled
+        if (config.retention.enabled) {
+            retentionTask = ProgressionRetentionTask(
+                plugin,
+                config.retention,
+                db,
+                plugin.errorMetrics
+            ).also { it.start() }
+        }
+
+        logInitialization()
+        return true
+    }
+
+    private fun logInitialization() {
+        val tiers = config.retention.tiers
+        val features = mutableListOf<String>()
+        if (config.events.enabled) features.add("events")
+        if (config.snapshots.enabled) {
+            features.add("snapshots (${config.snapshots.intervalMinutes}min)")
+        }
+        if (config.retention.enabled) {
+            features.add("retention (${tiers.rawDays}d raw, ${tiers.hourlyDays}d hourly, " +
+                "${tiers.dailyDays}d daily, ${tiers.weeklyYears}y weekly)")
+        }
+        logger.info("Progression tracking enabled: ${features.joinToString(", ")}")
     }
 
     /**
@@ -61,9 +109,4 @@ class ProgressionTrackingFeature(
         retentionTask = null
         database = null
     }
-
-    /**
-     * Get the progression tracking configuration.
-     */
-    fun getConfig(): ProgressionTrackingConfig = config
 }

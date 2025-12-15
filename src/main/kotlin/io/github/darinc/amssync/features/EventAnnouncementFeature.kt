@@ -13,7 +13,7 @@ import java.util.logging.Logger
  */
 class EventAnnouncementFeature(
     private val logger: Logger,
-    private val config: EventAnnouncementConfig
+    val config: EventAnnouncementConfig
 ) : Feature {
 
     var mcmmoListener: McMMOEventListener? = null
@@ -32,8 +32,7 @@ class EventAnnouncementFeature(
         get() = config.enabled
 
     override fun initialize() {
-        // Note: Actual initialization requires DiscordManager and other dependencies
-        // This will be fully implemented when integrating with AMSSyncPlugin
+        // Event initialization requires DiscordManager - use setListeners() after connection
         if (!isEnabled) {
             logger.info("Event announcements are disabled in config")
         }
@@ -59,17 +58,19 @@ class EventAnnouncementFeature(
         achievementListener = achievement
     }
 
+    /**
+     * Announce server stop event.
+     * Should be called before shutdown() to ensure message is sent.
+     */
+    fun announceServerStop() {
+        serverListener?.announceServerStop()
+    }
+
     override fun shutdown() {
         mcmmoListener?.shutdown()
-        serverListener?.announceServerStop()
         mcmmoListener = null
         serverListener = null
         deathListener = null
         achievementListener = null
     }
-
-    /**
-     * Get the event configuration.
-     */
-    fun getConfig(): EventAnnouncementConfig = config
 }

@@ -21,8 +21,6 @@ import io.github.darinc.amssync.discord.TimeoutConfig
 import io.github.darinc.amssync.discord.TimeoutManager
 import io.github.darinc.amssync.discord.WebhookManager
 import io.github.darinc.amssync.discord.commands.AmsProgressCommand
-import io.github.darinc.amssync.discord.commands.AmsStatsCommand
-import io.github.darinc.amssync.discord.commands.AmsTopCommand
 import io.github.darinc.amssync.discord.commands.DiscordLinkCommand
 import io.github.darinc.amssync.discord.commands.DiscordWhitelistCommand
 import io.github.darinc.amssync.discord.commands.McStatsCommand
@@ -35,24 +33,22 @@ import io.github.darinc.amssync.events.ServerEventListener
 import io.github.darinc.amssync.image.AvatarFetcher
 import io.github.darinc.amssync.image.ImageConfig
 import io.github.darinc.amssync.image.MilestoneCardRenderer
-import io.github.darinc.amssync.image.PlayerCardRenderer
 import io.github.darinc.amssync.image.ProgressionChartRenderer
 import io.github.darinc.amssync.linking.UserMappingService
 import io.github.darinc.amssync.mcmmo.AnnouncementConfig
 import io.github.darinc.amssync.mcmmo.McMMOEventListener
 import io.github.darinc.amssync.mcmmo.McmmoApiWrapper
 import io.github.darinc.amssync.metrics.ErrorMetrics
-import io.github.darinc.amssync.progression.ProgressionDatabase
 import io.github.darinc.amssync.progression.ProgressionQueryService
-import io.github.darinc.amssync.progression.ProgressionRetentionTask
-import io.github.darinc.amssync.progression.ProgressionSnapshotTask
 import io.github.darinc.amssync.progression.ProgressionTrackingConfig
 import io.github.darinc.amssync.discord.CircuitBreaker
 import io.github.darinc.amssync.discord.RateLimiter
+import io.github.darinc.amssync.features.ChatBridgeFeature
+import io.github.darinc.amssync.features.EventAnnouncementFeature
+import io.github.darinc.amssync.features.ImageCardFeature
+import io.github.darinc.amssync.features.PlayerCountDisplayFeature
+import io.github.darinc.amssync.features.ProgressionTrackingFeature
 import io.github.darinc.amssync.services.DiscordServices
-import io.github.darinc.amssync.services.EventServices
-import io.github.darinc.amssync.services.ImageServices
-import io.github.darinc.amssync.services.ProgressionServices
 import io.github.darinc.amssync.services.ResilienceServices
 import org.bukkit.plugin.java.JavaPlugin
 
@@ -81,13 +77,19 @@ class AMSSyncPlugin : JavaPlugin() {
     lateinit var discord: DiscordServices
         private set
 
-    var image: ImageServices = ImageServices.disabled()
+    var imageFeature: ImageCardFeature? = null
         private set
 
-    var events: EventServices = EventServices.empty()
+    var eventsFeature: EventAnnouncementFeature? = null
         private set
 
-    var progression: ProgressionServices = ProgressionServices.disabled()
+    var chatBridgeFeature: ChatBridgeFeature? = null
+        private set
+
+    var playerCountFeature: PlayerCountDisplayFeature? = null
+        private set
+
+    var progressionFeature: ProgressionTrackingFeature? = null
         private set
 
     override fun onEnable() {
@@ -116,6 +118,15 @@ class AMSSyncPlugin : JavaPlugin() {
 
         // Initialize image cards
         initializeImageCards()
+
+        // Initialize events feature (listeners added after Discord connection)
+        initializeEventsFeature()
+
+        // Initialize chat bridge feature (bridge added after Discord connection)
+        initializeChatBridgeFeature()
+
+        // Initialize player count display feature (services added after Discord connection)
+        initializePlayerCountFeature()
 
         // Create Discord API wrapper (before DiscordManager for proper dependency order)
         val discordApiWrapper = DiscordApiWrapper(resilience.circuitBreaker, logger, errorMetrics)
@@ -189,67 +200,10 @@ class AMSSyncPlugin : JavaPlugin() {
 
     private fun initializeProgressionTracking() {
         val progressionConfig = ProgressionTrackingConfig.fromConfig(config)
-
-        if (!progressionConfig.enabled) {
-            logger.info("Progression tracking disabled in config")
-            progression = ProgressionServices.disabled()
-            return
-        }
-
-        // Initialize the SQLite database
-        val database = ProgressionDatabase(dataFolder, progressionConfig.databaseFile, logger)
-        if (!database.initialize()) {
-            logger.warning("Failed to initialize progression database - feature disabled")
-            progression = ProgressionServices.disabled()
-            return
-        }
-
-        // Record retention config in history (for hybrid query tier boundaries)
-        val tiers = progressionConfig.retention.tiers
-        database.recordConfigIfChanged(
-            rawDays = tiers.rawDays,
-            hourlyDays = tiers.hourlyDays,
-            dailyDays = tiers.dailyDays,
-            weeklyYears = tiers.weeklyYears
-        )
-
-        // Initialize snapshot task if enabled
-        val snapshotTask = if (progressionConfig.snapshots.enabled) {
-            ProgressionSnapshotTask(this, progressionConfig.snapshots, database).also { it.start() }
-        } else {
-            null
-        }
-
-        // Initialize retention task if enabled
-        val retentionTask = if (progressionConfig.retention.enabled) {
-            ProgressionRetentionTask(
-                this,
-                progressionConfig.retention,
-                database,
-                errorMetrics
-            ).also { it.start() }
-        } else {
-            null
-        }
-
-        progression = ProgressionServices(
-            config = progressionConfig,
-            database = database,
-            snapshotTask = snapshotTask,
-            retentionTask = retentionTask
-        )
-
-        val features = mutableListOf<String>()
-        if (progressionConfig.events.enabled) features.add("events")
-        if (progressionConfig.snapshots.enabled) {
-            features.add("snapshots (${progressionConfig.snapshots.intervalMinutes}min)")
-        }
-        if (progressionConfig.retention.enabled) {
-            features.add("retention (${tiers.rawDays}d raw, ${tiers.hourlyDays}d hourly, " +
-                "${tiers.dailyDays}d daily, ${tiers.weeklyYears}y weekly)")
-        }
-
-        logger.info("Progression tracking enabled: ${features.joinToString(", ")}")
+        val feature = ProgressionTrackingFeature(logger, progressionConfig)
+        feature.initialize()
+        feature.initializeWithPlugin(this)
+        progressionFeature = feature
     }
 
     private fun initializeRateLimiter() {
@@ -363,29 +317,32 @@ class AMSSyncPlugin : JavaPlugin() {
 
     private fun initializeImageCards() {
         val imgConfig = ImageConfig.fromConfig(config)
+        val feature = ImageCardFeature(logger, imgConfig)
+        feature.initialize()
+        feature.initializeCommands(this)
+        imageFeature = feature
+    }
 
-        if (!imgConfig.enabled) {
-            logger.info("Image cards are disabled in config")
-            image = ImageServices.disabled()
-            return
-        }
+    private fun initializeEventsFeature() {
+        val eventConfig = EventAnnouncementConfig.fromConfig(config)
+        val feature = EventAnnouncementFeature(logger, eventConfig)
+        feature.initialize()
+        eventsFeature = feature
+    }
 
-        // Initialize avatar fetcher with caching
-        val fetcher = AvatarFetcher(
-            logger = logger,
-            cacheMaxSize = imgConfig.avatarCacheMaxSize,
-            cacheTtlMs = imgConfig.getCacheTtlMs()
-        )
+    private fun initializeChatBridgeFeature() {
+        val chatConfig = ChatBridgeConfig.fromConfig(config)
+        val feature = ChatBridgeFeature(logger, chatConfig)
+        feature.initialize()
+        chatBridgeFeature = feature
+    }
 
-        // Initialize card renderer
-        val renderer = PlayerCardRenderer(imgConfig.serverName)
-
-        // Initialize commands
-        val statsCmd = AmsStatsCommand(this, imgConfig, fetcher, renderer)
-        val topCmd = AmsTopCommand(this, imgConfig, fetcher, renderer)
-
-        image = ImageServices(imgConfig, fetcher, renderer, statsCmd, topCmd)
-        logger.info("Image cards enabled (provider=${imgConfig.avatarProvider}, cache=${imgConfig.avatarCacheTtlSeconds}s)")
+    private fun initializePlayerCountFeature() {
+        val presenceConfig = PresenceConfig.fromConfig(config)
+        val statusConfig = StatusChannelConfig.fromConfig(config)
+        val feature = PlayerCountDisplayFeature(logger, presenceConfig, statusConfig)
+        feature.initialize()
+        playerCountFeature = feature
     }
 
     /**
@@ -405,8 +362,7 @@ class AMSSyncPlugin : JavaPlugin() {
         handlers["amssync"] = DiscordLinkCommand(this)
 
         // Image card commands (only if enabled)
-        image.statsCommand?.let { handlers["amsstats"] = it }
-        image.topCommand?.let { handlers["amstop"] = it }
+        imageFeature?.getCommandHandlers()?.let { handlers.putAll(it) }
 
         // Whitelist command (only if enabled)
         val whitelistEnabled = config.getBoolean("whitelist.enabled", true)
@@ -418,9 +374,10 @@ class AMSSyncPlugin : JavaPlugin() {
         }
 
         // Progression chart command (only if progression tracking and image cards are both enabled)
-        val progressionDb = progression.database
-        val imgConfig = image.config
-        val avatarFetcher = image.avatarFetcher
+        val progressionDb = progressionFeature?.database
+        val imgFeature = imageFeature
+        val imgConfig = imgFeature?.config
+        val avatarFetcher = imgFeature?.avatarFetcher
         if (progressionDb != null && imgConfig != null && avatarFetcher != null) {
             val queryService = ProgressionQueryService(progressionDb, logger)
             val chartRenderer = ProgressionChartRenderer(imgConfig.serverName)
@@ -556,23 +513,16 @@ class AMSSyncPlugin : JavaPlugin() {
      * Finalize Discord services after successful connection.
      */
     private fun finalizeDiscordServices(discordManager: DiscordManager, apiWrapper: DiscordApiWrapper) {
-        // Initialize presence and other Discord-dependent services
-        val presence = initializePresence(discordManager)
-        val statusChannel = initializeStatusChannel(discordManager)
-        val (chatBridge, chatWebhook) = initializeChatBridge(discordManager)
-        val (webhookMgr, eventServices) = initializeEventAnnouncements(discordManager)
+        // Initialize feature services that depend on Discord connection
+        initializePlayerCountServices(discordManager)
+        initializeChatBridgeServices(discordManager)
+        val webhookMgr = initializeEventAnnouncements(discordManager)
 
         discord = DiscordServices(
             manager = discordManager,
             apiWrapper = apiWrapper,
-            chatBridge = chatBridge,
-            chatWebhookManager = chatWebhook,
-            webhookManager = webhookMgr,
-            presence = presence,
-            statusChannel = statusChannel
+            webhookManager = webhookMgr
         )
-
-        events = eventServices
     }
 
     /**
@@ -582,63 +532,48 @@ class AMSSyncPlugin : JavaPlugin() {
         discord = DiscordServices(
             manager = discordManager,
             apiWrapper = apiWrapper,
-            chatBridge = null,
-            chatWebhookManager = null,
-            webhookManager = null,
-            presence = null,
-            statusChannel = null
+            webhookManager = null
         )
-        events = EventServices.empty()
+        // Features are already initialized but without services in disconnected mode
     }
 
-    private fun initializePresence(discordManager: DiscordManager): PlayerCountPresence? {
-        if (!discordManager.isConnected()) {
-            logger.fine("Skipping presence initialization - Discord not connected")
-            return null
+    private fun initializePlayerCountServices(discordManager: DiscordManager) {
+        val feature = playerCountFeature ?: return
+        if (!discordManager.isConnected()) return
+
+        // Initialize presence
+        var presenceSvc: PlayerCountPresence? = null
+        if (feature.presenceConfig.enabled) {
+            presenceSvc = PlayerCountPresence(this, feature.presenceConfig)
+            presenceSvc.initialize(discordManager)
         }
 
-        val presenceConfig = PresenceConfig.fromConfig(config)
-        return if (presenceConfig.enabled) {
-            val presence = PlayerCountPresence(this, presenceConfig)
-            presence.initialize(discordManager)
-            presence
-        } else {
-            logger.info("Player count presence is disabled in config")
-            null
-        }
-    }
-
-    private fun initializeStatusChannel(discordManager: DiscordManager): StatusChannelManager? {
-        if (!discordManager.isConnected()) return null
-
-        val statusConfig = StatusChannelConfig.fromConfig(config)
-        return if (statusConfig.enabled) {
-            if (statusConfig.channelId.isBlank()) {
+        // Initialize status channel
+        var statusChannelSvc: StatusChannelManager? = null
+        if (feature.statusChannelConfig.enabled) {
+            if (feature.statusChannelConfig.channelId.isBlank()) {
                 logger.warning("Status channel enabled but no voice-channel-id configured")
-                null
             } else {
-                val manager = StatusChannelManager(this, statusConfig)
-                manager.initialize(discordManager)
-                manager
+                statusChannelSvc = StatusChannelManager(this, feature.statusChannelConfig)
+                statusChannelSvc.initialize(discordManager)
             }
-        } else {
-            logger.info("Status channel manager is disabled in config")
-            null
         }
+
+        feature.setServices(presenceSvc, statusChannelSvc)
     }
 
-    private fun initializeChatBridge(discordManager: DiscordManager): Pair<ChatBridge?, ChatWebhookManager?> {
-        if (!discordManager.isConnected()) return Pair(null, null)
+    private fun initializeChatBridgeServices(discordManager: DiscordManager) {
+        val feature = chatBridgeFeature ?: return
+        if (!discordManager.isConnected()) return
 
-        val chatConfig = ChatBridgeConfig.fromConfig(config)
+        val chatConfig = feature.config
         if (!chatConfig.enabled) {
-            logger.info("Chat bridge is disabled in config")
-            return Pair(null, null)
+            return
         }
 
         if (chatConfig.channelId.isBlank()) {
             logger.warning("Chat bridge enabled but no channel-id configured")
-            return Pair(null, null)
+            return
         }
 
         // Initialize webhook manager if webhook is enabled
@@ -662,24 +597,25 @@ class AMSSyncPlugin : JavaPlugin() {
         discordManager.getJda()?.addEventListener(bridge)
         logger.info("Chat bridge enabled (MC->Discord=${chatConfig.minecraftToDiscord}, Discord->MC=${chatConfig.discordToMinecraft})")
 
-        return Pair(bridge, chatWebhook)
+        feature.setBridge(bridge, chatWebhook)
     }
 
-    private fun initializeEventAnnouncements(discordManager: DiscordManager): Pair<WebhookManager?, EventServices> {
-        if (!discordManager.isConnected()) return Pair(null, EventServices.empty())
+    private fun initializeEventAnnouncements(discordManager: DiscordManager): WebhookManager? {
+        val feature = eventsFeature ?: return null
+        if (!discordManager.isConnected()) return null
 
         // Initialize MCMMO event listener
         val mcmmoListener = initializeMcMMOListener(discordManager)
+        feature.setMcmmoListener(mcmmoListener)
 
-        val eventConfig = EventAnnouncementConfig.fromConfig(config)
+        val eventConfig = feature.config
         if (!eventConfig.enabled) {
-            logger.info("Event announcements are disabled in config")
-            return Pair(null, EventServices(mcmmoListener, null, null, null))
+            return null
         }
 
         if (eventConfig.channelId.isBlank()) {
             logger.warning("Event announcements enabled but no text-channel-id configured")
-            return Pair(null, EventServices(mcmmoListener, null, null, null))
+            return null
         }
 
         // Initialize webhook manager
@@ -710,7 +646,8 @@ class AMSSyncPlugin : JavaPlugin() {
             listener
         } else null
 
-        return Pair(webhookMgr, EventServices(mcmmoListener, serverListener, deathListener, achievementListener))
+        feature.setListeners(serverListener, deathListener, achievementListener)
+        return webhookMgr
     }
 
     private fun initializeMcMMOListener(discordManager: DiscordManager): McMMOEventListener? {
@@ -729,16 +666,16 @@ class AMSSyncPlugin : JavaPlugin() {
 
         // Initialize milestone card renderer if image cards are enabled
         val milestoneCardRenderer = if (announcementConfig.useImageCards) {
-            val serverName = image.config?.serverName ?: "Minecraft Server"
+            val serverName = imageFeature?.config?.serverName ?: "Minecraft Server"
             MilestoneCardRenderer(serverName)
         } else null
 
         // Use existing avatar fetcher or create one for milestones
         val milestoneAvatarFetcher = if (announcementConfig.useImageCards && announcementConfig.showAvatars) {
-            image.avatarFetcher ?: AvatarFetcher(
+            imageFeature?.avatarFetcher ?: AvatarFetcher(
                 logger,
-                image.config?.avatarCacheMaxSize ?: 100,
-                (image.config?.avatarCacheTtlSeconds ?: 300) * 1000L
+                imageFeature?.config?.avatarCacheMaxSize ?: 100,
+                (imageFeature?.config?.avatarCacheTtlSeconds ?: 300) * 1000L
             )
         } else null
 
@@ -787,10 +724,12 @@ class AMSSyncPlugin : JavaPlugin() {
      */
     private fun shutdownServices() {
         // Announce server stop before disconnecting
-        events.announceServerStop()
+        eventsFeature?.announceServerStop()
 
-        // Shutdown event services
-        events.shutdown()
+        // Shutdown features before Discord connection
+        eventsFeature?.shutdown()
+        chatBridgeFeature?.shutdown()
+        playerCountFeature?.shutdown()
 
         // Shutdown Discord services
         if (::discord.isInitialized) {
@@ -802,8 +741,8 @@ class AMSSyncPlugin : JavaPlugin() {
             resilience.shutdown()
         }
 
-        // Shutdown progression services
-        progression.shutdown()
+        // Shutdown progression feature
+        progressionFeature?.shutdown()
 
         // Save user mappings
         if (::userMappingService.isInitialized) {

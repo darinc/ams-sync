@@ -12,8 +12,8 @@ import java.util.logging.Logger
  */
 class PlayerCountDisplayFeature(
     private val logger: Logger,
-    private val presenceConfig: PresenceConfig,
-    private val statusChannelConfig: StatusChannelConfig
+    val presenceConfig: PresenceConfig,
+    val statusChannelConfig: StatusChannelConfig
 ) : Feature {
 
     var presence: PlayerCountPresence? = null
@@ -26,8 +26,7 @@ class PlayerCountDisplayFeature(
         get() = presenceConfig.enabled || statusChannelConfig.enabled
 
     override fun initialize() {
-        // Note: Actual initialization requires DiscordManager
-        // This will be fully implemented when integrating with AMSSyncPlugin
+        // Player count display requires DiscordManager - use setServices() after connection
         if (!presenceConfig.enabled) {
             logger.info("Player count presence is disabled in config")
         }
@@ -50,14 +49,4 @@ class PlayerCountDisplayFeature(
         presence = null
         statusChannel = null
     }
-
-    /**
-     * Get the presence configuration.
-     */
-    fun getPresenceConfig(): PresenceConfig = presenceConfig
-
-    /**
-     * Get the status channel configuration.
-     */
-    fun getStatusChannelConfig(): StatusChannelConfig = statusChannelConfig
 }

@@ -112,8 +112,9 @@ class McMMOEventListener(
         skill: PrimarySkillType,
         newLevel: Int
     ) {
-        val database = plugin.progression.database ?: return
-        val config = plugin.progression.config
+        val feature = plugin.progressionFeature ?: return
+        val database = feature.database ?: return
+        val config = feature.config
         if (!config.enabled || !config.events.enabled) return
 
         // Calculate old level (newLevel - 1 for single level-ups)
