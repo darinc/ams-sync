@@ -1,11 +1,15 @@
 package io.github.darinc.amssync.image
 
+import io.github.darinc.amssync.progression.Timeframe
+import io.github.darinc.amssync.progression.TrendPoint
 import io.kotest.core.spec.style.DescribeSpec
 import java.awt.Color
 import java.awt.image.BufferedImage
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import javax.imageio.ImageIO
 
 /**
@@ -23,6 +27,7 @@ class CardGeneratorTest : DescribeSpec({
     val outputDir = File("docs/images")
     val renderer = PlayerCardRenderer("Awesome Minecraft Server")
     val milestoneRenderer = MilestoneCardRenderer("Awesome Minecraft Server")
+    val progressionRenderer = ProgressionChartRenderer("Awesome Minecraft Server")
 
     // Player skins for card examples
     val commonPlayer = "silver_parallax"      // Common tier stats card
@@ -354,6 +359,59 @@ class CardGeneratorTest : DescribeSpec({
             val outputFile = File(outputDir, "milestone-power-mythic.png")
             ImageIO.write(card, "PNG", outputFile)
             println("Generated: ${outputFile.absolutePath} - ${legendaryPlayer}")
+        }
+    }
+
+    describe("Progression Chart Generation - mallowqueen") {
+
+        it("generates a 30-day power level progression chart") {
+            val headImage = fetchHeadImage(legendaryPlayer, 64)
+            val now = Instant.now()
+
+            // Simulate 30 days of progression data - player gaining ~200 power per day
+            val points = (0..30).map { day ->
+                TrendPoint(
+                    timestamp = now.minus((30 - day).toLong(), ChronoUnit.DAYS),
+                    level = 5000 + (day * 200) + (Math.random() * 50).toInt()
+                )
+            }
+
+            val chart = progressionRenderer.renderChart(
+                playerName = legendaryPlayer,
+                skillDisplayName = "Power Level",
+                points = points,
+                timeframe = Timeframe.THIRTY_DAYS,
+                avatar = headImage
+            )
+
+            val outputFile = File(outputDir, "progression-chart-power.png")
+            ImageIO.write(chart, "PNG", outputFile)
+            println("Generated: ${outputFile.absolutePath} - ${legendaryPlayer} Power Level (30 days)")
+        }
+
+        it("generates a 7-day mining skill progression chart") {
+            val headImage = fetchHeadImage(legendaryPlayer, 64)
+            val now = Instant.now()
+
+            // Simulate 7 days of mining progression - player grinding levels
+            val points = (0..14).map { i ->
+                TrendPoint(
+                    timestamp = now.minus((7 * 24 - i * 12).toLong(), ChronoUnit.HOURS),
+                    level = 850 + (i * 10) + (Math.random() * 5).toInt()
+                )
+            }
+
+            val chart = progressionRenderer.renderChart(
+                playerName = legendaryPlayer,
+                skillDisplayName = "Mining",
+                points = points,
+                timeframe = Timeframe.SEVEN_DAYS,
+                avatar = headImage
+            )
+
+            val outputFile = File(outputDir, "progression-chart-mining.png")
+            ImageIO.write(chart, "PNG", outputFile)
+            println("Generated: ${outputFile.absolutePath} - ${legendaryPlayer} Mining (7 days)")
         }
     }
 })

@@ -172,10 +172,47 @@ Features manage lifecycle (initialize/shutdown) of related services. Each implem
 - Generates celebration cards for MCMMO milestone achievements
 - Includes skill badges and player avatars
 
+**ProgressionChartRenderer** (`image/ProgressionChartRenderer.kt`)
+- Generates line charts for `/amsprogress` command
+- Shows skill or power level progression over time
+- Supports multiple timeframes (7d, 30d, 90d, 180d, 1y, all)
+
 **AvatarFetcher** (`image/AvatarFetcher.kt`)
 - Downloads and caches player Minecraft avatars
 - Supports mc-heads and crafatar providers
 - LRU cache with configurable TTL
+
+### Channel Auto-Creation System
+
+**ChannelResolver** (`discord/channels/ChannelResolver.kt`)
+- Resolves Discord channels by ID or name
+- Auto-creates channels if bot has `MANAGE_CHANNELS` permission
+- Persists created channel IDs back to config
+- Resolution priority: explicit ID → name lookup → auto-create
+
+**ChannelResolution** (`discord/channels/ChannelResolution.kt`)
+- Sealed class: `FoundById`, `FoundByName`, `Created`, `NotFound`, `CreationFailed`
+- Helper methods: `resolvedChannel()`, `resolvedChannelId()`, `isSuccess()`, `wasCreated()`
+
+**ChannelConfig** / **ChannelCreationConfig** (`discord/channels/`)
+- Per-feature config: `channelId`, `channelName`, `channelType`
+- Global config: `autoCreate`, `categoryName`, `categoryId`, `persistChannelIds`
+
+### Progression Tracking System
+
+**ProgressionDatabase** (`progression/ProgressionDatabase.kt`)
+- SQLite database for skill progression snapshots
+- Tiered storage: raw snapshots → hourly → daily → weekly summaries
+- Retention policies per tier
+
+**ProgressionSnapshotTask** (`progression/ProgressionSnapshotTask.kt`)
+- Bukkit async task capturing player skill levels periodically
+- Configurable snapshot interval
+
+**ProgressionQueryService** (`progression/ProgressionQueryService.kt`)
+- Queries progression data for charts
+- Returns `TrendResult` sealed class (Success, NoData, Error)
+- Selects appropriate data tier based on timeframe
 
 ### Event and Communication Services
 
@@ -213,7 +250,7 @@ Features manage lifecycle (initialize/shutdown) of related services. Each implem
 **Discord Commands** (`discord/SlashCommandListener.kt`)
 - Routes slash commands to handlers
 - Text commands: `McStatsCommand`, `McTopCommand` (embed-based)
-- Image commands: `AmsStatsCommand`, `AmsTopCommand` (visual cards)
+- Image commands: `AmsStatsCommand`, `AmsTopCommand`, `AmsProgressCommand` (visual cards/charts)
 - Admin: `DiscordLinkCommand`, `DiscordWhitelistCommand`
 - All commands check `CircuitBreaker` and `RateLimiter` state before executing
 - Uses ephemeral responses for errors
@@ -289,12 +326,18 @@ All configuration lives in `src/main/resources/config.yml`:
 - `discord.circuit-breaker.*` - Circuit breaker thresholds
 
 **Discord Features:**
+- `discord.channels.*` - Auto-creation settings (autoCreate, categoryName, persistChannelIds)
 - `discord.presence.*` - Bot activity/status and nickname player count display
 - `discord.status-channel.*` - Voice channel name showing player count
 - `discord.announcements.*` - MCMMO milestone announcements
 - `discord.events.*` - Server start/stop, deaths, achievements announcements
 - `discord.chat-bridge.*` - Two-way Minecraft↔Discord chat relay
   - `resolve-mentions` - Convert `@Username` to Discord pings (default: true)
+
+**Progression Tracking:**
+- `progression-tracking.enabled` - Enable skill progression snapshots
+- `progression-tracking.snapshot-interval-minutes` - How often to capture snapshots
+- `progression-tracking.retention.*` - Data retention policies per tier
 
 **MCMMO Settings:**
 - `mcmmo.leaderboard.max-players-to-scan` - Query limit to prevent timeouts (default: 1000)

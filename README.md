@@ -10,7 +10,7 @@ AMSSync eliminates the need for separate bot hosting by integrating Discord func
 
 ### Visual Player Cards
 
-Generate stunning player stats cards and Olympic podium leaderboards directly in Discord!
+Generate stunning player stats cards, leaderboards, and progression charts directly in Discord!
 
 <p align="center">
   <img src="docs/images/stats-card-legendary.png" alt="Legendary Stats Card" width="400"/>
@@ -19,6 +19,7 @@ Generate stunning player stats cards and Olympic podium leaderboards directly in
 
 - **`/amsstats`** - Beautiful player cards with full body skin render, all skills with progress bars, and rarity classification
 - **`/amstop`** - Olympic-style podium leaderboards with player avatars and crown for 1st place
+- **`/amsprogress`** - Line charts showing skill or power level progression over time
 - **Rarity System** - Cards display Common, Rare, Epic, or Legendary based on power level
 - **Mastery Stars** - Skills at level 2000+ display golden mastery stars
 - **Category Colors** - Combat (red), Gathering (green), and Misc (purple) skill groupings
@@ -81,6 +82,14 @@ Celebrate player achievements with automatic Discord announcements when players 
 - **With skill**: Shows top 10 for specific skill (e.g., `/amstop mining`)
 - Features crown icon for 1st place, player avatars for top 3
 - Positions 4-10 listed below the podium
+
+**`/amsprogress [player] [skill] [timeframe]`** - Generate a skill progression chart (image)
+- **Without player**: Shows your own progression (requires linked account)
+- **With player**: Shows progression for any Minecraft player
+- **skill**: Optional skill name, defaults to "power" for total power level
+- **timeframe**: 7d, 30d, 90d, 180d, 1y, or all (default: 30d)
+- Line chart with data points and glow effect
+- Requires progression tracking to be enabled
 
 **`/mcstats [skill]`** - View your MCMMO stats (text embed)
 - **Without skill**: Shows all skill levels and total power level
@@ -202,6 +211,31 @@ The visual card system generates high-quality PNG images for stats and leaderboa
 - **Extended Rankings**: Positions 4-10 listed below with dotted leaders
 - **Alternating Rows**: Subtle background alternation for readability
 
+#### Progression Charts (`/amsprogress`)
+
+<p align="center">
+  <img src="docs/images/progression-chart-power.png" alt="Power Level Progression" width="400"/>
+  <img src="docs/images/progression-chart-mining.png" alt="Mining Skill Progression" width="400"/>
+</p>
+
+**Chart Features:**
+- **Player Avatar**: Optional head avatar in header
+- **Skill Display**: Shows player name, skill, and timeframe
+- **Line Chart**: Cyan line with glow effect showing progression over time
+- **Data Points**: White circles marking each measurement
+- **Grid Lines**: Horizontal reference lines for level values
+- **Date Axis**: X-axis labels formatted based on timeframe
+
+**Available Timeframes:**
+| Timeframe | Description | Date Format |
+|-----------|-------------|-------------|
+| 7d | Last 7 days | MM/dd HH:mm |
+| 30d | Last 30 days (default) | MM/dd |
+| 90d | Last 90 days | MM/dd |
+| 180d | Last 6 months | MMM yy |
+| 1y | Last year | MMM yy |
+| all | All time | MMM yy |
+
 ### Chat Bridge
 
 The bidirectional chat bridge connects your Minecraft server chat with a Discord text channel, allowing players on both platforms to communicate seamlessly.
@@ -266,6 +300,11 @@ When a player's total power level crosses a threshold (e.g., every 500 power lev
   - Player avatar and achievement text
   - Tier badge showing power level classification
 - **Tracking**: Per-player power level tracking to detect milestone crossings
+
+<p align="center">
+  <img src="docs/images/milestone-skill-legendary.png" alt="Skill Milestone" width="300"/>
+  <img src="docs/images/milestone-power-mythic.png" alt="Power Milestone" width="300"/>
+</p>
 
 ## Requirements
 

@@ -102,6 +102,22 @@ Celebrates reaching 1000 total power level.
 
 Gold-themed celebration for reaching 20000 total power level.
 
+### Progression Charts - mallowqueen
+
+Progression charts show skill or power level changes over time, rendered as line charts.
+
+#### Power Level Progression (30 days)
+
+![Power Level Progression](../images/progression-chart-power.png)
+
+Shows total power level progression over 30 days with daily data points.
+
+#### Mining Skill Progression (7 days)
+
+![Mining Progression](../images/progression-chart-mining.png)
+
+Shows mining skill progression over 7 days with detailed time stamps.
+
 ## Card Types
 
 ### Stats Card (`/amsstats`)
@@ -156,6 +172,28 @@ Celebration card for level achievements:
 │  └────┘                                  │
 │         [Mining Badge]                   │
 └──────────────────────────────────────────┘
+```
+
+### Progression Chart (`/amsprogress`)
+
+Line chart showing skill or power level progression over time:
+
+```
+┌──────────────────────────────────────────────────────┐
+│ ┌────┐ Steve                                         │
+│ │Head│ Power Level - 30 Days                         │
+│ └────┘                                               │
+│────────────────────────────────────────────────────────│
+│ 11000│                                    ●───●      │
+│ 10000│                           ●───●───●           │
+│  9000│                 ●────●───●                    │
+│  8000│      ●────●────●                              │
+│  7000│ ●───●                                         │
+│──────┼──────────────────────────────────────────────── │
+│      11/15  11/20  11/25  12/01  12/05  12/10  12/15 │
+│────────────────────────────────────────────────────────│
+│ Server Name                             AMS Sync     │
+└──────────────────────────────────────────────────────┘
 ```
 
 ## Graphics2D Fundamentals
