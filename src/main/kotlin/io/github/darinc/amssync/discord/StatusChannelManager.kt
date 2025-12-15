@@ -255,15 +255,28 @@ class StatusChannelManager(
  *
  * @property enabled Enable/disable status channel updates
  * @property channelId Voice channel ID to update
+ * @property channelName Voice channel name for lookup or auto-creation
  * @property template Channel name template with {count} and {max} placeholders
  * @property updateIntervalMs Minimum milliseconds between channel name updates
  */
 data class StatusChannelConfig(
     val enabled: Boolean,
     val channelId: String,
+    val channelName: String,
     val template: String,
     val updateIntervalMs: Long
 ) {
+    /**
+     * Create a ChannelConfig for channel resolution.
+     */
+    fun toChannelConfig(): io.github.darinc.amssync.discord.channels.ChannelConfig {
+        return io.github.darinc.amssync.discord.channels.ChannelConfig(
+            channelId = channelId,
+            channelName = channelName,
+            channelType = io.github.darinc.amssync.discord.channels.ChannelConfig.ChannelType.VOICE
+        )
+    }
+
     companion object {
         /**
          * Load status channel configuration from Bukkit config file.
@@ -275,6 +288,10 @@ data class StatusChannelConfig(
             return StatusChannelConfig(
                 enabled = config.getBoolean("player-count-display.status-channel.enabled", false),
                 channelId = config.getString("player-count-display.status-channel.channel-id", "") ?: "",
+                channelName = config.getString(
+                    "player-count-display.status-channel.channel-name",
+                    "{count} AMS Online"
+                ) ?: "{count} AMS Online",
                 template = config.getString("player-count-display.status-channel.template", "{count} AMS Online")
                     ?: "{count} AMS Online",
                 updateIntervalMs = config.getInt(

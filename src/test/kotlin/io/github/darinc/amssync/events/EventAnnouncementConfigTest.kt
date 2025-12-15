@@ -18,6 +18,7 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 val config = mockk<FileConfiguration>()
                 every { config.getBoolean("event-announcements.enabled", false) } returns true
                 every { config.getString("event-announcements.server-events.channel-id", "") } returns "123456789012345678"
+                every { config.getString("event-announcements.server-events.channel-name", "ams-news") } returns "ams-news"
                 every { config.getString("event-announcements.webhook.url", "") } returns "https://discord.com/api/webhooks/123/abc"
                 every { config.getBoolean("event-announcements.webhook.use-embeds", true) } returns true
                 every { config.getBoolean("event-announcements.webhook.show-avatars", true) } returns true
@@ -62,6 +63,7 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 val config = mockk<FileConfiguration>()
                 every { config.getBoolean("event-announcements.enabled", false) } returns false
                 every { config.getString("event-announcements.server-events.channel-id", "") } returns ""
+                every { config.getString("event-announcements.server-events.channel-name", "ams-news") } returns "ams-news"
                 every { config.getString("event-announcements.webhook.url", "") } returns ""
                 every { config.getBoolean("event-announcements.webhook.use-embeds", true) } returns true
                 every { config.getBoolean("event-announcements.webhook.show-avatars", true) } returns true
@@ -106,6 +108,7 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 val config = mockk<FileConfiguration>()
                 every { config.getBoolean("event-announcements.enabled", false) } returns true
                 every { config.getString("event-announcements.server-events.channel-id", "") } returns "123456789012345678"
+                every { config.getString("event-announcements.server-events.channel-name", "ams-news") } returns "ams-news"
                 every { config.getString("event-announcements.webhook.url", "") } returns "   "
                 every { config.getBoolean("event-announcements.webhook.use-embeds", true) } returns true
                 every { config.getBoolean("event-announcements.webhook.show-avatars", true) } returns true
@@ -135,6 +138,7 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 val config = mockk<FileConfiguration>()
                 every { config.getBoolean("event-announcements.enabled", false) } returns true
                 every { config.getString("event-announcements.server-events.channel-id", "") } returns null
+                every { config.getString("event-announcements.server-events.channel-name", "ams-news") } returns null
                 every { config.getString("event-announcements.webhook.url", "") } returns null
                 every { config.getBoolean("event-announcements.webhook.use-embeds", true) } returns true
                 every { config.getBoolean("event-announcements.webhook.show-avatars", true) } returns true
@@ -168,6 +172,7 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 val config = mockk<FileConfiguration>()
                 every { config.getBoolean("event-announcements.enabled", false) } returns true
                 every { config.getString("event-announcements.server-events.channel-id", "") } returns "123456789012345678"
+                every { config.getString("event-announcements.server-events.channel-name", "ams-news") } returns "ams-news"
                 every { config.getString("event-announcements.webhook.url", "") } returns ""
                 every { config.getBoolean("event-announcements.webhook.use-embeds", true) } returns false
                 every { config.getBoolean("event-announcements.webhook.show-avatars", true) } returns false

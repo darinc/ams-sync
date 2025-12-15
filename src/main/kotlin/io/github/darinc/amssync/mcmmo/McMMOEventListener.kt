@@ -487,6 +487,7 @@ class McMMOEventListener(
 data class AnnouncementConfig(
     val enabled: Boolean,
     val channelId: String,
+    val channelName: String,
     val webhookUrl: String?,
     val skillMilestoneInterval: Int,
     val powerMilestoneInterval: Int,
@@ -495,6 +496,16 @@ data class AnnouncementConfig(
     val showAvatars: Boolean,
     val avatarProvider: String
 ) {
+    /**
+     * Create a ChannelConfig for channel resolution.
+     */
+    fun toChannelConfig(): io.github.darinc.amssync.discord.channels.ChannelConfig {
+        return io.github.darinc.amssync.discord.channels.ChannelConfig(
+            channelId = channelId,
+            channelName = channelName,
+            channelType = io.github.darinc.amssync.discord.channels.ChannelConfig.ChannelType.TEXT
+        )
+    }
     companion object {
         /**
          * Load announcement configuration from Bukkit config file.
@@ -509,6 +520,8 @@ data class AnnouncementConfig(
             return AnnouncementConfig(
                 enabled = config.getBoolean("event-announcements.mcmmo-milestones.enabled", false),
                 channelId = config.getString("event-announcements.mcmmo-milestones.channel-id", "") ?: "",
+                channelName = config.getString("event-announcements.mcmmo-milestones.channel-name", "ams-news")
+                    ?: "ams-news",
                 webhookUrl = webhookUrl.ifBlank { null },
                 skillMilestoneInterval = config.getInt(
                     "event-announcements.mcmmo-milestones.skill-milestone-interval",

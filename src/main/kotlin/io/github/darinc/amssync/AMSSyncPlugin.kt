@@ -1,6 +1,9 @@
 package io.github.darinc.amssync
 
 import io.github.darinc.amssync.audit.AuditLogger
+import io.github.darinc.amssync.discord.channels.ChannelCreationConfig
+import io.github.darinc.amssync.discord.channels.ChannelResolver
+import io.github.darinc.amssync.discord.channels.ChannelResolution
 import java.io.File
 import io.github.darinc.amssync.commands.AMSSyncCommand
 import io.github.darinc.amssync.config.ConfigMigrator
@@ -73,6 +76,9 @@ class AMSSyncPlugin : JavaPlugin() {
         private set
 
     var rateLimiter: RateLimiter? = null
+        private set
+
+    var channelResolver: ChannelResolver? = null
         private set
 
     // Grouped services
@@ -518,6 +524,9 @@ class AMSSyncPlugin : JavaPlugin() {
      * Finalize Discord services after successful connection.
      */
     private fun finalizeDiscordServices(discordManager: DiscordManager, apiWrapper: DiscordApiWrapper) {
+        // Initialize channel resolver for auto-creating channels
+        initializeChannelResolver()
+
         // Initialize feature services that depend on Discord connection
         initializePlayerCountServices(discordManager)
         initializeChatBridgeServices(discordManager)
@@ -528,6 +537,24 @@ class AMSSyncPlugin : JavaPlugin() {
             apiWrapper = apiWrapper,
             webhookManager = webhookMgr
         )
+    }
+
+    /**
+     * Initialize the channel resolver for automatic channel creation.
+     */
+    private fun initializeChannelResolver() {
+        val channelCreationConfig = ChannelCreationConfig.fromConfig(config)
+        val configFile = File(dataFolder, "config.yml")
+        channelResolver = ChannelResolver(logger, channelCreationConfig, resilience.circuitBreaker, configFile)
+
+        if (channelCreationConfig.autoCreate) {
+            logger.info("Automatic channel creation enabled")
+            if (channelCreationConfig.categoryName.isNotBlank()) {
+                logger.info("Channels will be created in category: ${channelCreationConfig.categoryName}")
+            }
+        } else {
+            logger.info("Automatic channel creation disabled - using existing channels only")
+        }
     }
 
     /**
@@ -553,18 +580,73 @@ class AMSSyncPlugin : JavaPlugin() {
             presenceSvc.initialize(discordManager)
         }
 
-        // Initialize status channel
+        // Initialize status channel with channel resolution
         var statusChannelSvc: StatusChannelManager? = null
         if (feature.statusChannelConfig.enabled) {
-            if (feature.statusChannelConfig.channelId.isBlank()) {
-                logger.warning("Status channel enabled but no voice-channel-id configured")
-            } else {
-                statusChannelSvc = StatusChannelManager(this, feature.statusChannelConfig)
+            val resolvedConfig = resolveStatusChannelConfig(discordManager, feature.statusChannelConfig)
+            if (resolvedConfig != null) {
+                statusChannelSvc = StatusChannelManager(this, resolvedConfig)
                 statusChannelSvc.initialize(discordManager)
             }
         }
 
         feature.setServices(presenceSvc, statusChannelSvc)
+    }
+
+    /**
+     * Resolve the status channel, creating it if necessary.
+     * Returns updated config with resolved channel ID, or null if resolution failed.
+     */
+    private fun resolveStatusChannelConfig(
+        discordManager: DiscordManager,
+        originalConfig: StatusChannelConfig
+    ): StatusChannelConfig? {
+        val resolver = channelResolver ?: return null
+        val jda = discordManager.getJda() ?: return null
+        val guildId = config.getString("discord.guild-id", "") ?: ""
+        val guild = jda.getGuildById(guildId) ?: run {
+            logger.warning("Cannot resolve status channel: Guild $guildId not found")
+            return null
+        }
+
+        val channelConfig = originalConfig.toChannelConfig()
+
+        // Skip if no channel spec provided
+        if (!channelConfig.hasChannelSpec()) {
+            logger.warning("Status channel enabled but no channel-id or channel-name configured")
+            return null
+        }
+
+        // Resolve the channel (blocking)
+        val resolution = try {
+            resolver.resolveVoiceChannel(
+                guild = guild,
+                channelConfig = channelConfig,
+                featureName = "Status Channel",
+                configPath = "player-count-display.status-channel.channel-id"
+            ).get()
+        } catch (e: Exception) {
+            logger.warning("Failed to resolve status channel: ${e.message}")
+            return null
+        }
+
+        return when (resolution) {
+            is ChannelResolution.FoundById,
+            is ChannelResolution.FoundByName,
+            is ChannelResolution.Created -> {
+                val channelId = resolution.resolvedChannelId()!!
+                // Return config with resolved channel ID
+                originalConfig.copy(channelId = channelId)
+            }
+            is ChannelResolution.NotFound -> {
+                logger.warning("Status channel not found: ${resolution.reason}")
+                null
+            }
+            is ChannelResolution.CreationFailed -> {
+                logger.warning("Failed to create status channel: ${resolution.reason}")
+                null
+            }
+        }
     }
 
     private fun initializeChatBridgeServices(discordManager: DiscordManager) {
@@ -576,34 +658,91 @@ class AMSSyncPlugin : JavaPlugin() {
             return
         }
 
-        if (chatConfig.channelId.isBlank()) {
-            logger.warning("Chat bridge enabled but no channel-id configured")
+        // Resolve the chat channel
+        val resolvedConfig = resolveChatBridgeChannelConfig(discordManager, chatConfig)
+        if (resolvedConfig == null) {
             return
         }
 
         // Initialize webhook manager if webhook is enabled
         var chatWebhook: ChatWebhookManager? = null
-        if (chatConfig.useWebhook) {
-            if (chatConfig.webhookUrl.isNullOrBlank()) {
+        if (resolvedConfig.useWebhook) {
+            if (resolvedConfig.webhookUrl.isNullOrBlank()) {
                 logger.warning("Chat bridge use-webhook is true but no webhook-url configured")
                 logger.warning("Chat bridge falling back to bot messages")
             } else {
-                chatWebhook = ChatWebhookManager(this, chatConfig.webhookUrl)
+                chatWebhook = ChatWebhookManager(this, resolvedConfig.webhookUrl)
                 if (chatWebhook.isWebhookAvailable()) {
                     logger.info("Chat bridge using webhook for rich messages")
                 }
             }
         }
 
-        val bridge = ChatBridge(this, chatConfig, chatWebhook, discordManager)
+        val bridge = ChatBridge(this, resolvedConfig, chatWebhook, discordManager)
         // Register as Bukkit listener for MC->Discord
         server.pluginManager.registerEvents(bridge, this)
         registeredListeners.add(bridge)
         // Register as JDA listener for Discord->MC
         discordManager.getJda()?.addEventListener(bridge)
-        logger.info("Chat bridge enabled (MC->Discord=${chatConfig.minecraftToDiscord}, Discord->MC=${chatConfig.discordToMinecraft})")
+        logger.info("Chat bridge enabled (MC->Discord=${resolvedConfig.minecraftToDiscord}, Discord->MC=${resolvedConfig.discordToMinecraft})")
 
         feature.setBridge(bridge, chatWebhook)
+    }
+
+    /**
+     * Resolve the chat bridge channel, creating it if necessary.
+     * Returns updated config with resolved channel ID, or null if resolution failed.
+     */
+    private fun resolveChatBridgeChannelConfig(
+        discordManager: DiscordManager,
+        originalConfig: ChatBridgeConfig
+    ): ChatBridgeConfig? {
+        val resolver = channelResolver ?: return null
+        val jda = discordManager.getJda() ?: return null
+        val guildId = config.getString("discord.guild-id", "") ?: ""
+        val guild = jda.getGuildById(guildId) ?: run {
+            logger.warning("Cannot resolve chat bridge channel: Guild $guildId not found")
+            return null
+        }
+
+        val channelConfig = originalConfig.toChannelConfig()
+
+        // Skip if no channel spec provided
+        if (!channelConfig.hasChannelSpec()) {
+            logger.warning("Chat bridge enabled but no channel-id or channel-name configured")
+            return null
+        }
+
+        // Resolve the channel (blocking)
+        val resolution = try {
+            resolver.resolveTextChannel(
+                guild = guild,
+                channelConfig = channelConfig,
+                featureName = "Chat Bridge",
+                configPath = "chat-bridge.channel-id"
+            ).get()
+        } catch (e: Exception) {
+            logger.warning("Failed to resolve chat bridge channel: ${e.message}")
+            return null
+        }
+
+        return when (resolution) {
+            is ChannelResolution.FoundById,
+            is ChannelResolution.FoundByName,
+            is ChannelResolution.Created -> {
+                val channelId = resolution.resolvedChannelId()!!
+                // Return config with resolved channel ID
+                originalConfig.copy(channelId = channelId)
+            }
+            is ChannelResolution.NotFound -> {
+                logger.warning("Chat bridge channel not found: ${resolution.reason}")
+                null
+            }
+            is ChannelResolution.CreationFailed -> {
+                logger.warning("Failed to create chat bridge channel: ${resolution.reason}")
+                null
+            }
+        }
     }
 
     private fun initializeEventAnnouncements(discordManager: DiscordManager): WebhookManager? {
@@ -619,26 +758,27 @@ class AMSSyncPlugin : JavaPlugin() {
             return null
         }
 
-        if (eventConfig.channelId.isBlank()) {
-            logger.warning("Event announcements enabled but no text-channel-id configured")
+        // Resolve the event channel
+        val resolvedConfig = resolveEventAnnouncementChannelConfig(discordManager, eventConfig)
+        if (resolvedConfig == null) {
             return null
         }
 
         // Initialize webhook manager
-        val webhookMgr = WebhookManager(this, eventConfig.webhookUrl, eventConfig.channelId, discordManager)
-        if (eventConfig.webhookUrl != null) {
+        val webhookMgr = WebhookManager(this, resolvedConfig.webhookUrl, resolvedConfig.channelId, discordManager)
+        if (resolvedConfig.webhookUrl != null) {
             logger.info("Event announcements using webhook")
         } else {
             logger.info("Event announcements using bot messages")
         }
 
         // Initialize server event listener
-        val serverListener = ServerEventListener(this, eventConfig, webhookMgr)
+        val serverListener = ServerEventListener(this, resolvedConfig, webhookMgr)
         serverListener.announceServerStart()
 
         // Initialize player death listener
-        val deathListener = if (eventConfig.playerDeaths.enabled) {
-            val listener = PlayerDeathListener(this, eventConfig, webhookMgr)
+        val deathListener = if (resolvedConfig.playerDeaths.enabled) {
+            val listener = PlayerDeathListener(this, resolvedConfig, webhookMgr)
             server.pluginManager.registerEvents(listener, this)
             registeredListeners.add(listener)
             logger.info("Player death announcements enabled")
@@ -646,16 +786,72 @@ class AMSSyncPlugin : JavaPlugin() {
         } else null
 
         // Initialize achievement listener
-        val achievementListener = if (eventConfig.achievements.enabled) {
-            val listener = AchievementListener(this, eventConfig, webhookMgr)
+        val achievementListener = if (resolvedConfig.achievements.enabled) {
+            val listener = AchievementListener(this, resolvedConfig, webhookMgr)
             server.pluginManager.registerEvents(listener, this)
             registeredListeners.add(listener)
-            logger.info("Achievement announcements enabled (exclude-recipes=${eventConfig.achievements.excludeRecipes})")
+            logger.info("Achievement announcements enabled (exclude-recipes=${resolvedConfig.achievements.excludeRecipes})")
             listener
         } else null
 
         feature.setListeners(serverListener, deathListener, achievementListener)
         return webhookMgr
+    }
+
+    /**
+     * Resolve the event announcement channel, creating it if necessary.
+     * Returns updated config with resolved channel ID, or null if resolution failed.
+     */
+    private fun resolveEventAnnouncementChannelConfig(
+        discordManager: DiscordManager,
+        originalConfig: EventAnnouncementConfig
+    ): EventAnnouncementConfig? {
+        val resolver = channelResolver ?: return null
+        val jda = discordManager.getJda() ?: return null
+        val guildId = config.getString("discord.guild-id", "") ?: ""
+        val guild = jda.getGuildById(guildId) ?: run {
+            logger.warning("Cannot resolve event announcement channel: Guild $guildId not found")
+            return null
+        }
+
+        val channelConfig = originalConfig.toChannelConfig()
+
+        // Skip if no channel spec provided
+        if (!channelConfig.hasChannelSpec()) {
+            logger.warning("Event announcements enabled but no channel-id or channel-name configured")
+            return null
+        }
+
+        // Resolve the channel (blocking)
+        val resolution = try {
+            resolver.resolveTextChannel(
+                guild = guild,
+                channelConfig = channelConfig,
+                featureName = "Event Announcements",
+                configPath = "event-announcements.server-events.channel-id"
+            ).get()
+        } catch (e: Exception) {
+            logger.warning("Failed to resolve event announcement channel: ${e.message}")
+            return null
+        }
+
+        return when (resolution) {
+            is ChannelResolution.FoundById,
+            is ChannelResolution.FoundByName,
+            is ChannelResolution.Created -> {
+                val channelId = resolution.resolvedChannelId()!!
+                // Return config with resolved channel ID
+                originalConfig.copy(channelId = channelId)
+            }
+            is ChannelResolution.NotFound -> {
+                logger.warning("Event announcement channel not found: ${resolution.reason}")
+                null
+            }
+            is ChannelResolution.CreationFailed -> {
+                logger.warning("Failed to create event announcement channel: ${resolution.reason}")
+                null
+            }
+        }
     }
 
     private fun initializeMcMMOListener(discordManager: DiscordManager): McMMOEventListener? {
@@ -667,19 +863,20 @@ class AMSSyncPlugin : JavaPlugin() {
             return null
         }
 
-        if (announcementConfig.channelId.isBlank()) {
-            logger.warning("MCMMO announcements enabled but no text-channel-id configured")
+        // Resolve the MCMMO milestone channel
+        val resolvedConfig = resolveMcmmoMilestoneChannelConfig(discordManager, announcementConfig)
+        if (resolvedConfig == null) {
             return null
         }
 
         // Initialize milestone card renderer if image cards are enabled
-        val milestoneCardRenderer = if (announcementConfig.useImageCards) {
+        val milestoneCardRenderer = if (resolvedConfig.useImageCards) {
             val serverName = imageFeature?.config?.serverName ?: "Minecraft Server"
             MilestoneCardRenderer(serverName)
         } else null
 
         // Use existing avatar fetcher or create one for milestones
-        val milestoneAvatarFetcher = if (announcementConfig.useImageCards && announcementConfig.showAvatars) {
+        val milestoneAvatarFetcher = if (resolvedConfig.useImageCards && resolvedConfig.showAvatars) {
             imageFeature?.avatarFetcher ?: AvatarFetcher(
                 logger,
                 imageFeature?.config?.avatarCacheMaxSize ?: 100,
@@ -689,7 +886,7 @@ class AMSSyncPlugin : JavaPlugin() {
 
         val listener = McMMOEventListener(
             this,
-            announcementConfig,
+            resolvedConfig,
             milestoneAvatarFetcher,
             milestoneCardRenderer,
             discordManager
@@ -697,14 +894,70 @@ class AMSSyncPlugin : JavaPlugin() {
         server.pluginManager.registerEvents(listener, this)
         registeredListeners.add(listener)
 
-        val imageMode = if (announcementConfig.useImageCards) "image cards" else "embeds"
-        val webhookMode = if (announcementConfig.webhookUrl != null) " via webhook" else ""
+        val imageMode = if (resolvedConfig.useImageCards) "image cards" else "embeds"
+        val webhookMode = if (resolvedConfig.webhookUrl != null) " via webhook" else ""
         logger.info(
             "MCMMO milestone announcements enabled ($imageMode$webhookMode, " +
-                "skill=${announcementConfig.skillMilestoneInterval}, power=${announcementConfig.powerMilestoneInterval})"
+                "skill=${resolvedConfig.skillMilestoneInterval}, power=${resolvedConfig.powerMilestoneInterval})"
         )
 
         return listener
+    }
+
+    /**
+     * Resolve the MCMMO milestone channel, creating it if necessary.
+     * Returns updated config with resolved channel ID, or null if resolution failed.
+     */
+    private fun resolveMcmmoMilestoneChannelConfig(
+        discordManager: DiscordManager,
+        originalConfig: AnnouncementConfig
+    ): AnnouncementConfig? {
+        val resolver = channelResolver ?: return null
+        val jda = discordManager.getJda() ?: return null
+        val guildId = config.getString("discord.guild-id", "") ?: ""
+        val guild = jda.getGuildById(guildId) ?: run {
+            logger.warning("Cannot resolve MCMMO milestone channel: Guild $guildId not found")
+            return null
+        }
+
+        val channelConfig = originalConfig.toChannelConfig()
+
+        // Skip if no channel spec provided
+        if (!channelConfig.hasChannelSpec()) {
+            logger.warning("MCMMO announcements enabled but no channel-id or channel-name configured")
+            return null
+        }
+
+        // Resolve the channel (blocking)
+        val resolution = try {
+            resolver.resolveTextChannel(
+                guild = guild,
+                channelConfig = channelConfig,
+                featureName = "MCMMO Milestones",
+                configPath = "event-announcements.mcmmo-milestones.channel-id"
+            ).get()
+        } catch (e: Exception) {
+            logger.warning("Failed to resolve MCMMO milestone channel: ${e.message}")
+            return null
+        }
+
+        return when (resolution) {
+            is ChannelResolution.FoundById,
+            is ChannelResolution.FoundByName,
+            is ChannelResolution.Created -> {
+                val channelId = resolution.resolvedChannelId()!!
+                // Return config with resolved channel ID
+                originalConfig.copy(channelId = channelId)
+            }
+            is ChannelResolution.NotFound -> {
+                logger.warning("MCMMO milestone channel not found: ${resolution.reason}")
+                null
+            }
+            is ChannelResolution.CreationFailed -> {
+                logger.warning("Failed to create MCMMO milestone channel: ${resolution.reason}")
+                null
+            }
+        }
     }
 
     private fun logDegradedModeError(mainError: String, details: String?, hint: String) {

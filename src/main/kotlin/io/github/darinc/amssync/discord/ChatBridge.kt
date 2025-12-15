@@ -251,10 +251,12 @@ class ChatBridge(
  * @property webhookUrl Webhook URL (empty = auto-create in channel)
  * @property avatarProvider Avatar service: "mc-heads" or "crafatar"
  * @property resolveMentions Convert @username to Discord mentions for linked users
+ * @property channelName Channel name for lookup or auto-creation
  */
 data class ChatBridgeConfig(
     val enabled: Boolean,
     val channelId: String,
+    val channelName: String,
     val minecraftToDiscord: Boolean,
     val discordToMinecraft: Boolean,
     val mcFormat: String,
@@ -266,6 +268,16 @@ data class ChatBridgeConfig(
     val avatarProvider: String,
     val resolveMentions: Boolean
 ) {
+    /**
+     * Create a ChannelConfig for channel resolution.
+     */
+    fun toChannelConfig(): io.github.darinc.amssync.discord.channels.ChannelConfig {
+        return io.github.darinc.amssync.discord.channels.ChannelConfig(
+            channelId = channelId,
+            channelName = channelName,
+            channelType = io.github.darinc.amssync.discord.channels.ChannelConfig.ChannelType.TEXT
+        )
+    }
     companion object {
         /**
          * Load chat bridge configuration from Bukkit config file.
@@ -277,6 +289,7 @@ data class ChatBridgeConfig(
             return ChatBridgeConfig(
                 enabled = config.getBoolean("chat-bridge.enabled", false),
                 channelId = config.getString("chat-bridge.channel-id", "") ?: "",
+                channelName = config.getString("chat-bridge.channel-name", "ams-chats") ?: "ams-chats",
                 minecraftToDiscord = config.getBoolean("chat-bridge.minecraft-to-discord", true),
                 discordToMinecraft = config.getBoolean("chat-bridge.discord-to-minecraft", true),
                 mcFormat = config.getString("chat-bridge.mc-format", "&7[Discord] &b{author}&7: {message}")

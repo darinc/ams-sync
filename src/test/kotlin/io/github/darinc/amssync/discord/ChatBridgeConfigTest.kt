@@ -43,6 +43,7 @@ class ChatBridgeConfigTest : DescribeSpec({
             val config = ChatBridgeConfig(
                 enabled = false,
                 channelId = "",
+                channelName = "ams-chats",
                 minecraftToDiscord = true,
                 discordToMinecraft = true,
                 mcFormat = "&7[Discord] &b{author}&7: {message}",
@@ -73,6 +74,7 @@ class ChatBridgeConfigTest : DescribeSpec({
             val config = ChatBridgeConfig(
                 enabled = true,
                 channelId = "123456789",
+                channelName = "ams-chats",
                 minecraftToDiscord = true,
                 discordToMinecraft = true,
                 mcFormat = "&7[Discord] &b{author}&7: {message}",

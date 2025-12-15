@@ -8,6 +8,7 @@ import java.util.UUID
  *
  * @property enabled Master enable/disable for event announcements
  * @property channelId Text channel ID for announcements
+ * @property channelName Channel name for lookup or auto-creation
  * @property webhookUrl Optional webhook URL for prettier messages (uses bot if empty)
  * @property useEmbeds Use rich embeds (true) or plain text (false)
  * @property showAvatars Include player avatars in embeds/webhooks
@@ -20,6 +21,7 @@ import java.util.UUID
 data class EventAnnouncementConfig(
     val enabled: Boolean,
     val channelId: String,
+    val channelName: String,
     val webhookUrl: String?,
     val useEmbeds: Boolean,
     val showAvatars: Boolean,
@@ -29,6 +31,16 @@ data class EventAnnouncementConfig(
     val playerDeaths: PlayerDeathConfig,
     val achievements: AchievementConfig
 ) {
+    /**
+     * Create a ChannelConfig for channel resolution.
+     */
+    fun toChannelConfig(): io.github.darinc.amssync.discord.channels.ChannelConfig {
+        return io.github.darinc.amssync.discord.channels.ChannelConfig(
+            channelId = channelId,
+            channelName = channelName,
+            channelType = io.github.darinc.amssync.discord.channels.ChannelConfig.ChannelType.TEXT
+        )
+    }
     companion object {
         /**
          * Load event announcement configuration from Bukkit config file.
@@ -39,6 +51,8 @@ data class EventAnnouncementConfig(
             return EventAnnouncementConfig(
                 enabled = config.getBoolean("event-announcements.enabled", false),
                 channelId = config.getString("event-announcements.server-events.channel-id", "") ?: "",
+                channelName = config.getString("event-announcements.server-events.channel-name", "ams-news")
+                    ?: "ams-news",
                 webhookUrl = webhookUrl.ifBlank { null },
                 useEmbeds = config.getBoolean("event-announcements.webhook.use-embeds", true),
                 showAvatars = config.getBoolean("event-announcements.webhook.show-avatars", true),

@@ -31,7 +31,7 @@ class ConfigMigrator(
 ) {
     companion object {
         const val CONFIG_VERSION_KEY = "config-version"
-        const val CURRENT_CONFIG_VERSION = 4
+        const val CURRENT_CONFIG_VERSION = 5
     }
 
     /**
@@ -383,7 +383,31 @@ class ConfigMigrator(
             migratedValues = migrateV1ToV2(migratedValues)
         }
 
+        // Migration from v4 to v5: Auto channel creation
+        if (fromVersion < 5) {
+            migratedValues = migrateV4ToV5(migratedValues)
+        }
+
         return migratedValues
+    }
+
+    /**
+     * Migrate config from version 4 to version 5.
+     * Adds channel-name fields for auto-creation support.
+     *
+     * No actual data migration is needed - the new channel-name fields
+     * have sensible defaults that will be picked up from the default config.
+     * This method just logs the migration for user awareness.
+     */
+    private fun migrateV4ToV5(userValues: Map<String, Any?>): MutableMap<String, Any?> {
+        logger.info("Migrating config v4 -> v5: Adding automatic channel creation support")
+        logger.info("New features:")
+        logger.info("  - discord.channels.auto-create: Automatically create Discord channels")
+        logger.info("  - discord.channels.category-name: Group channels under 'AMS Sync' category")
+        logger.info("  - channel-name fields: Allow channel lookup by name instead of ID only")
+
+        // Return as-is - the default config merge will add the new keys
+        return userValues.toMutableMap()
     }
 
     /**

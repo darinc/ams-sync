@@ -1,6 +1,6 @@
 # Configuration version - DO NOT MODIFY
 # Used internally to detect when new config options are available
-config-version: 4
+config-version: 5
 
 # AMSSync Plugin Configuration
 #
@@ -79,6 +79,28 @@ discord:
     # In HALF_OPEN state, this many successes are needed to fully recover
     # Example: 2 successful calls = circuit closes and normal operation resumes
     success-threshold: 2
+
+  # Automatic channel creation and management
+  # Creates required Discord channels if they don't exist
+  channels:
+    # Master enable/disable for auto-creating channels
+    # When true: creates channels if they don't exist (requires MANAGE_CHANNELS permission)
+    # When false: only uses existing channels by ID (traditional behavior)
+    auto-create: true
+
+    # Category name to create/use for grouping all plugin channels
+    # If category doesn't exist and auto-create is enabled, it will be created
+    # Leave empty to create channels at the top level of the server
+    category-name: "AMS Sync"
+
+    # Explicit category ID (takes priority over category-name if set)
+    # Right-click a category -> Copy ID (requires Developer Mode)
+    category-id: ""
+
+    # Save auto-created or auto-resolved channel IDs back to this config
+    # When true: after creating or finding a channel by name, its ID is saved
+    # This prevents re-creation if the server restarts (unless channel is deleted)
+    persist-channel-ids: true
 
 # ============================================================================
 # MCMMO INTEGRATION
@@ -166,7 +188,13 @@ event-announcements:
     enabled: false
 
     # Text channel ID for announcements (right-click channel -> Copy ID)
+    # Takes priority over channel-name if set
     channel-id: ""
+
+    # Channel name for lookup or auto-creation
+    # If channel-id is empty, looks for existing channel with this name
+    # If discord.channels.auto-create is true and channel doesn't exist, creates it
+    channel-name: "ams-news"
 
     # Announce when a skill reaches a multiple of this level (0 = disabled)
     # Example: 100 = announce at level 100, 200, 300, etc.
@@ -198,7 +226,13 @@ event-announcements:
     enabled: false
 
     # Text channel ID for event announcements (right-click channel -> Copy ID)
+    # Takes priority over channel-name if set
     channel-id: ""
+
+    # Channel name for lookup or auto-creation
+    # If channel-id is empty, looks for existing channel with this name
+    # If discord.channels.auto-create is true and channel doesn't exist, creates it
+    channel-name: "ams-news"
 
     # Server start announcement
     start:
@@ -217,7 +251,13 @@ event-announcements:
     enabled: false
 
     # Text channel ID for death announcements (right-click channel -> Copy ID)
+    # Takes priority over channel-name if set
     channel-id: ""
+
+    # Channel name for lookup or auto-creation
+    # If channel-id is empty, looks for existing channel with this name
+    # If discord.channels.auto-create is true and channel doesn't exist, creates it
+    channel-name: "ams-news"
 
     # Funny commentary added after death messages
     # Example: "PlayerX fell from a high place" + "Gravity always wins."
@@ -241,7 +281,13 @@ event-announcements:
     enabled: false
 
     # Text channel ID for achievement announcements (right-click channel -> Copy ID)
+    # Takes priority over channel-name if set
     channel-id: ""
+
+    # Channel name for lookup or auto-creation
+    # If channel-id is empty, looks for existing channel with this name
+    # If discord.channels.auto-create is true and channel doesn't exist, creates it
+    channel-name: "ams-news"
 
     # Exclude recipe unlock advancements (only show real achievements)
     exclude-recipes: true
@@ -268,7 +314,13 @@ chat-bridge:
   enabled: false
 
   # Text channel ID for chat relay (right-click channel -> Copy ID)
+  # Takes priority over channel-name if set
   channel-id: ""
+
+  # Channel name for lookup or auto-creation
+  # If channel-id is empty, looks for existing channel with this name
+  # If discord.channels.auto-create is true and channel doesn't exist, creates it
+  channel-name: "ams-chats"
 
   # Relay Minecraft chat to Discord
   minecraft-to-discord: true
@@ -374,7 +426,14 @@ player-count-display:
     enabled: false
 
     # Voice channel ID to update (right-click channel -> Copy ID)
+    # Takes priority over channel-name if set
     channel-id: ""
+
+    # Channel name for lookup or auto-creation (voice channel)
+    # If channel-id is empty, looks for existing voice channel with this name
+    # If discord.channels.auto-create is true and channel doesn't exist, creates it
+    # Note: This is the initial name; it will be updated based on the template
+    channel-name: "{count} AMS Online"
 
     # Channel name template
     # Available placeholders: {count} = current player count, {max} = max players
