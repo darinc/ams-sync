@@ -50,9 +50,14 @@ import io.github.darinc.amssync.features.PlayerCountDisplayFeature
 import io.github.darinc.amssync.features.ProgressionTrackingFeature
 import io.github.darinc.amssync.services.DiscordServices
 import io.github.darinc.amssync.services.ResilienceServices
+import org.bukkit.event.HandlerList
+import org.bukkit.event.Listener
 import org.bukkit.plugin.java.JavaPlugin
 
 class AMSSyncPlugin : JavaPlugin() {
+
+    // Track registered listeners for cleanup during reload
+    private val registeredListeners = mutableListOf<Listener>()
 
     // Core services (always required)
     lateinit var userMappingService: UserMappingService
@@ -593,6 +598,7 @@ class AMSSyncPlugin : JavaPlugin() {
         val bridge = ChatBridge(this, chatConfig, chatWebhook, discordManager)
         // Register as Bukkit listener for MC->Discord
         server.pluginManager.registerEvents(bridge, this)
+        registeredListeners.add(bridge)
         // Register as JDA listener for Discord->MC
         discordManager.getJda()?.addEventListener(bridge)
         logger.info("Chat bridge enabled (MC->Discord=${chatConfig.minecraftToDiscord}, Discord->MC=${chatConfig.discordToMinecraft})")
@@ -634,6 +640,7 @@ class AMSSyncPlugin : JavaPlugin() {
         val deathListener = if (eventConfig.playerDeaths.enabled) {
             val listener = PlayerDeathListener(this, eventConfig, webhookMgr)
             server.pluginManager.registerEvents(listener, this)
+            registeredListeners.add(listener)
             logger.info("Player death announcements enabled")
             listener
         } else null
@@ -642,6 +649,7 @@ class AMSSyncPlugin : JavaPlugin() {
         val achievementListener = if (eventConfig.achievements.enabled) {
             val listener = AchievementListener(this, eventConfig, webhookMgr)
             server.pluginManager.registerEvents(listener, this)
+            registeredListeners.add(listener)
             logger.info("Achievement announcements enabled (exclude-recipes=${eventConfig.achievements.excludeRecipes})")
             listener
         } else null
@@ -687,6 +695,7 @@ class AMSSyncPlugin : JavaPlugin() {
             discordManager
         )
         server.pluginManager.registerEvents(listener, this)
+        registeredListeners.add(listener)
 
         val imageMode = if (announcementConfig.useImageCards) "image cards" else "embeds"
         val webhookMode = if (announcementConfig.webhookUrl != null) " via webhook" else ""
@@ -750,9 +759,156 @@ class AMSSyncPlugin : JavaPlugin() {
         }
     }
 
-    fun reloadPluginConfig() {
-        reloadConfig()
+    /**
+     * Perform a full reload of all plugin services.
+     *
+     * This method:
+     * 1. Shuts down all current services in reverse order
+     * 2. Unregisters all event listeners
+     * 3. Reloads configuration from disk
+     * 4. Reinitializes all services in proper order
+     * 5. Reconnects to Discord
+     *
+     * Note: This is a slow operation (~5-10 seconds) due to Discord reconnection.
+     *
+     * @return true if reload was successful, false if there were errors
+     */
+    fun reloadAllServices(): Boolean {
+        logger.info("=".repeat(50))
+        logger.info("Starting full plugin reload...")
+        logger.info("=".repeat(50))
+
+        var success = true
+
+        try {
+            // Phase 1: Cleanup
+            logger.info("[1/4] Shutting down services...")
+            shutdownForReload()
+
+            // Phase 2: Reload config
+            logger.info("[2/4] Reloading configuration...")
+            reloadConfig()
+            handleConfigMigration()
+
+            // Phase 3: Reinitialize core services
+            logger.info("[3/4] Reinitializing core services...")
+            reinitializeCoreServices()
+
+            // Phase 4: Reinitialize Discord and features
+            logger.info("[4/4] Reconnecting to Discord...")
+            val discordConfig = loadDiscordConfig()
+            if (discordConfig == null) {
+                logger.severe("Discord configuration invalid - running in degraded mode")
+                success = false
+            } else {
+                reinitializeDiscordAndFeatures(discordConfig)
+            }
+
+            logger.info("=".repeat(50))
+            logger.info("Plugin reload complete!")
+            logger.info("=".repeat(50))
+        } catch (e: Exception) {
+            logger.severe("Reload failed with exception: ${e.message}")
+            logger.severe(e.stackTraceToString())
+            success = false
+        }
+
+        return success
+    }
+
+    /**
+     * Shutdown services for reload (different from full shutdown - no server stop announcement).
+     */
+    private fun shutdownForReload() {
+        // Unregister all Bukkit event listeners
+        registeredListeners.forEach { listener ->
+            HandlerList.unregisterAll(listener)
+            logger.fine("Unregistered listener: ${listener.javaClass.simpleName}")
+        }
+        registeredListeners.clear()
+
+        // Shutdown features (but don't announce server stop)
+        eventsFeature?.shutdown()
+        chatBridgeFeature?.shutdown()
+        playerCountFeature?.shutdown()
+        imageFeature?.shutdown()
+        progressionFeature?.shutdown()
+
+        // Clear feature references
+        eventsFeature = null
+        chatBridgeFeature = null
+        playerCountFeature = null
+        imageFeature = null
+        progressionFeature = null
+
+        // Shutdown Discord services (disconnects JDA)
+        if (::discord.isInitialized) {
+            discord.shutdown()
+        }
+
+        // Shutdown resilience services (stops TimeoutManager executor)
+        if (::resilience.isInitialized) {
+            resilience.shutdown()
+        }
+
+        // Save user mappings before reinitializing
+        if (::userMappingService.isInitialized) {
+            userMappingService.saveMappings()
+        }
+    }
+
+    /**
+     * Reinitialize core services after config reload.
+     */
+    private fun reinitializeCoreServices() {
+        // Reinitialize rate limiter with potentially new config
+        initializeRateLimiter()
+
+        // Reload user mappings (may have been edited while running)
+        val configFile = File(dataFolder, "config.yml")
+        userMappingService = UserMappingService(configFile, logger)
         userMappingService.loadMappings()
-        logger.info("Configuration reloaded")
+        logger.info("Loaded ${userMappingService.getMappingCount()} user mapping(s)")
+
+        // Reinitialize MCMMO API wrapper with potentially new settings
+        val maxPlayersToScan = config.getInt("mcmmo.leaderboard.max-players-to-scan", 1000)
+        val cacheTtlSeconds = config.getInt("mcmmo.leaderboard.cache-ttl-seconds", 60)
+        mcmmoApi = McmmoApiWrapper(logger, maxPlayersToScan, cacheTtlSeconds * 1000L)
+        logger.info("MCMMO leaderboard limits: max-scan=$maxPlayersToScan, cache-ttl=${cacheTtlSeconds}s")
+
+        // Reinitialize progression tracking
+        initializeProgressionTracking()
+
+        // Reinitialize resilience components
+        initializeResilienceComponents()
+    }
+
+    /**
+     * Reinitialize Discord connection and all dependent features.
+     */
+    private fun reinitializeDiscordAndFeatures(discordConfig: Pair<String, String>) {
+        val retryConfig = loadRetryConfig()
+
+        // Initialize features (they'll get services after Discord connects)
+        initializeImageCards()
+        initializeEventsFeature()
+        initializeChatBridgeFeature()
+        initializePlayerCountFeature()
+
+        // Create Discord API wrapper
+        val discordApiWrapper = DiscordApiWrapper(resilience.circuitBreaker, logger, errorMetrics)
+
+        // Build slash command handlers and initialize Discord manager
+        val commandHandlers = buildSlashCommandHandlers()
+        val discordManager = DiscordManager(
+            logger,
+            discordApiWrapper,
+            rateLimiter,
+            auditLogger,
+            commandHandlers
+        )
+
+        // Connect to Discord
+        connectToDiscord(discordManager, discordApiWrapper, discordConfig.first, discordConfig.second, retryConfig)
     }
 }

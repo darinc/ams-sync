@@ -9,6 +9,7 @@ import io.github.darinc.amssync.commands.handlers.ListHandler
 import io.github.darinc.amssync.commands.handlers.MetricsHandler
 import io.github.darinc.amssync.commands.handlers.PlayersHandler
 import io.github.darinc.amssync.commands.handlers.QuickHandler
+import io.github.darinc.amssync.commands.handlers.ReloadHandler
 import io.github.darinc.amssync.commands.handlers.RemoveHandler
 import io.github.darinc.amssync.discord.RateLimitResult
 import org.bukkit.command.Command
@@ -35,7 +36,8 @@ class AMSSyncCommand(private val plugin: AMSSyncPlugin) : CommandExecutor, TabCo
         "discord" to DiscordHandler(),
         "link" to linkHandler,
         "quick" to QuickHandler(linkHandler),
-        "metrics" to MetricsHandler()
+        "metrics" to MetricsHandler(),
+        "reload" to ReloadHandler()
     )
 
     override fun onCommand(
@@ -137,6 +139,9 @@ class AMSSyncCommand(private val plugin: AMSSyncPlugin) : CommandExecutor, TabCo
         sender.sendMessage("  §f/amssync players §7- Show Minecraft players only")
         sender.sendMessage("  §f/amssync discord §7- Show Discord members only")
         sender.sendMessage("  §f/amssync metrics §7- Show plugin health metrics")
+        sender.sendMessage("")
+        sender.sendMessage("§e§lAdmin:")
+        sender.sendMessage("  §f/amssync reload §7- Reload config and reconnect Discord")
         sender.sendMessage("")
         sender.sendMessage("§e§lOther Linking Methods:")
         sender.sendMessage("  §f/amssync add <discordId> <mcUsername> §7- Link by Discord ID")
