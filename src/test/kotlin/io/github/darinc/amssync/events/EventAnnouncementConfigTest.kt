@@ -38,6 +38,12 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 } returns 5000
                 every { config.getBoolean("event-announcements.achievements.enabled", true) } returns true
                 every { config.getBoolean("event-announcements.achievements.exclude-recipes", true) } returns false
+                // DeathCardConfig mocks
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.enabled", false) } returns false
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.show-body", true) } returns true
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.show-power-level", true) } returns true
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.themed-backgrounds", true) } returns true
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.skill-specific-roasts", true) } returns true
 
                 val eventConfig = EventAnnouncementConfig.fromConfig(config)
 
@@ -83,6 +89,12 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 } returns DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
                 every { config.getBoolean("event-announcements.achievements.enabled", true) } returns true
                 every { config.getBoolean("event-announcements.achievements.exclude-recipes", true) } returns true
+                // DeathCardConfig mocks
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.enabled", false) } returns false
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.show-body", true) } returns true
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.show-power-level", true) } returns true
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.themed-backgrounds", true) } returns true
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.skill-specific-roasts", true) } returns true
 
                 val eventConfig = EventAnnouncementConfig.fromConfig(config)
 
@@ -128,6 +140,12 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 } returns DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
                 every { config.getBoolean("event-announcements.achievements.enabled", true) } returns true
                 every { config.getBoolean("event-announcements.achievements.exclude-recipes", true) } returns true
+                // DeathCardConfig mocks
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.enabled", false) } returns false
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.show-body", true) } returns true
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.show-power-level", true) } returns true
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.themed-backgrounds", true) } returns true
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.skill-specific-roasts", true) } returns true
 
                 val eventConfig = EventAnnouncementConfig.fromConfig(config)
 
@@ -158,6 +176,12 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 } returns DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
                 every { config.getBoolean("event-announcements.achievements.enabled", true) } returns true
                 every { config.getBoolean("event-announcements.achievements.exclude-recipes", true) } returns true
+                // DeathCardConfig mocks
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.enabled", false) } returns false
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.show-body", true) } returns true
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.show-power-level", true) } returns true
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.themed-backgrounds", true) } returns true
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.skill-specific-roasts", true) } returns true
 
                 val eventConfig = EventAnnouncementConfig.fromConfig(config)
 
@@ -192,6 +216,12 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 } returns DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
                 every { config.getBoolean("event-announcements.achievements.enabled", true) } returns false
                 every { config.getBoolean("event-announcements.achievements.exclude-recipes", true) } returns true
+                // DeathCardConfig mocks
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.enabled", false) } returns false
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.show-body", true) } returns true
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.show-power-level", true) } returns true
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.themed-backgrounds", true) } returns true
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.skill-specific-roasts", true) } returns true
 
                 val eventConfig = EventAnnouncementConfig.fromConfig(config)
 

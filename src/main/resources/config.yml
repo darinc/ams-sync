@@ -274,6 +274,28 @@ event-announcements:
       # Players below this threshold won't get the extra roast messages
       mcmmo-roast-threshold: 3000
 
+    # Visual death card images (instead of text/embeds)
+    # Generates eye-catching images with themed backgrounds, player coffin, and sarcastic commentary
+    death-cards:
+      # Enable visual death card images
+      # When enabled, sends images instead of embeds for death announcements
+      enabled: false
+
+      # Include player body render in the coffin
+      show-body: true
+
+      # Show MCMMO power level in the card header
+      show-power-level: true
+
+      # Use themed backgrounds based on death cause
+      # (Nether for lava/fire, Deep Dark for Warden, Ocean for drowning, etc.)
+      themed-backgrounds: true
+
+      # Use skill-specific sarcastic messages
+      # Ties death cause to relevant skills for extra irony
+      # (e.g., high Acrobatics player falling to death gets roasted)
+      skill-specific-roasts: true
+
   # Achievement/advancement announcements
   # Posts player achievements to Discord
   achievements:

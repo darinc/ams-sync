@@ -94,6 +94,28 @@ class WebhookManager(
         }
     }
 
+    /**
+     * Send an image file, using webhook if available or bot fallback.
+     *
+     * @param imageBytes The image data as bytes
+     * @param filename The filename for the attachment
+     * @param username Custom username for webhook (ignored for bot messages)
+     * @param avatarUrl Custom avatar URL for webhook (ignored for bot messages)
+     */
+    fun sendImage(
+        imageBytes: ByteArray,
+        filename: String,
+        username: String? = null,
+        avatarUrl: String? = null
+    ) {
+        val client = webhookClient
+        if (client != null) {
+            sendImageViaWebhook(imageBytes, filename, username, avatarUrl, client)
+        } else {
+            sendImageViaBot(imageBytes, filename)
+        }
+    }
+
     private fun sendViaWebhook(
         embed: MessageEmbed,
         username: String?,
@@ -224,6 +246,74 @@ class WebhookManager(
             }
         } catch (e: Exception) {
             plugin.logger.warning("Error sending bot message: ${e.message}")
+        }
+    }
+
+    private fun sendImageViaWebhook(
+        imageBytes: ByteArray,
+        filename: String,
+        username: String?,
+        avatarUrl: String?,
+        client: WebhookClient
+    ) {
+        try {
+            val circuitBreaker = plugin.resilience.circuitBreaker
+
+            val sendAction = {
+                val message = WebhookMessageBuilder()
+                    .apply {
+                        username?.let { setUsername(it) }
+                        avatarUrl?.let { setAvatarUrl(it) }
+                    }
+                    .addFile(filename, imageBytes)
+                    .build()
+
+                client.send(message)
+                    .thenAccept { plugin.logger.fine("Sent webhook image: $filename") }
+                    .exceptionally { e ->
+                        plugin.logger.warning("Failed to send webhook image: ${e.message}")
+                        null
+                    }
+                Unit
+            }
+
+            if (circuitBreaker != null) {
+                val result = circuitBreaker.execute("Send webhook image", sendAction)
+                if (result is CircuitBreaker.CircuitResult.Rejected) {
+                    plugin.logger.fine("Webhook image rejected by circuit breaker")
+                }
+            } else {
+                sendAction()
+            }
+        } catch (e: Exception) {
+            plugin.logger.warning("Error sending webhook image: ${e.message}")
+        }
+    }
+
+    private fun sendImageViaBot(imageBytes: ByteArray, filename: String) {
+        val channel = getChannel() ?: return
+
+        try {
+            val circuitBreaker = plugin.resilience.circuitBreaker
+
+            val sendAction = {
+                val fileUpload = net.dv8tion.jda.api.utils.FileUpload.fromData(imageBytes, filename)
+                channel.sendFiles(fileUpload).queue(
+                    { plugin.logger.fine("Sent bot image: $filename") },
+                    { e -> plugin.logger.warning("Failed to send bot image: ${e.message}") }
+                )
+            }
+
+            if (circuitBreaker != null) {
+                val result = circuitBreaker.execute("Send bot image", sendAction)
+                if (result is CircuitBreaker.CircuitResult.Rejected) {
+                    plugin.logger.fine("Bot image rejected by circuit breaker")
+                }
+            } else {
+                sendAction()
+            }
+        } catch (e: Exception) {
+            plugin.logger.warning("Error sending bot image: ${e.message}")
         }
     }
 

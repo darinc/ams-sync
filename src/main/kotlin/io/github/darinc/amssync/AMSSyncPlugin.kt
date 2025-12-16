@@ -778,7 +778,23 @@ class AMSSyncPlugin : JavaPlugin() {
 
         // Initialize player death listener
         val deathListener = if (resolvedConfig.playerDeaths.enabled) {
-            val listener = PlayerDeathListener(this, resolvedConfig, webhookMgr)
+            // Initialize death card renderer if death cards are enabled
+            val (deathCardRenderer, deathAvatarFetcher) = if (resolvedConfig.playerDeaths.deathCards.enabled) {
+                val assetManager = io.github.darinc.amssync.image.DeathAssetManager(this, logger)
+                val serverName = imageFeature?.config?.serverName ?: "Minecraft Server"
+                val renderer = io.github.darinc.amssync.image.DeathCardRenderer(serverName, assetManager)
+                val avatarFetcher = imageFeature?.avatarFetcher
+                    ?: io.github.darinc.amssync.image.AvatarFetcher(logger)
+                logger.info("Death card images enabled")
+                renderer to avatarFetcher
+            } else {
+                null to null
+            }
+
+            val listener = PlayerDeathListener(
+                this, resolvedConfig, webhookMgr,
+                deathCardRenderer, deathAvatarFetcher
+            )
             server.pluginManager.registerEvents(listener, this)
             registeredListeners.add(listener)
             logger.info("Player death announcements enabled")

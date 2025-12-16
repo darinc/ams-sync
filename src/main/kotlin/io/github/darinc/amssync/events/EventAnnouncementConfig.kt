@@ -85,7 +85,8 @@ data class EventAnnouncementConfig(
                     mcmmoRoastThreshold = config.getInt(
                         "event-announcements.player-deaths.commentary.mcmmo-roast-threshold",
                         DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
-                    )
+                    ),
+                    deathCards = DeathCardConfig.fromConfig(config)
                 ),
                 achievements = AchievementConfig(
                     enabled = config.getBoolean("event-announcements.achievements.enabled", true),
@@ -138,13 +139,53 @@ data class ServerStopConfig(
  * @property commentaryEnabled Enable funny commentary after death messages
  * @property mcmmoRoastsEnabled Enable extra roasts for high-level MCMMO players
  * @property mcmmoRoastThreshold Power level threshold for MCMMO roasts
+ * @property deathCards Visual death card settings
  */
 data class PlayerDeathConfig(
     val enabled: Boolean,
     val commentaryEnabled: Boolean = true,
     val mcmmoRoastsEnabled: Boolean = true,
-    val mcmmoRoastThreshold: Int = DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD
+    val mcmmoRoastThreshold: Int = DeathCommentaryRepository.DEFAULT_ELITE_POWER_THRESHOLD,
+    val deathCards: DeathCardConfig = DeathCardConfig()
 )
+
+/**
+ * Configuration for visual death card images.
+ *
+ * @property enabled Generate visual death cards instead of embeds/text
+ * @property showBody Include player body render in coffin
+ * @property showPowerLevel Include MCMMO power level in header
+ * @property themedBackgrounds Use themed backgrounds based on death cause
+ * @property skillSpecificRoasts Use skill-specific sarcastic messages
+ */
+data class DeathCardConfig(
+    val enabled: Boolean = false,
+    val showBody: Boolean = true,
+    val showPowerLevel: Boolean = true,
+    val themedBackgrounds: Boolean = true,
+    val skillSpecificRoasts: Boolean = true
+) {
+    companion object {
+        fun fromConfig(config: org.bukkit.configuration.file.FileConfiguration): DeathCardConfig {
+            return DeathCardConfig(
+                enabled = config.getBoolean("event-announcements.player-deaths.death-cards.enabled", false),
+                showBody = config.getBoolean("event-announcements.player-deaths.death-cards.show-body", true),
+                showPowerLevel = config.getBoolean(
+                    "event-announcements.player-deaths.death-cards.show-power-level",
+                    true
+                ),
+                themedBackgrounds = config.getBoolean(
+                    "event-announcements.player-deaths.death-cards.themed-backgrounds",
+                    true
+                ),
+                skillSpecificRoasts = config.getBoolean(
+                    "event-announcements.player-deaths.death-cards.skill-specific-roasts",
+                    true
+                )
+            )
+        }
+    }
+}
 
 /**
  * Configuration for achievement announcements.

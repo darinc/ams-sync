@@ -3,13 +3,20 @@ package io.github.darinc.amssync.events
 import io.github.darinc.amssync.AMSSyncPlugin
 import io.github.darinc.amssync.discord.WebhookManager
 import io.github.darinc.amssync.exceptions.PlayerDataNotFoundException
+import io.github.darinc.amssync.image.AvatarFetcher
+import io.github.darinc.amssync.image.DeathCardRenderer
 import net.dv8tion.jda.api.EmbedBuilder
+import net.dv8tion.jda.api.utils.FileUpload
+import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
 import org.bukkit.event.entity.PlayerDeathEvent
 import java.awt.Color
+import java.awt.image.BufferedImage
+import java.io.ByteArrayOutputStream
 import java.time.Instant
+import javax.imageio.ImageIO
 
 /**
  * Listens for player death events and announces them to Discord.
@@ -17,11 +24,15 @@ import java.time.Instant
  * @property plugin The parent plugin instance
  * @property config Event announcement configuration
  * @property webhookManager Manager for sending messages (webhook or bot)
+ * @property deathCardRenderer Renderer for visual death cards (nullable if disabled)
+ * @property avatarFetcher Avatar fetcher for body renders (nullable if disabled)
  */
 class PlayerDeathListener(
     private val plugin: AMSSyncPlugin,
     private val config: EventAnnouncementConfig,
-    private val webhookManager: WebhookManager
+    private val webhookManager: WebhookManager,
+    private val deathCardRenderer: DeathCardRenderer? = null,
+    private val avatarFetcher: AvatarFetcher? = null
 ) : Listener {
 
     /**
@@ -41,9 +52,89 @@ class PlayerDeathListener(
 
         plugin.logger.fine("Announcing player death: $plainMessage")
 
-        // Generate commentary if enabled
+        val category = DeathCauseClassifier.classify(event)
+
+        // Check if death cards are enabled and available
+        if (config.playerDeaths.deathCards.enabled && deathCardRenderer != null && avatarFetcher != null) {
+            sendDeathCard(player, category)
+        } else {
+            sendDeathEmbed(player, plainMessage, category)
+        }
+    }
+
+    /**
+     * Send a visual death card image to Discord.
+     */
+    private fun sendDeathCard(player: Player, category: DeathCategory) {
+        // Run async to avoid blocking the main thread
+        plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
+            try {
+                // Get player stats from MCMMO
+                val stats = try {
+                    plugin.mcmmoApi.getPlayerStats(player.name)
+                } catch (e: Exception) {
+                    plugin.logger.fine("No MCMMO stats for ${player.name}: ${e.message}")
+                    null
+                }
+
+                val powerLevel = stats?.values?.sum()
+
+                // Fetch body render
+                val bodyImage = avatarFetcher!!.fetchBodyRender(
+                    player.name,
+                    player.uniqueId,
+                    config.avatarProvider
+                )
+
+                // Generate sarcastic messages
+                val (sarcasticMessage, commentary) = if (config.playerDeaths.deathCards.skillSpecificRoasts) {
+                    DeathCardCommentary.generateMessages(category, stats, powerLevel)
+                } else {
+                    // Fall back to basic commentary
+                    val basic = DeathCommentaryRepository.getCommentary(category)
+                    "Slain by ${io.github.darinc.amssync.image.DeathThemes.getDeathCauseName(category)}." to basic
+                }
+
+                // Render the death card
+                val cardImage = deathCardRenderer!!.renderDeathCard(
+                    playerName = player.name,
+                    powerLevel = if (config.playerDeaths.deathCards.showPowerLevel) powerLevel else null,
+                    deathCategory = category,
+                    sarcasticMessage = sarcasticMessage,
+                    commentary = commentary,
+                    bodyImage = bodyImage
+                )
+
+                // Convert to bytes and send
+                val imageBytes = imageToBytes(cardImage)
+                val filename = "${player.name.lowercase()}_death.png"
+
+                webhookManager.sendImage(imageBytes, filename, player.name, null)
+                plugin.logger.fine("Sent death card for ${player.name}")
+
+            } catch (e: Exception) {
+                plugin.logger.warning("Failed to generate death card for ${player.name}: ${e.message}")
+                // Fall back to embed
+                val category2 = category
+                plugin.server.scheduler.runTask(plugin, Runnable {
+                    val commentary = if (config.playerDeaths.commentaryEnabled) {
+                        generateCommentary(player.name, category2)
+                    } else null
+                    val avatarUrl = if (config.showAvatars) {
+                        EventAnnouncementConfig.getAvatarUrl(player.name, player.uniqueId, config.avatarProvider)
+                    } else null
+                    sendEmbedWithCommentary("${player.name} died", commentary, player.name, avatarUrl)
+                })
+            }
+        })
+    }
+
+    /**
+     * Send a traditional embed-based death announcement.
+     */
+    private fun sendDeathEmbed(player: Player, plainMessage: String, category: DeathCategory) {
         val commentary = if (config.playerDeaths.commentaryEnabled) {
-            generateCommentary(event)
+            generateCommentary(player.name, category)
         } else null
 
         val avatarUrl = if (config.showAvatars) {
@@ -67,15 +158,22 @@ class PlayerDeathListener(
     }
 
     /**
-     * Generate commentary for the death event.
+     * Convert a BufferedImage to PNG bytes.
+     */
+    private fun imageToBytes(image: BufferedImage): ByteArray {
+        val baos = ByteArrayOutputStream()
+        ImageIO.write(image, "PNG", baos)
+        return baos.toByteArray()
+    }
+
+    /**
+     * Generate commentary for a death.
      * Tries MCMMO roast first (if enabled and applicable), then falls back to standard commentary.
      */
-    private fun generateCommentary(event: PlayerDeathEvent): String {
-        val category = DeathCauseClassifier.classify(event)
-
+    private fun generateCommentary(playerName: String, category: DeathCategory): String {
         // Try MCMMO roast first if enabled
         if (config.playerDeaths.mcmmoRoastsEnabled) {
-            val roast = tryGetMcmmoRoast(event.entity.name, category)
+            val roast = tryGetMcmmoRoast(playerName, category)
             if (roast != null) return roast
         }
 
