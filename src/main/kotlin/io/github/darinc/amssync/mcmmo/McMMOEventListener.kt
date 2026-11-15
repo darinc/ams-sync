@@ -1,12 +1,10 @@
 package io.github.darinc.amssync.mcmmo
 
-import club.minnced.discord.webhook.WebhookClient
-import club.minnced.discord.webhook.WebhookClientBuilder
-import club.minnced.discord.webhook.send.WebhookMessageBuilder
 import com.gmail.nossr50.datatypes.skills.PrimarySkillType
 import com.gmail.nossr50.events.experience.McMMOPlayerLevelUpEvent
 import io.github.darinc.amssync.AMSSyncPlugin
 import io.github.darinc.amssync.discord.CircuitBreaker
+import io.github.darinc.amssync.discord.WebhookSender
 import io.github.darinc.amssync.image.AvatarFetcher
 import io.github.darinc.amssync.image.MilestoneCardRenderer
 import io.github.darinc.amssync.image.MilestoneStyles
@@ -53,26 +51,18 @@ class McMMOEventListener(
     // Milestone detection logic
     private val milestoneDetector = MilestoneDetector(config, plugin.logger)
 
-    // Webhook client for richer messages
-    private var webhookClient: WebhookClient? = null
+    // Webhook sender for richer messages
+    private var webhookSender: WebhookSender? = createWebhookSender()
 
-    init {
-        // Initialize webhook client if URL is configured
-        if (!config.webhookUrl.isNullOrBlank()) {
-            try {
-                webhookClient = WebhookClientBuilder(config.webhookUrl)
-                    .setThreadFactory { r ->
-                        val thread = Thread(r, "AMSSync-Milestone-Webhook")
-                        thread.isDaemon = true
-                        thread
-                    }
-                    .setWait(false)
-                    .build()
-                plugin.logger.info("Milestone webhook client initialized")
-            } catch (e: Exception) {
-                plugin.logger.warning("Failed to initialize milestone webhook: ${e.message}")
-            }
+    private fun createWebhookSender(): WebhookSender? {
+        val url = config.webhookUrl
+        if (url.isNullOrBlank()) return null
+        if (!WebhookSender.isValidUrl(url)) {
+            plugin.logger.warning("Invalid milestone webhook URL configured; using bot messages")
+            return null
         }
+        plugin.logger.info("Milestone webhook client initialized")
+        return WebhookSender(url, { discordManager?.getJda() }, { plugin.resilience.circuitBreaker }, plugin.logger)
     }
 
     /**
@@ -309,51 +299,15 @@ class McMMOEventListener(
             ImageIO.write(image, "PNG", baos)
             val imageBytes = baos.toByteArray()
 
-            val client = webhookClient
-            if (client != null) {
-                // Send via webhook
-                sendImageViaWebhook(imageBytes, filename, client)
+            val sender = webhookSender
+            if (sender != null) {
+                sender.sendFile(imageBytes, filename, username = "MCMMO Milestones")
             } else {
                 // Send via bot message
                 sendImageViaBot(imageBytes, filename)
             }
         } catch (e: Exception) {
             plugin.logger.warning("Error sending milestone image: ${e.message}")
-        }
-    }
-
-    /**
-     * Send image via webhook.
-     */
-    private fun sendImageViaWebhook(imageBytes: ByteArray, filename: String, client: WebhookClient) {
-        try {
-            val circuitBreaker = plugin.resilience.circuitBreaker
-
-            val sendAction = {
-                val message = WebhookMessageBuilder()
-                    .setUsername("MCMMO Milestones")
-                    .addFile(filename, imageBytes)
-                    .build()
-
-                client.send(message)
-                    .thenAccept { plugin.logger.fine("Sent milestone image via webhook") }
-                    .exceptionally { e ->
-                        plugin.logger.warning("Failed to send milestone via webhook: ${e.message}")
-                        null
-                    }
-                Unit
-            }
-
-            if (circuitBreaker != null) {
-                val result = circuitBreaker.execute("Send milestone webhook", sendAction)
-                if (result is CircuitBreaker.CircuitResult.Rejected) {
-                    plugin.logger.fine("Milestone webhook rejected by circuit breaker")
-                }
-            } else {
-                sendAction()
-            }
-        } catch (e: Exception) {
-            plugin.logger.warning("Error sending milestone webhook: ${e.message}")
         }
     }
 
@@ -463,11 +417,10 @@ class McMMOEventListener(
     }
 
     /**
-     * Shutdown the webhook client.
+     * Stop using the webhook. Requests already queued are finished by JDA.
      */
     fun shutdown() {
-        webhookClient?.close()
-        webhookClient = null
+        webhookSender = null
     }
 }
 

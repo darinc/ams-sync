@@ -226,7 +226,6 @@ Dependencies are relocated to avoid conflicts:
 // build.gradle.kts
 shadowJar {
     relocate("net.dv8tion", "io.github.darinc.amssync.libs.jda")
-    relocate("club.minnced", "io.github.darinc.amssync.libs.webhook")
     relocate("kotlin", "io.github.darinc.amssync.libs.kotlin")
     relocate("kotlinx", "io.github.darinc.amssync.libs.kotlinx")
     // Note: Don't relocate SLF4J - JDA needs original package
@@ -239,8 +238,7 @@ shadowJar {
 |------------|---------|-------|
 | paper-api | Minecraft server API | compileOnly |
 | mcMMO | MCMMO API | compileOnly |
-| JDA | Discord API | implementation |
-| discord-webhooks | Webhook support | implementation |
+| JDA | Discord API and webhooks | implementation |
 | kotlinx-coroutines | Async utilities | implementation |
 | slf4j | Logging for JDA | implementation |
 

@@ -1,22 +1,16 @@
 package io.github.darinc.amssync.discord
 
-import club.minnced.discord.webhook.WebhookClient
-import club.minnced.discord.webhook.WebhookClientBuilder
-import club.minnced.discord.webhook.send.WebhookEmbed
-import club.minnced.discord.webhook.send.WebhookEmbedBuilder
-import club.minnced.discord.webhook.send.WebhookMessageBuilder
 import io.github.darinc.amssync.AMSSyncPlugin
-import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.entities.MessageEmbed
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
-import java.time.Instant
+import net.dv8tion.jda.api.utils.FileUpload
 
 /**
  * Manages Discord webhook sending with fallback to regular bot messages.
  *
- * When a webhook URL is configured, messages are sent via webhook which allows
+ * When a valid webhook URL is configured, messages are sent via webhook which allows
  * custom usernames and avatars per message. When not configured, falls back
- * to standard bot channel messages.
+ * to standard bot channel messages. Both paths use the bot's JDA connection.
  *
  * @property plugin The parent plugin instance
  * @property webhookUrl Optional webhook URL (null = use bot messages)
@@ -28,23 +22,20 @@ class WebhookManager(
     private val channelId: String,
     private val discordManager: DiscordManager? = null
 ) {
-    private var webhookClient: WebhookClient? = null
+    private var webhookSender: WebhookSender? = null
 
     init {
         if (!webhookUrl.isNullOrBlank()) {
-            try {
-                webhookClient = WebhookClientBuilder(webhookUrl)
-                    .setThreadFactory { r ->
-                        val thread = Thread(r, "AMSSync-Webhook")
-                        thread.isDaemon = true
-                        thread
-                    }
-                    .setWait(false)
-                    .build()
+            if (WebhookSender.isValidUrl(webhookUrl)) {
+                webhookSender = WebhookSender(
+                    webhookUrl,
+                    { discordManager?.getJda() },
+                    { plugin.resilience.circuitBreaker },
+                    plugin.logger
+                )
                 plugin.logger.info("Webhook client initialized")
-            } catch (e: Exception) {
-                plugin.logger.warning("Failed to initialize webhook client: ${e.message}")
-                plugin.logger.warning("Falling back to bot messages")
+            } else {
+                plugin.logger.warning("Invalid webhook URL configured; falling back to bot messages")
             }
         }
     }
@@ -52,7 +43,7 @@ class WebhookManager(
     /**
      * Check if webhook is available for use.
      */
-    fun isWebhookAvailable(): Boolean = webhookClient != null
+    fun isWebhookAvailable(): Boolean = webhookSender != null
 
     /**
      * Send an embed message, using webhook if available or bot fallback.
@@ -66,9 +57,9 @@ class WebhookManager(
         username: String? = null,
         avatarUrl: String? = null
     ) {
-        val client = webhookClient
-        if (client != null) {
-            sendViaWebhook(embed, username, avatarUrl, client)
+        val sender = webhookSender
+        if (sender != null) {
+            sender.sendEmbed(embed, username, avatarUrl)
         } else {
             sendViaBot(embed)
         }
@@ -86,9 +77,9 @@ class WebhookManager(
         username: String? = null,
         avatarUrl: String? = null
     ) {
-        val client = webhookClient
-        if (client != null) {
-            sendMessageViaWebhook(content, username, avatarUrl, client)
+        val sender = webhookSender
+        if (sender != null) {
+            sender.sendMessage(content, username, avatarUrl)
         } else {
             sendMessageViaBot(content)
         }
@@ -108,92 +99,11 @@ class WebhookManager(
         username: String? = null,
         avatarUrl: String? = null
     ) {
-        val client = webhookClient
-        if (client != null) {
-            sendImageViaWebhook(imageBytes, filename, username, avatarUrl, client)
+        val sender = webhookSender
+        if (sender != null) {
+            sender.sendFile(imageBytes, filename, username, avatarUrl)
         } else {
             sendImageViaBot(imageBytes, filename)
-        }
-    }
-
-    private fun sendViaWebhook(
-        embed: MessageEmbed,
-        username: String?,
-        avatarUrl: String?,
-        client: WebhookClient
-    ) {
-        try {
-            val circuitBreaker = plugin.resilience.circuitBreaker
-
-            val sendAction = {
-                val webhookEmbed = convertToWebhookEmbed(embed)
-                val message = WebhookMessageBuilder()
-                    .apply {
-                        username?.let { setUsername(it) }
-                        avatarUrl?.let { setAvatarUrl(it) }
-                    }
-                    .addEmbeds(webhookEmbed)
-                    .build()
-
-                client.send(message)
-                    .thenAccept { plugin.logger.fine("Sent webhook embed") }
-                    .exceptionally { e ->
-                        plugin.logger.warning("Failed to send webhook embed: ${e.message}")
-                        null
-                    }
-                Unit
-            }
-
-            if (circuitBreaker != null) {
-                val result = circuitBreaker.execute("Send webhook embed", sendAction)
-                if (result is CircuitBreaker.CircuitResult.Rejected) {
-                    plugin.logger.fine("Webhook embed rejected by circuit breaker")
-                }
-            } else {
-                sendAction()
-            }
-        } catch (e: Exception) {
-            plugin.logger.warning("Error sending webhook embed: ${e.message}")
-        }
-    }
-
-    private fun sendMessageViaWebhook(
-        content: String,
-        username: String?,
-        avatarUrl: String?,
-        client: WebhookClient
-    ) {
-        try {
-            val circuitBreaker = plugin.resilience.circuitBreaker
-
-            val sendAction = {
-                val message = WebhookMessageBuilder()
-                    .setContent(content)
-                    .apply {
-                        username?.let { setUsername(it) }
-                        avatarUrl?.let { setAvatarUrl(it) }
-                    }
-                    .build()
-
-                client.send(message)
-                    .thenAccept { plugin.logger.fine("Sent webhook message") }
-                    .exceptionally { e ->
-                        plugin.logger.warning("Failed to send webhook message: ${e.message}")
-                        null
-                    }
-                Unit
-            }
-
-            if (circuitBreaker != null) {
-                val result = circuitBreaker.execute("Send webhook message", sendAction)
-                if (result is CircuitBreaker.CircuitResult.Rejected) {
-                    plugin.logger.fine("Webhook message rejected by circuit breaker")
-                }
-            } else {
-                sendAction()
-            }
-        } catch (e: Exception) {
-            plugin.logger.warning("Error sending webhook message: ${e.message}")
         }
     }
 
@@ -249,47 +159,6 @@ class WebhookManager(
         }
     }
 
-    private fun sendImageViaWebhook(
-        imageBytes: ByteArray,
-        filename: String,
-        username: String?,
-        avatarUrl: String?,
-        client: WebhookClient
-    ) {
-        try {
-            val circuitBreaker = plugin.resilience.circuitBreaker
-
-            val sendAction = {
-                val message = WebhookMessageBuilder()
-                    .apply {
-                        username?.let { setUsername(it) }
-                        avatarUrl?.let { setAvatarUrl(it) }
-                    }
-                    .addFile(filename, imageBytes)
-                    .build()
-
-                client.send(message)
-                    .thenAccept { plugin.logger.fine("Sent webhook image: $filename") }
-                    .exceptionally { e ->
-                        plugin.logger.warning("Failed to send webhook image: ${e.message}")
-                        null
-                    }
-                Unit
-            }
-
-            if (circuitBreaker != null) {
-                val result = circuitBreaker.execute("Send webhook image", sendAction)
-                if (result is CircuitBreaker.CircuitResult.Rejected) {
-                    plugin.logger.fine("Webhook image rejected by circuit breaker")
-                }
-            } else {
-                sendAction()
-            }
-        } catch (e: Exception) {
-            plugin.logger.warning("Error sending webhook image: ${e.message}")
-        }
-    }
-
     private fun sendImageViaBot(imageBytes: ByteArray, filename: String) {
         val channel = getChannel() ?: return
 
@@ -297,7 +166,7 @@ class WebhookManager(
             val circuitBreaker = plugin.resilience.circuitBreaker
 
             val sendAction = {
-                val fileUpload = net.dv8tion.jda.api.utils.FileUpload.fromData(imageBytes, filename)
+                val fileUpload = FileUpload.fromData(imageBytes, filename)
                 channel.sendFiles(fileUpload).queue(
                     { plugin.logger.fine("Sent bot image: $filename") },
                     { e -> plugin.logger.warning("Failed to send bot image: ${e.message}") }
@@ -335,36 +204,9 @@ class WebhookManager(
     }
 
     /**
-     * Convert JDA MessageEmbed to webhook library WebhookEmbed.
-     */
-    private fun convertToWebhookEmbed(embed: MessageEmbed): WebhookEmbed {
-        val builder = WebhookEmbedBuilder()
-
-        embed.title?.let { builder.setTitle(WebhookEmbed.EmbedTitle(it, embed.url)) }
-        embed.description?.let { builder.setDescription(it) }
-        embed.colorRaw.let { builder.setColor(it) }
-        embed.timestamp?.let { builder.setTimestamp(it) }
-        embed.thumbnail?.url?.let { builder.setThumbnailUrl(it) }
-        embed.image?.url?.let { builder.setImageUrl(it) }
-        embed.footer?.let { footer ->
-            builder.setFooter(WebhookEmbed.EmbedFooter(footer.text ?: "", footer.iconUrl))
-        }
-        embed.author?.let { author ->
-            builder.setAuthor(WebhookEmbed.EmbedAuthor(author.name ?: "", author.iconUrl, author.url))
-        }
-
-        embed.fields.forEach { field ->
-            builder.addField(WebhookEmbed.EmbedField(field.isInline, field.name ?: "", field.value ?: ""))
-        }
-
-        return builder.build()
-    }
-
-    /**
-     * Shutdown the webhook client.
+     * Stop using the webhook. Requests already queued are finished by JDA.
      */
     fun shutdown() {
-        webhookClient?.close()
-        webhookClient = null
+        webhookSender = null
     }
 }

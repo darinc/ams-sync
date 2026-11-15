@@ -1,7 +1,9 @@
 # Discord Webhooks
 
 **Complexity**: Beginner
-**Key File**: [`discord/WebhookManager.kt`](../../src/main/kotlin/io/github/darinc/amssync/discord/WebhookManager.kt)
+**Key Files**:
+- [`discord/WebhookSender.kt`](../../src/main/kotlin/io/github/darinc/amssync/discord/WebhookSender.kt)
+- [`discord/WebhookManager.kt`](../../src/main/kotlin/io/github/darinc/amssync/discord/WebhookManager.kt)
 
 ## Overview
 
@@ -40,26 +42,38 @@ Webhook Message                    Bot Message
 4. Copy the webhook URL
 5. Add to `config.yml`
 
-## WebhookManager Architecture
+## Architecture
+
+Webhooks are sent with JDA's built-in webhook client (`WebhookClient.createClient`), so no
+separate webhook library is bundled. `WebhookSender` wraps it and is shared by:
+
+- `WebhookManager` - server events, deaths, achievements (falls back to bot messages)
+- `ChatWebhookManager` - chat bridge messages with player name and head
+- `McMMOEventListener` - milestone image cards
 
 ```kotlin
-class WebhookManager(
-    private val plugin: AMSSyncPlugin,
-    private val webhookUrl: String?,
-    private val channelId: String
+class WebhookSender(
+    private val webhookUrl: String,                 // must match Webhook.WEBHOOK_URL
+    private val jdaProvider: () -> JDA?,            // current bot connection
+    private val circuitBreakerProvider: () -> CircuitBreaker?,
+    private val logger: Logger
 ) {
-    private var webhookClient: WebhookClient? = null
-
-    init {
-        if (!webhookUrl.isNullOrBlank()) {
-            webhookClient = WebhookClientBuilder(webhookUrl)
-                .setThreadFactory { Thread(it, "AMSSync-Webhook").apply { isDaemon = true } }
-                .setWait(false)  // Don't wait for response
-                .build()
-        }
-    }
+    fun sendMessage(content: String, username: String? = null, avatarUrl: String? = null): Boolean
+    fun sendEmbed(embed: MessageEmbed, username: String? = null, avatarUrl: String? = null): Boolean
+    fun sendFile(bytes: ByteArray, filename: String, username: String? = null, avatarUrl: String? = null): Boolean
 }
 ```
+
+Each send:
+
+1. Skips (returns `false`) if the bot is not connected
+2. Creates a webhook client from the current JDA instance
+3. Applies the username/avatar overrides and queues the request through JDA
+4. Is gated by the circuit breaker when one is configured
+
+Because requests go through JDA, webhook sends share JDA's rate-limit handling and
+**require the bot to be connected**. The URL is validated when the manager is created;
+an invalid URL logs a warning and the manager falls back to bot messages.
 
 ## Usage Patterns
 
@@ -71,9 +85,9 @@ fun sendEmbed(
     username: String? = null,
     avatarUrl: String? = null
 ) {
-    val client = webhookClient
-    if (client != null) {
-        sendViaWebhook(embed, username, avatarUrl, client)
+    val sender = webhookSender
+    if (sender != null) {
+        sender.sendEmbed(embed, username, avatarUrl)
     } else {
         sendViaBot(embed)  // Fallback
     }
@@ -88,9 +102,9 @@ fun sendMessage(
     username: String? = null,
     avatarUrl: String? = null
 ) {
-    val client = webhookClient
-    if (client != null) {
-        sendMessageViaWebhook(content, username, avatarUrl, client)
+    val sender = webhookSender
+    if (sender != null) {
+        sender.sendMessage(content, username, avatarUrl)
     } else {
         sendMessageViaBot(content)  // Fallback
     }
@@ -115,71 +129,9 @@ webhookManager.sendMessage(
 )
 ```
 
-## Embed Conversion
+## Embeds
 
-JDA embeds must be converted to webhook library format:
-
-```kotlin
-private fun convertToWebhookEmbed(embed: MessageEmbed): WebhookEmbed {
-    val builder = WebhookEmbedBuilder()
-
-    embed.title?.let { builder.setTitle(WebhookEmbed.EmbedTitle(it, embed.url)) }
-    embed.description?.let { builder.setDescription(it) }
-    embed.colorRaw.let { builder.setColor(it) }
-    embed.timestamp?.let { builder.setTimestamp(it) }
-    embed.thumbnail?.url?.let { builder.setThumbnailUrl(it) }
-    embed.image?.url?.let { builder.setImageUrl(it) }
-    embed.footer?.let { footer ->
-        builder.setFooter(WebhookEmbed.EmbedFooter(footer.text ?: "", footer.iconUrl))
-    }
-    embed.author?.let { author ->
-        builder.setAuthor(WebhookEmbed.EmbedAuthor(author.name ?: "", author.iconUrl, author.url))
-    }
-
-    embed.fields.forEach { field ->
-        builder.addField(WebhookEmbed.EmbedField(field.isInline, field.name ?: "", field.value ?: ""))
-    }
-
-    return builder.build()
-}
-```
-
-## Circuit Breaker Integration
-
-All webhook sends are protected by the circuit breaker:
-
-```kotlin
-private fun sendViaWebhook(embed: MessageEmbed, ...) {
-    val circuitBreaker = plugin.circuitBreaker
-
-    val sendAction = {
-        val webhookEmbed = convertToWebhookEmbed(embed)
-        val message = WebhookMessageBuilder()
-            .apply {
-                username?.let { setUsername(it) }
-                avatarUrl?.let { setAvatarUrl(it) }
-            }
-            .addEmbeds(webhookEmbed)
-            .build()
-
-        client.send(message)
-            .thenAccept { logger.fine("Webhook sent") }
-            .exceptionally { e ->
-                logger.warning("Webhook failed: ${e.message}")
-                null
-            }
-    }
-
-    if (circuitBreaker != null) {
-        val result = circuitBreaker.execute("Send webhook", sendAction)
-        if (result is CircuitResult.Rejected) {
-            logger.fine("Webhook rejected by circuit breaker")
-        }
-    } else {
-        sendAction()
-    }
-}
-```
+JDA `MessageEmbed` objects are passed straight to the webhook client; no conversion is needed.
 
 ## Fallback to Bot Messages
 
@@ -239,17 +191,13 @@ discord:
 
 ## Graceful Shutdown
 
-```kotlin
-fun shutdown() {
-    webhookClient?.close()
-    webhookClient = null
-}
-```
+`shutdown()` stops new webhook sends. Requests already queued are completed by JDA's
+graceful shutdown in `DiscordManager.shutdown()`.
 
 ## Check Webhook Availability
 
 ```kotlin
-fun isWebhookAvailable(): Boolean = webhookClient != null
+fun isWebhookAvailable(): Boolean = webhookSender != null
 ```
 
 Use this to determine messaging mode:
@@ -262,32 +210,18 @@ if (webhookManager.isWebhookAvailable()) {
 }
 ```
 
-## Webhook Library
-
-AMSSync uses [discord-webhooks](https://github.com/MinnDevelopment/discord-webhooks) library:
-
-```kotlin
-// build.gradle.kts
-implementation("club.minnced:discord-webhooks:0.8.4")
-```
-
-The library is relocated to avoid conflicts:
-
-```kotlin
-relocate("club.minnced", "io.github.darinc.amssync.libs.webhook")
-```
-
 ## Common Issues
 
 ### Webhook Not Working
 
-1. **Invalid URL**: Verify webhook URL is complete and valid
-2. **Deleted webhook**: Check webhook still exists in Discord
-3. **Wrong channel**: Webhook is channel-specific
+1. **Invalid URL**: Verify webhook URL is complete and valid (startup logs "Invalid webhook URL")
+2. **Bot offline**: Webhook sends need the bot connected; check the Discord connection in logs
+3. **Deleted webhook**: Check webhook still exists in Discord
+4. **Wrong channel**: Webhook is channel-specific
 
 ### Rate Limited
 
-Discord limits webhook requests to ~30 per minute. The circuit breaker helps manage this.
+Discord limits webhook requests to ~30 per minute. JDA queues requests and waits out rate limits automatically.
 
 ### Missing Permissions
 

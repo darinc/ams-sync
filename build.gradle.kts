@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "io.github.darinc"
-version = "0.29.0"
+version = "0.29.1"
 
 repositories {
     mavenCentral()
@@ -34,12 +34,6 @@ dependencies {
         exclude(module = "opus-java")
         exclude(module = "tink")
     }
-    implementation("club.minnced:discord-webhooks:0.8.4") {
-        // Built against okhttp 4.x; use JDA's okhttp 5 instead of shading both (all 26 API refs verified present in 5.x)
-        exclude(group = "com.squareup.okhttp3", module = "okhttp")
-    }
-    // discord-webhooks pins org.json 20230618 (GHSA-4jq9-2xhw-jpx7, GHSA-ghc9-756g-vrcv); force a patched release
-    implementation("org.json:json:20260814")
     // JDA 6.7.0 pins Jackson 2.22.2 (GHSA-7hhh-6rmp-j9qf, GHSA-p6pp-m3f8-5c89, GHSA-cxp5-3px4-pw24, GHSA-wv8q-qhhj-9h54)
     implementation(platform("com.fasterxml.jackson:jackson-bom:2.23.0"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
@@ -88,7 +82,6 @@ tasks {
         archiveClassifier.set("")
         // Relocate to avoid conflicts with other plugins
         relocate("net.dv8tion", "io.github.darinc.amssync.libs.jda")
-        relocate("club.minnced", "io.github.darinc.amssync.libs.webhook")
         relocate("kotlin", "io.github.darinc.amssync.libs.kotlin")
         relocate("kotlinx", "io.github.darinc.amssync.libs.kotlinx")
         // Note: Don't relocate SLF4J - JDA needs to find it in original package

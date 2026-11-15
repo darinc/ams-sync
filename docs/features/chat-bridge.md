@@ -129,13 +129,8 @@ private fun sendViaWebhook(message: String, playerName: String, avatarUrl: Strin
 
 // In ChatWebhookManager
 fun sendMessage(content: String, username: String, avatarUrl: String) {
-    val message = WebhookMessageBuilder()
-        .setContent(content)
-        .setUsername(username)      // Appears as sender name
-        .setAvatarUrl(avatarUrl)    // Player's Minecraft head
-        .build()
-
-    webhookClient.send(message).queue()
+    // username appears as sender name, avatarUrl is the player's Minecraft head
+    webhookSender?.sendMessage(content, username, avatarUrl)
 }
 ```
 
@@ -264,25 +259,28 @@ discord:
 ```kotlin
 class ChatWebhookManager(
     private val plugin: AMSSyncPlugin,
-    private val webhookUrl: String?
+    private val webhookUrl: String?,
+    private val discordManager: DiscordManager?
 ) {
-    private var webhookClient: WebhookClient? = null
+    // Built on JDA's webhook client; sends need the bot connected.
+    // See docs/integrations/webhooks.md
+    private var webhookSender: WebhookSender? = null
 
     init {
-        if (!webhookUrl.isNullOrBlank()) {
-            webhookClient = WebhookClientBuilder(webhookUrl)
-                .setThreadFactory { r ->
-                    Thread(r, "AMSSync-ChatWebhook").apply { isDaemon = true }
-                }
-                .setWait(false)  // Don't wait for response
-                .build()
+        if (WebhookSender.isValidUrl(webhookUrl)) {
+            webhookSender = WebhookSender(
+                webhookUrl!!,
+                { discordManager?.getJda() },
+                { plugin.resilience.circuitBreaker },
+                plugin.logger
+            )
         }
     }
 
-    fun isWebhookAvailable(): Boolean = webhookClient != null
+    fun isWebhookAvailable(): Boolean = webhookSender != null
 
     fun shutdown() {
-        webhookClient?.close()
+        webhookSender = null
     }
 }
 ```

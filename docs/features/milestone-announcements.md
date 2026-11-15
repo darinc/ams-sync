@@ -102,15 +102,8 @@ private fun checkPowerLevelMilestone(playerName: String, uuid: UUID) {
 Richest experience - custom avatar and username:
 
 ```kotlin
-private fun sendImageViaWebhook(imageBytes: ByteArray, filename: String, client: WebhookClient) {
-    val message = WebhookMessageBuilder()
-        .setUsername("MCMMO Milestones")
-        .addFile(filename, imageBytes)
-        .build()
-
-    client.send(message)
-        .thenAccept { logger.fine("Milestone sent via webhook") }
-}
+// webhookSender is a WebhookSender (JDA's webhook client); see docs/integrations/webhooks.md
+webhookSender.sendFile(imageBytes, filename, username = "MCMMO Milestones")
 ```
 
 ### Image Cards with Bot
@@ -310,8 +303,7 @@ private fun initializeMcMMOAnnouncements() {
 
 ```kotlin
 fun shutdown() {
-    webhookClient?.close()
-    webhookClient = null
+    webhookSender = null  // queued requests finish during JDA shutdown
 }
 ```
 

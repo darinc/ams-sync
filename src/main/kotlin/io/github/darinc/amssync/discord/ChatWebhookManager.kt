@@ -1,39 +1,36 @@
 package io.github.darinc.amssync.discord
 
-import club.minnced.discord.webhook.WebhookClient
-import club.minnced.discord.webhook.WebhookClientBuilder
-import club.minnced.discord.webhook.send.WebhookMessageBuilder
 import io.github.darinc.amssync.AMSSyncPlugin
 
 /**
  * Manages Discord webhook sending for chat bridge messages.
  *
  * Sends messages via webhook with custom username (player name) and avatar (player head).
- * Falls back to standard bot messages if webhook is not configured or fails.
+ * When the webhook is unavailable, [ChatBridge] falls back to standard bot messages.
  *
  * @property plugin The parent plugin instance
  * @property webhookUrl Webhook URL (null = use bot messages)
+ * @property discordManager Provides the JDA connection used to send webhook requests
  */
 class ChatWebhookManager(
     private val plugin: AMSSyncPlugin,
-    private val webhookUrl: String?
+    private val webhookUrl: String?,
+    private val discordManager: DiscordManager?
 ) {
-    private var webhookClient: WebhookClient? = null
+    private var webhookSender: WebhookSender? = null
 
     init {
         if (!webhookUrl.isNullOrBlank()) {
-            try {
-                webhookClient = WebhookClientBuilder(webhookUrl)
-                    .setThreadFactory { r ->
-                        val thread = Thread(r, "AMSSync-ChatWebhook")
-                        thread.isDaemon = true
-                        thread
-                    }
-                    .setWait(false)
-                    .build()
+            if (WebhookSender.isValidUrl(webhookUrl)) {
+                webhookSender = WebhookSender(
+                    webhookUrl,
+                    { discordManager?.getJda() },
+                    { plugin.resilience.circuitBreaker },
+                    plugin.logger
+                )
                 plugin.logger.info("Chat webhook client initialized")
-            } catch (e: Exception) {
-                plugin.logger.warning("Failed to initialize chat webhook client: ${e.message}")
+            } else {
+                plugin.logger.warning("Invalid chat webhook URL configured")
                 plugin.logger.warning("Chat bridge falling back to bot messages")
             }
         }
@@ -42,7 +39,7 @@ class ChatWebhookManager(
     /**
      * Check if webhook is available for use.
      */
-    fun isWebhookAvailable(): Boolean = webhookClient != null
+    fun isWebhookAvailable(): Boolean = webhookSender != null
 
     /**
      * Send a chat message via webhook with custom username and avatar.
@@ -52,49 +49,18 @@ class ChatWebhookManager(
      * @param avatarUrl URL to player's head image
      */
     fun sendMessage(content: String, username: String, avatarUrl: String) {
-        val client = webhookClient
-        if (client == null) {
+        val sender = webhookSender
+        if (sender == null) {
             plugin.logger.fine("Chat webhook not available, skipping message")
             return
         }
-
-        try {
-            val circuitBreaker = plugin.resilience.circuitBreaker
-
-            val sendAction = {
-                val message = WebhookMessageBuilder()
-                    .setContent(content)
-                    .setUsername(username)
-                    .setAvatarUrl(avatarUrl)
-                    .build()
-
-                client.send(message)
-                    .thenAccept { plugin.logger.fine("Sent chat webhook message from $username") }
-                    .exceptionally { e ->
-                        plugin.logger.warning("Failed to send chat webhook message: ${e.message}")
-                        null
-                    }
-                Unit
-            }
-
-            if (circuitBreaker != null) {
-                val result = circuitBreaker.execute("Send chat webhook", sendAction)
-                if (result is CircuitBreaker.CircuitResult.Rejected) {
-                    plugin.logger.fine("Chat webhook rejected by circuit breaker")
-                }
-            } else {
-                sendAction()
-            }
-        } catch (e: Exception) {
-            plugin.logger.warning("Error sending chat webhook: ${e.message}")
-        }
+        sender.sendMessage(content, username, avatarUrl)
     }
 
     /**
-     * Shutdown the webhook client.
+     * Stop using the webhook. Requests already queued are finished by JDA.
      */
     fun shutdown() {
-        webhookClient?.close()
-        webhookClient = null
+        webhookSender = null
     }
 }

@@ -238,6 +238,10 @@ Features manage lifecycle (initialize/shutdown) of related services. Each implem
 - Posts milestone announcements to Discord
 - Supports both embeds and image cards
 
+**WebhookSender** (`discord/WebhookSender.kt`)
+- Shared webhook sender on JDA's `WebhookClient`; requires the bot to be connected
+- Used by WebhookManager, ChatWebhookManager, and McMMOEventListener
+
 **WebhookManager** (`discord/WebhookManager.kt`)
 - Sends messages via Discord webhooks with custom avatars
 - Fallback to bot messages when webhook unavailable
@@ -307,7 +311,6 @@ discordId.matches(Regex("^\\d{17,19}$"))
 
 The shadowJar task relocates dependencies to prevent conflicts:
 - `net.dv8tion` → `io.github.darinc.amssync.libs.jda`
-- `club.minnced` → `io.github.darinc.amssync.libs.webhook`
 - `kotlin` → `io.github.darinc.amssync.libs.kotlin`
 - `kotlinx` → `io.github.darinc.amssync.libs.kotlinx`
 
@@ -315,8 +318,8 @@ The shadowJar task relocates dependencies to prevent conflicts:
 
 Other dependency rules in `build.gradle.kts`:
 - JDA excludes `opus-java` and `tink` (no voice features)
-- discord-webhooks excludes its okhttp 4.x so only JDA's okhttp 5 is shaded
-- `org.json` and the Jackson BOM are pinned above transitive versions for security fixes
+- The Jackson BOM is pinned above JDA's transitive version for security fixes
+- Webhooks use JDA's built-in client via `WebhookSender` (no separate webhook library)
 - The plain `jar` task uses classifier `plain` so it cannot overwrite the shaded JAR
 
 ## Configuration Structure
