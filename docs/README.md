@@ -102,9 +102,9 @@ Production-grade patterns implemented in the plugin:
 
 | Component | Technology |
 |-----------|------------|
-| Language | Kotlin 1.9.21 with Java 21 |
-| Server | Paper 1.21.4 (Spigot compatible) |
-| Discord | JDA 5.0.0-beta.18 |
+| Language | Kotlin 2.4.21 with Java 25 |
+| Server | Paper 26.x |
+| Discord | JDA 6.7.0 |
 | Build | Gradle with Shadow plugin |
 | Testing | Kotest with MockK |
 | Analysis | Detekt |

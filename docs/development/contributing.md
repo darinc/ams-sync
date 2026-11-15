@@ -9,7 +9,7 @@
 
 ### Required
 
-- **Java 21 JDK** - Required for building and running
+- **Java 25 JDK** - Required for building and running (Gradle can auto-provision it)
 - **Gradle** - Build tool (wrapper included)
 - **Git** - Version control
 
@@ -67,8 +67,8 @@ export AMS_GUILD_ID="your-guild-id"
 
 ### Kotlin Version
 
-- Kotlin 1.9.21
-- Java 21 toolchain
+- Kotlin 2.4.21
+- Java 25 toolchain
 
 ### Detekt Rules
 

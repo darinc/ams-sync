@@ -1,5 +1,6 @@
 package io.github.darinc.amssync.mcmmo
 
+import com.gmail.nossr50.util.skills.SkillTools
 import com.gmail.nossr50.datatypes.skills.PrimarySkillType
 import com.gmail.nossr50.mcMMO
 import java.util.UUID
@@ -70,7 +71,7 @@ class MilestoneDetector(
 
             @Suppress("DEPRECATION")
             val currentPowerLevel = PrimarySkillType.values()
-                .filter { !it.isChildSkill }
+                .filter { !SkillTools.isChildSkill(it) }
                 .sumOf { profile.getSkillLevel(it) }
 
             val lastPowerLevel = lastKnownPowerLevel.getOrDefault(playerName, 0)

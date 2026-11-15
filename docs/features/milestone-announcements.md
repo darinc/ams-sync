@@ -78,7 +78,7 @@ private fun checkPowerLevelMilestone(playerName: String, uuid: UUID) {
 
     // Calculate power level (exclude child skills)
     val currentPowerLevel = PrimarySkillType.values()
-        .filter { !it.isChildSkill }
+        .filter { !SkillTools.isChildSkill(it) }
         .sumOf { profile.getSkillLevel(it) }
 
     val lastPowerLevel = lastKnownPowerLevel.getOrDefault(playerName, 0)

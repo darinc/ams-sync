@@ -5,7 +5,7 @@ This guide walks you through installing AMSSync and getting your first Discord c
 ## Prerequisites
 
 ### Required
-- **Minecraft Server**: Paper 1.21.x (or compatible Spigot fork)
+- **Minecraft Server**: Paper 26.x (Java 25)
 - **MCMMO Plugin**: Must be installed and working on your server
 - **Java**: Version 21 or higher
 - **Discord Bot**: A Discord application with bot token

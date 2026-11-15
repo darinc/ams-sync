@@ -24,7 +24,7 @@ class RetryManagerTest : DescribeSpec({
                 val result = retryManager.executeWithRetry("test") { "success" }
 
                 result.shouldBeInstanceOf<RetryManager.RetryResult.Success<String>>()
-                (result as RetryManager.RetryResult.Success).value shouldBe "success"
+                result.value shouldBe "success"
             }
 
             it("returns the correct value from successful operation") {
@@ -41,7 +41,7 @@ class RetryManagerTest : DescribeSpec({
                 }
 
                 result.shouldBeInstanceOf<RetryManager.RetryResult.Success<Int>>()
-                (result as RetryManager.RetryResult.Success).value shouldBe 42
+                result.value shouldBe 42
                 callCount shouldBe 1
             }
         }
@@ -63,7 +63,7 @@ class RetryManagerTest : DescribeSpec({
                 }
 
                 result.shouldBeInstanceOf<RetryManager.RetryResult.Success<String>>()
-                (result as RetryManager.RetryResult.Success).value shouldBe "success after retry"
+                result.value shouldBe "success after retry"
                 attempts shouldBe 2
             }
 
@@ -81,7 +81,7 @@ class RetryManagerTest : DescribeSpec({
                 }
 
                 result.shouldBeInstanceOf<RetryManager.RetryResult.Failure>()
-                (result as RetryManager.RetryResult.Failure).attempts shouldBe 3
+                result.attempts shouldBe 3
                 attempts shouldBe 3
             }
 
@@ -97,7 +97,7 @@ class RetryManagerTest : DescribeSpec({
                 }
 
                 result.shouldBeInstanceOf<RetryManager.RetryResult.Failure>()
-                val failure = result as RetryManager.RetryResult.Failure
+                val failure = result
                 failure.lastException.shouldBeInstanceOf<IllegalStateException>()
                 failure.lastException.message shouldBe "specific error"
             }
@@ -202,7 +202,7 @@ class RetryManagerTest : DescribeSpec({
                 }
 
                 result.shouldBeInstanceOf<RetryManager.RetryResult.Failure>()
-                (result as RetryManager.RetryResult.Failure).lastException
+                result.lastException
                     .shouldBeInstanceOf<IllegalArgumentException>()
             }
         }

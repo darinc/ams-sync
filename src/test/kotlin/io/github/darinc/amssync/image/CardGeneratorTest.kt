@@ -7,7 +7,7 @@ import java.awt.Color
 import java.awt.image.BufferedImage
 import java.io.File
 import java.net.HttpURLConnection
-import java.net.URL
+import java.net.URI
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import javax.imageio.ImageIO
@@ -39,7 +39,7 @@ class CardGeneratorTest : DescribeSpec({
     // Fetch body render from mc-heads.net for a specific player
     fun fetchBodyImage(player: String): BufferedImage {
         return try {
-            val url = URL("https://mc-heads.net/body/$player/128")
+            val url = URI("https://mc-heads.net/body/$player/128").toURL()
             val connection = url.openConnection() as HttpURLConnection
             connection.connectTimeout = 5000
             connection.readTimeout = 5000
@@ -62,7 +62,7 @@ class CardGeneratorTest : DescribeSpec({
     // Fetch head avatar from mc-heads.net for a specific player
     fun fetchHeadImage(player: String, size: Int = 64): BufferedImage {
         return try {
-            val url = URL("https://mc-heads.net/avatar/$player/$size")
+            val url = URI("https://mc-heads.net/avatar/$player/$size").toURL()
             val connection = url.openConnection() as HttpURLConnection
             connection.connectTimeout = 5000
             connection.readTimeout = 5000

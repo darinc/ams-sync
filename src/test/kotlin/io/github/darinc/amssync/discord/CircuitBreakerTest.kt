@@ -24,7 +24,7 @@ class CircuitBreakerTest : DescribeSpec({
                 val result = cb.execute("test") { "success" }
 
                 result.shouldBeInstanceOf<CircuitBreaker.CircuitResult.Success<String>>()
-                (result as CircuitBreaker.CircuitResult.Success).value shouldBe "success"
+                result.value shouldBe "success"
             }
 
             it("captures failures and returns Failure result") {
@@ -99,7 +99,7 @@ class CircuitBreakerTest : DescribeSpec({
                 // Next request should be rejected
                 val result = cb.execute("test") { "should not execute" }
                 result.shouldBeInstanceOf<CircuitBreaker.CircuitResult.Rejected>()
-                (result as CircuitBreaker.CircuitResult.Rejected).state shouldBe CircuitBreaker.State.OPEN
+                result.state shouldBe CircuitBreaker.State.OPEN
             }
 
             it("rejected result contains retry message") {
@@ -113,7 +113,7 @@ class CircuitBreakerTest : DescribeSpec({
                 val result = cb.execute("test") { "ignored" }
 
                 result.shouldBeInstanceOf<CircuitBreaker.CircuitResult.Rejected>()
-                (result as CircuitBreaker.CircuitResult.Rejected).message.contains("OPEN") shouldBe true
+                result.message.contains("OPEN") shouldBe true
             }
         }
 
@@ -243,7 +243,7 @@ class CircuitBreakerTest : DescribeSpec({
 
                 val result = cb.execute("test") { "works again" }
                 result.shouldBeInstanceOf<CircuitBreaker.CircuitResult.Success<String>>()
-                (result as CircuitBreaker.CircuitResult.Success).value shouldBe "works again"
+                result.value shouldBe "works again"
             }
         }
 

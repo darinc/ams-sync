@@ -2,12 +2,32 @@ package io.github.darinc.amssync.events
 
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.shouldBe
+import org.bukkit.Material
 import org.bukkit.entity.EntityType
 import org.bukkit.event.entity.EntityDamageEvent.DamageCause
 
 class DeathCauseClassifierTest : DescribeSpec({
 
     describe("DeathCauseClassifier") {
+
+        describe("classifyByBlockType") {
+
+            it("classifies CACTUS as Environmental.Cactus") {
+                DeathCauseClassifier.classifyByBlockType(Material.CACTUS) shouldBe DeathCategory.Environmental.Cactus
+            }
+
+            it("classifies MAGMA_BLOCK as Environmental.Magma") {
+                DeathCauseClassifier.classifyByBlockType(Material.MAGMA_BLOCK) shouldBe DeathCategory.Environmental.Magma
+            }
+
+            it("classifies SWEET_BERRY_BUSH as Environmental.BerryBush") {
+                DeathCauseClassifier.classifyByBlockType(Material.SWEET_BERRY_BUSH) shouldBe DeathCategory.Environmental.BerryBush
+            }
+
+            it("returns null for other blocks") {
+                DeathCauseClassifier.classifyByBlockType(Material.POINTED_DRIPSTONE) shouldBe null
+            }
+        }
 
         describe("classifyByDamageCause") {
 
@@ -47,12 +67,8 @@ class DeathCauseClassifierTest : DescribeSpec({
                 DeathCauseClassifier.classifyByDamageCause(DamageCause.STARVATION) shouldBe DeathCategory.Environmental.Starvation
             }
 
-            it("classifies CONTACT as Environmental.Cactus") {
-                DeathCauseClassifier.classifyByDamageCause(DamageCause.CONTACT) shouldBe DeathCategory.Environmental.Cactus
-            }
-
-            it("classifies HOT_FLOOR as Environmental.Magma") {
-                DeathCauseClassifier.classifyByDamageCause(DamageCause.HOT_FLOOR) shouldBe DeathCategory.Environmental.Magma
+            it("leaves CONTACT unresolved so the block or death message decides") {
+                DeathCauseClassifier.classifyByDamageCause(DamageCause.CONTACT) shouldBe null
             }
 
             it("classifies FALLING_BLOCK as Environmental.FallingBlock") {

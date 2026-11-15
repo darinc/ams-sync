@@ -308,9 +308,9 @@ When a player's total power level crosses a threshold (e.g., every 500 power lev
 
 ## Requirements
 
-- **Server**: Paper 1.21.4 or compatible Spigot fork
-- **MCMMO**: Version 2.2.044-SNAPSHOT or compatible (with flatfile or SQL storage)
-- **Java**: Java 21 or higher
+- **Server**: Paper 26.x
+- **MCMMO**: Version 2.3.002 or newer (with flatfile or SQL storage)
+- **Java**: Java 25 or higher
 - **Discord Bot**: Discord application with bot token and Server Members Intent enabled
 
 ## Installation
@@ -692,8 +692,8 @@ ams-sync/
 
 ### Tech Stack
 
-- **Language**: Kotlin 1.9.21
-- **Discord Library**: JDA 5.0.0-beta.18
+- **Language**: Kotlin 2.4.21
+- **Discord Library**: JDA 6.7.0
 - **Async**: Kotlin Coroutines
 - **Build**: Gradle with Shadow plugin (for fat JAR)
 
@@ -797,7 +797,7 @@ Power level is calculated by summing all non-child skill levels:
 
 ```kotlin
 val powerLevel = PrimarySkillType.values()
-    .filter { !it.isChildSkill }
+    .filter { !SkillTools.isChildSkill(it) }
     .sumOf { profile.getSkillLevel(it) }
 ```
 

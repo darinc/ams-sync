@@ -1,5 +1,6 @@
 package io.github.darinc.amssync.progression
 
+import com.gmail.nossr50.util.skills.SkillTools
 import com.gmail.nossr50.datatypes.skills.PrimarySkillType
 import com.gmail.nossr50.mcMMO
 import io.github.darinc.amssync.AMSSyncPlugin
@@ -82,7 +83,7 @@ class ProgressionSnapshotTask(
 
                 // Collect all skill levels (excluding child skills)
                 val skills = PrimarySkillType.values()
-                    .filter { !it.isChildSkill }
+                    .filter { !SkillTools.isChildSkill(it) }
                     .associate { it.name to profile.getSkillLevel(it) }
 
                 // Calculate power level (sum of all non-child skills)

@@ -1,5 +1,6 @@
 package io.github.darinc.amssync.mcmmo
 
+import com.gmail.nossr50.util.skills.SkillTools
 import com.gmail.nossr50.datatypes.skills.PrimarySkillType
 import com.gmail.nossr50.mcMMO
 import com.gmail.nossr50.util.player.UserManager
@@ -63,13 +64,13 @@ class McmmoApiWrapper(
 
         // Calculate power level by summing all skill levels
         val powerLevel = PrimarySkillType.values()
-            .filter { !it.isChildSkill }
+            .filter { !SkillTools.isChildSkill(it) }
             .sumOf { profile.getSkillLevel(it) }
 
         logger.info("Successfully loaded MCMMO profile for '$playerName', power level: $powerLevel")
 
         return PrimarySkillType.values()
-            .filter { !it.isChildSkill } // Exclude child skills
+            .filter { !SkillTools.isChildSkill(it) } // Exclude child skills
             .associate { skill ->
                 skill.name to profile.getSkillLevel(skill)
             }
@@ -117,7 +118,7 @@ class McmmoApiWrapper(
 
         // Calculate power level by summing all skill levels
         return PrimarySkillType.values()
-            .filter { !it.isChildSkill }
+            .filter { !SkillTools.isChildSkill(it) }
             .sumOf { profile.getSkillLevel(it) }
     }
 
@@ -220,7 +221,7 @@ class McmmoApiWrapper(
 
                 // Calculate power level by summing all skill levels
                 val powerLevel = PrimarySkillType.values()
-                    .filter { !it.isChildSkill }
+                    .filter { !SkillTools.isChildSkill(it) }
                     .sumOf { profile.getSkillLevel(it) }
 
                 if (powerLevel > 0) {
@@ -267,7 +268,7 @@ class McmmoApiWrapper(
      */
     fun getAllSkillNames(): List<String> {
         return PrimarySkillType.values()
-            .filter { !it.isChildSkill }
+            .filter { !SkillTools.isChildSkill(it) }
             .map { it.name }
     }
 

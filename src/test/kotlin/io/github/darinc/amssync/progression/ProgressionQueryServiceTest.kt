@@ -82,7 +82,7 @@ class ProgressionQueryServiceTest : DescribeSpec({
                     val result = service.getTrend(uuid, "TestPlayer", ProgressionQueryService.POWER_SKILL, Timeframe.SEVEN_DAYS)
 
                     result.shouldBeInstanceOf<TrendResult.Success>()
-                    val success = result as TrendResult.Success
+                    val success = result
                     success.playerName shouldBe "TestPlayer"
                     success.skill shouldBe "POWER"
                     success.points.size shouldBe 3
@@ -117,7 +117,7 @@ class ProgressionQueryServiceTest : DescribeSpec({
                     val result = service.getTrend(uuid, "TestPlayer", "MINING", Timeframe.THIRTY_DAYS)
 
                     result.shouldBeInstanceOf<TrendResult.Success>()
-                    val success = result as TrendResult.Success
+                    val success = result
                     success.skill shouldBe "MINING"
                     success.points.size shouldBe 2
                     success.points[0].level shouldBe 60
@@ -146,7 +146,7 @@ class ProgressionQueryServiceTest : DescribeSpec({
                     val result = service.getTrend(uuid, "TestPlayer", ProgressionQueryService.POWER_SKILL, Timeframe.NINETY_DAYS)
 
                     result.shouldBeInstanceOf<TrendResult.Success>()
-                    val success = result as TrendResult.Success
+                    val success = result
                     success.points.size shouldBe 2
                     database.close()
                 } finally {
@@ -168,7 +168,7 @@ class ProgressionQueryServiceTest : DescribeSpec({
                     val result = service.getTrend(uuid, "TestPlayer", ProgressionQueryService.POWER_SKILL, Timeframe.ALL_TIME)
 
                     result.shouldBeInstanceOf<TrendResult.Success>()
-                    val success = result as TrendResult.Success
+                    val success = result
                     success.points.size shouldBe 3
                     success.points[0].level shouldBe 200
                     success.points[2].level shouldBe 500

@@ -4,6 +4,7 @@ import io.github.darinc.amssync.audit.AuditLogger
 import io.github.darinc.amssync.discord.commands.SlashCommandHandler
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
+import net.dv8tion.jda.api.interactions.InteractionContextType
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions
 import net.dv8tion.jda.api.interactions.commands.OptionType
 import net.dv8tion.jda.api.interactions.commands.build.Commands
@@ -113,7 +114,7 @@ class DiscordManager(
             // Admin linking command
             Commands.slash("amssync", "Admin: Link Discord users to Minecraft players")
                 .setDefaultPermissions(DefaultMemberPermissions.enabledFor(net.dv8tion.jda.api.Permission.MANAGE_SERVER))
-                .setGuildOnly(true)
+                .setContexts(InteractionContextType.GUILD)
                 .addSubcommands(
                     SubcommandData("add", "Link a Discord user to a Minecraft player")
                         .addOption(OptionType.USER, "user", "Discord user to link", true)
@@ -134,7 +135,7 @@ class DiscordManager(
             commands.add(
                 Commands.slash("amswhitelist", "Admin: Manage server whitelist")
                     .setDefaultPermissions(DefaultMemberPermissions.enabledFor(net.dv8tion.jda.api.Permission.MANAGE_SERVER))
-                    .setGuildOnly(true)
+                    .setContexts(InteractionContextType.GUILD)
                     .addSubcommands(
                         SubcommandData("add", "Add a player to the whitelist")
                             .addOption(OptionType.STRING, "minecraft_username", "Minecraft username to whitelist", true),
