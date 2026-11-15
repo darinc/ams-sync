@@ -122,8 +122,8 @@ class DeathCardCommentaryTest : DescribeSpec({
                     powerLevel = 600
                 )
 
-                // Should reference fishing
-                commentary.contains("Fishing") || commentary.contains("fish") shouldBe true
+                // Every ironic Fishing roast embeds the skill level (not all say "fish")
+                commentary shouldContain "600"
             }
 
             it("triggers low skill commentary for low relevant skill") {

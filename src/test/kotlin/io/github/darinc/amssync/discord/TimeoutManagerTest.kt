@@ -42,7 +42,7 @@ class TimeoutManagerTest : DescribeSpec({
                 val result = tm.executeWithTimeout("valueOp") { 42 }
 
                 result.shouldBeInstanceOf<TimeoutManager.TimeoutResult.Success<Int>>()
-                (result as TimeoutManager.TimeoutResult.Success).value shouldBe 42
+                result.value shouldBe 42
                 tm.shutdown()
             }
 
@@ -59,7 +59,7 @@ class TimeoutManagerTest : DescribeSpec({
                 }
 
                 result.shouldBeInstanceOf<TimeoutManager.TimeoutResult.Timeout>()
-                (result as TimeoutManager.TimeoutResult.Timeout).operationName shouldBe "slowOp"
+                result.operationName shouldBe "slowOp"
                 result.timeoutMs shouldBeGreaterThanOrEqual 50L
                 tm.shutdown()
             }
@@ -76,7 +76,7 @@ class TimeoutManagerTest : DescribeSpec({
                 }
 
                 result.shouldBeInstanceOf<TimeoutManager.TimeoutResult.Failure>()
-                (result as TimeoutManager.TimeoutResult.Failure).operationName shouldBe "failingOp"
+                result.operationName shouldBe "failingOp"
                 result.exception.message shouldBe "test error"
                 tm.shutdown()
             }
@@ -308,13 +308,13 @@ class TimeoutManagerTest : DescribeSpec({
                     throw IllegalArgumentException("bad arg")
                 }
                 result1.shouldBeInstanceOf<TimeoutManager.TimeoutResult.Failure>()
-                (result1 as TimeoutManager.TimeoutResult.Failure).exception.shouldBeInstanceOf<IllegalArgumentException>()
+                result1.exception.shouldBeInstanceOf<IllegalArgumentException>()
 
                 val result2 = tm.executeWithTimeout("illegalState") {
                     throw IllegalStateException("bad state")
                 }
                 result2.shouldBeInstanceOf<TimeoutManager.TimeoutResult.Failure>()
-                (result2 as TimeoutManager.TimeoutResult.Failure).exception.shouldBeInstanceOf<IllegalStateException>()
+                result2.exception.shouldBeInstanceOf<IllegalStateException>()
 
                 tm.shutdown()
             }

@@ -56,7 +56,7 @@ class RateLimiterTest : DescribeSpec({
                 // Next request should be burst limited
                 val result = limiter.checkRateLimit("user1")
                 result.shouldBeInstanceOf<RateLimitResult.BurstLimited>()
-                (result as RateLimitResult.BurstLimited).retryAfterMs shouldBe 5000L
+                result.retryAfterMs shouldBe 5000L
             }
 
             it("calculates retryAfterSeconds correctly") {
@@ -69,7 +69,7 @@ class RateLimiterTest : DescribeSpec({
                 val result = limiter.checkRateLimit("user1")
 
                 result.shouldBeInstanceOf<RateLimitResult.BurstLimited>()
-                (result as RateLimitResult.BurstLimited).retryAfterSeconds shouldBe 10.0
+                result.retryAfterSeconds shouldBe 10.0
             }
         }
 
@@ -122,7 +122,7 @@ class RateLimiterTest : DescribeSpec({
                 val result = limiter.checkRateLimit("user1")
                 result.shouldBeInstanceOf<RateLimitResult.Cooldown>()
 
-                val cooldown = result as RateLimitResult.Cooldown
+                val cooldown = result
                 // Should have significant remaining time
                 (cooldown.remainingMs > 0) shouldBe true
                 (cooldown.remainingSeconds > 0) shouldBe true
@@ -253,7 +253,7 @@ class RateLimiterTest : DescribeSpec({
                 // Next should be rate limited
                 val result = limiter.checkRateLimit("user1")
                 result.shouldBeInstanceOf<RateLimitResult.BurstLimited>()
-                (result as RateLimitResult.BurstLimited).retryAfterMs shouldBe 20000L
+                result.retryAfterMs shouldBe 20000L
             }
 
             it("has sensible defaults") {

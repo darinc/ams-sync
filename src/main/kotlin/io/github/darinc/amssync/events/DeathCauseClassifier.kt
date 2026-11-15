@@ -1,7 +1,9 @@
 package io.github.darinc.amssync.events
 
+import org.bukkit.Material
 import org.bukkit.entity.EntityType
 import org.bukkit.entity.Player
+import org.bukkit.event.entity.EntityDamageByBlockEvent
 import org.bukkit.event.entity.EntityDamageByEntityEvent
 import org.bukkit.event.entity.EntityDamageEvent.DamageCause
 import org.bukkit.event.entity.PlayerDeathEvent
@@ -11,7 +13,7 @@ import org.bukkit.event.entity.PlayerDeathEvent
  *
  * Uses a hybrid approach:
  * 1. Primary: DamageCause enum from lastDamageCause
- * 2. Secondary: Entity type from EntityDamageByEntityEvent
+ * 2. Secondary: Entity type from EntityDamageByEntityEvent, block type from EntityDamageByBlockEvent
  * 3. Fallback: Death message text parsing for edge cases
  */
 object DeathCauseClassifier {
@@ -40,6 +42,11 @@ object DeathCauseClassifier {
             if (mobCategory != DeathCategory.Unknown) {
                 return mobCategory
             }
+        }
+
+        // Block damage (cactus, magma, berry bush all arrive as CONTACT since Paper 26.2)
+        if (lastDamage is EntityDamageByBlockEvent) {
+            lastDamage.damager?.type?.let { classifyByBlockType(it) }?.let { return it }
         }
 
         // Primary: Use DamageCause enum
@@ -74,8 +81,8 @@ object DeathCauseClassifier {
             DamageCause.LIGHTNING -> DeathCategory.Environmental.Lightning
             DamageCause.SUFFOCATION -> DeathCategory.Environmental.Suffocation
             DamageCause.STARVATION -> DeathCategory.Environmental.Starvation
-            DamageCause.CONTACT -> DeathCategory.Environmental.Cactus
-            DamageCause.HOT_FLOOR -> DeathCategory.Environmental.Magma
+            // CONTACT covers several blocks; resolved via classifyByBlockType or the death message
+            DamageCause.CONTACT -> null
             DamageCause.FALLING_BLOCK -> DeathCategory.Environmental.FallingBlock
             DamageCause.FREEZE -> DeathCategory.Environmental.Freeze
             DamageCause.BLOCK_EXPLOSION -> DeathCategory.Environmental.Explosion
@@ -84,6 +91,19 @@ object DeathCauseClassifier {
             DamageCause.WITHER -> DeathCategory.Mob.Wither
             DamageCause.ENTITY_ATTACK, DamageCause.ENTITY_SWEEP_ATTACK -> null
             DamageCause.PROJECTILE -> null
+            else -> null
+        }
+    }
+
+    /**
+     * Classify by the block that dealt the damage.
+     * Returns null for blocks without a dedicated category.
+     */
+    internal fun classifyByBlockType(material: Material): DeathCategory? {
+        return when (material) {
+            Material.CACTUS -> DeathCategory.Environmental.Cactus
+            Material.MAGMA_BLOCK -> DeathCategory.Environmental.Magma
+            Material.SWEET_BERRY_BUSH -> DeathCategory.Environmental.BerryBush
             else -> null
         }
     }

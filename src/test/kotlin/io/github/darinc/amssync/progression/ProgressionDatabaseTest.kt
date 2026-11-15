@@ -631,6 +631,22 @@ class ProgressionDatabaseTest : DescribeSpec({
                     tempDir.deleteRecursively()
                 }
             }
+
+            it("aggregates already-aggregated summary JSON (hourly -> daily)") {
+                val (database, tempDir) = createTestDatabase()
+                try {
+                    val startJson = """{"MINING":{"start":40,"end":50,"gain":10},"FISHING":{"start":0,"end":1,"gain":1}}"""
+                    val endJson = """{"MINING":{"start":55,"end":60,"gain":5},"FISHING":{"start":1,"end":3,"gain":2}}"""
+
+                    val result = database.buildAggregatedSkillsJson(startJson, endJson)
+
+                    result shouldBe
+                        """{"MINING":{"start":40,"end":60,"gain":20},"FISHING":{"start":0,"end":3,"gain":3}}"""
+                    database.close()
+                } finally {
+                    tempDir.deleteRecursively()
+                }
+            }
         }
 
         describe("close") {

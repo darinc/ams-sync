@@ -15,6 +15,7 @@ import org.bukkit.plugin.java.JavaPlugin
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.util.logging.Logger
+import kotlin.io.path.createTempDirectory
 
 class ConfigMigratorTest : DescribeSpec({
 
@@ -53,7 +54,7 @@ class ConfigMigratorTest : DescribeSpec({
         describe("migrateIfNeeded") {
 
             it("returns FreshInstall when config.yml does not exist") {
-                val tempDir = createTempDir()
+                val tempDir = createTempDirectory("ams-config-test").toFile()
                 try {
                     val plugin = createMockPlugin(tempDir, minimalDefaultConfig)
                     val migrator = ConfigMigrator(plugin, plugin.logger)
@@ -67,7 +68,7 @@ class ConfigMigratorTest : DescribeSpec({
             }
 
             it("returns UpToDate when config-version matches current") {
-                val tempDir = createTempDir()
+                val tempDir = createTempDirectory("ams-config-test").toFile()
                 try {
                     // Create config with current version (4)
                     val configFile = File(tempDir, "config.yml")
@@ -89,7 +90,7 @@ class ConfigMigratorTest : DescribeSpec({
             }
 
             it("returns Migrated with details when version is older") {
-                val tempDir = createTempDir()
+                val tempDir = createTempDirectory("ams-config-test").toFile()
                 try {
                     // Create config with old version (0)
                     val configFile = File(tempDir, "config.yml")
@@ -106,7 +107,7 @@ class ConfigMigratorTest : DescribeSpec({
                     val result = migrator.migrateIfNeeded()
 
                     result.shouldBeInstanceOf<ConfigMigrator.MigrationResult.Migrated>()
-                    val migrated = result as ConfigMigrator.MigrationResult.Migrated
+                    val migrated = result
                     migrated.fromVersion shouldBe 0
                     migrated.toVersion shouldBe 5
                 } finally {
@@ -115,7 +116,7 @@ class ConfigMigratorTest : DescribeSpec({
             }
 
             it("returns Failed when config file cannot be loaded") {
-                val tempDir = createTempDir()
+                val tempDir = createTempDirectory("ams-config-test").toFile()
                 try {
                     // Create an invalid YAML file
                     val configFile = File(tempDir, "config.yml")
@@ -136,7 +137,7 @@ class ConfigMigratorTest : DescribeSpec({
         describe("migration process") {
 
             it("creates timestamped backup file") {
-                val tempDir = createTempDir()
+                val tempDir = createTempDirectory("ams-config-test").toFile()
                 try {
                     val configFile = File(tempDir, "config.yml")
                     configFile.writeText("""
@@ -162,7 +163,7 @@ class ConfigMigratorTest : DescribeSpec({
             }
 
             it("preserves user values for existing keys") {
-                val tempDir = createTempDir()
+                val tempDir = createTempDirectory("ams-config-test").toFile()
                 try {
                     val configFile = File(tempDir, "config.yml")
                     configFile.writeText("""
@@ -189,7 +190,7 @@ class ConfigMigratorTest : DescribeSpec({
             }
 
             it("adds new keys from default config") {
-                val tempDir = createTempDir()
+                val tempDir = createTempDirectory("ams-config-test").toFile()
                 try {
                     // User config missing retry settings
                     val configFile = File(tempDir, "config.yml")
@@ -205,7 +206,7 @@ class ConfigMigratorTest : DescribeSpec({
                     val result = migrator.migrateIfNeeded()
 
                     result.shouldBeInstanceOf<ConfigMigrator.MigrationResult.Migrated>()
-                    val migrated = result as ConfigMigrator.MigrationResult.Migrated
+                    val migrated = result
 
                     // Should have added new keys
                     migrated.addedKeys.shouldNotBeEmpty()
@@ -215,7 +216,7 @@ class ConfigMigratorTest : DescribeSpec({
             }
 
             it("preserves user-mappings section") {
-                val tempDir = createTempDir()
+                val tempDir = createTempDirectory("ams-config-test").toFile()
                 try {
                     val configFile = File(tempDir, "config.yml")
                     configFile.writeText("""
@@ -245,7 +246,7 @@ class ConfigMigratorTest : DescribeSpec({
             }
 
             it("updates config-version to current") {
-                val tempDir = createTempDir()
+                val tempDir = createTempDirectory("ams-config-test").toFile()
                 try {
                     val configFile = File(tempDir, "config.yml")
                     configFile.writeText("""
@@ -267,7 +268,7 @@ class ConfigMigratorTest : DescribeSpec({
             }
 
             it("identifies added keys in result") {
-                val tempDir = createTempDir()
+                val tempDir = createTempDirectory("ams-config-test").toFile()
                 try {
                     // User config missing most settings
                     val configFile = File(tempDir, "config.yml")
@@ -283,7 +284,7 @@ class ConfigMigratorTest : DescribeSpec({
                     val result = migrator.migrateIfNeeded()
 
                     result.shouldBeInstanceOf<ConfigMigrator.MigrationResult.Migrated>()
-                    val migrated = result as ConfigMigrator.MigrationResult.Migrated
+                    val migrated = result
 
                     // Should report added keys
                     migrated.addedKeys shouldContain "discord.retry.enabled"
@@ -344,7 +345,7 @@ class ConfigMigratorTest : DescribeSpec({
         describe("YAML value formatting") {
 
             it("preserves boolean values correctly") {
-                val tempDir = createTempDir()
+                val tempDir = createTempDirectory("ams-config-test").toFile()
                 try {
                     val configFile = File(tempDir, "config.yml")
                     configFile.writeText("""
@@ -378,7 +379,7 @@ class ConfigMigratorTest : DescribeSpec({
             }
 
             it("preserves numeric values correctly") {
-                val tempDir = createTempDir()
+                val tempDir = createTempDirectory("ams-config-test").toFile()
                 try {
                     val configFile = File(tempDir, "config.yml")
                     configFile.writeText("""
@@ -412,7 +413,7 @@ class ConfigMigratorTest : DescribeSpec({
             }
 
             it("handles empty user-mappings section") {
-                val tempDir = createTempDir()
+                val tempDir = createTempDirectory("ams-config-test").toFile()
                 try {
                     val configFile = File(tempDir, "config.yml")
                     configFile.writeText("""
@@ -438,7 +439,7 @@ class ConfigMigratorTest : DescribeSpec({
         describe("edge cases") {
 
             it("handles config with no config-version key") {
-                val tempDir = createTempDir()
+                val tempDir = createTempDirectory("ams-config-test").toFile()
                 try {
                     val configFile = File(tempDir, "config.yml")
                     configFile.writeText("""
@@ -459,7 +460,7 @@ class ConfigMigratorTest : DescribeSpec({
             }
 
             it("handles config with future version") {
-                val tempDir = createTempDir()
+                val tempDir = createTempDirectory("ams-config-test").toFile()
                 try {
                     val configFile = File(tempDir, "config.yml")
                     configFile.writeText("""
@@ -481,7 +482,7 @@ class ConfigMigratorTest : DescribeSpec({
             }
 
             it("handles empty config file") {
-                val tempDir = createTempDir()
+                val tempDir = createTempDirectory("ams-config-test").toFile()
                 try {
                     val configFile = File(tempDir, "config.yml")
                     configFile.writeText("")

@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.29.0] - 2026-11-15
+
+### Changed
+
+- Require Java 25 and target Paper 26.x and mcMMO 2.3.002; upgrade Kotlin, Gradle, JDA 6, and other dependencies
+
+### Fixed
+
+- Daily and weekly progression summaries losing skill data during compaction
+- Contact-damage deaths (magma, berry bush) misclassified as cactus
+- Plain JAR could overwrite the shaded plugin JAR during build
+
+### Security
+
+- Pin patched Jackson and org.json versions and remove duplicate okhttp 4.x from the shaded JAR
+
 ## [0.28.0] - 2025-12-16
 
 ### Added

@@ -4,9 +4,9 @@ import io.github.darinc.amssync.AMSSyncPlugin
 import io.papermc.paper.event.player.AsyncChatEvent
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.hooks.ListenerAdapter
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import org.bukkit.Bukkit
-import org.bukkit.ChatColor
 import org.bukkit.configuration.file.FileConfiguration
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
@@ -191,9 +191,7 @@ class ChatBridge(
         if (message.isBlank()) return
 
         // Format for Minecraft
-        @Suppress("DEPRECATION")
-        val formatted = ChatColor.translateAlternateColorCodes(
-            '&',
+        val formatted = LegacyComponentSerializer.legacyAmpersand().deserialize(
             config.mcFormat
                 .replace("{author}", author)
                 .replace("{message}", sanitizeMinecraftMessage(message))
@@ -201,7 +199,7 @@ class ChatBridge(
 
         // Broadcast to all online players (must run on main thread)
         Bukkit.getScheduler().runTask(plugin, Runnable {
-            Bukkit.broadcastMessage(formatted)
+            Bukkit.broadcast(formatted)
             plugin.logger.fine("Relayed Discord message to Minecraft: $author: $message")
         })
     }

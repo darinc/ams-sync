@@ -309,12 +309,12 @@ class MilestoneCardRenderer(
 
     private fun drawLightningBolt(g2d: Graphics2D, x: Int, y: Int, size: Int) {
         val path = java.awt.geom.GeneralPath()
-        path.moveTo((x + size * 0.6).toDouble(), y.toDouble())
-        path.lineTo((x + size * 0.25).toDouble(), (y + size * 0.45).toDouble())
-        path.lineTo((x + size * 0.45).toDouble(), (y + size * 0.45).toDouble())
-        path.lineTo((x + size * 0.35).toDouble(), (y + size).toDouble())
-        path.lineTo((x + size * 0.75).toDouble(), (y + size * 0.5).toDouble())
-        path.lineTo((x + size * 0.55).toDouble(), (y + size * 0.5).toDouble())
+        path.moveTo(x + size * 0.6, y.toDouble())
+        path.lineTo(x + size * 0.25, y + size * 0.45)
+        path.lineTo(x + size * 0.45, y + size * 0.45)
+        path.lineTo(x + size * 0.35, (y + size).toDouble())
+        path.lineTo(x + size * 0.75, y + size * 0.5)
+        path.lineTo(x + size * 0.55, y + size * 0.5)
         path.closePath()
         g2d.fill(path)
     }

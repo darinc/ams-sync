@@ -53,7 +53,7 @@ class AmsTopCommand(
                 if (isPowerLevel) {
                     handlePowerLevelLeaderboard(event)
                 } else {
-                    handleSkillLeaderboard(event, skillName!!)
+                    handleSkillLeaderboard(event, skillName)
                 }
             }
 
@@ -78,7 +78,7 @@ class AmsTopCommand(
                     if (isPowerLevel) {
                         handlePowerLevelLeaderboard(event)
                     } else {
-                        handleSkillLeaderboard(event, skillName!!)
+                        handleSkillLeaderboard(event, skillName)
                     }
                 } catch (e: Exception) {
                     handleException(event, e)

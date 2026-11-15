@@ -53,7 +53,7 @@ fun getPlayerStats(playerName: String): Map<String, Int> {
 
     // Step 4: Extract skill levels (excluding child skills)
     return PrimarySkillType.values()
-        .filter { !it.isChildSkill }
+        .filter { !SkillTools.isChildSkill(it) }
         .associate { skill ->
             skill.name to profile.getSkillLevel(skill)
         }
@@ -74,7 +74,7 @@ fun getPowerLevel(playerName: String): Int {
 
     // Sum all non-child skills
     return PrimarySkillType.values()
-        .filter { !it.isChildSkill }  // Important! Exclude Salvage, Smelting, etc.
+        .filter { !SkillTools.isChildSkill(it) }  // Important! Exclude Salvage, Smelting, etc.
         .sumOf { profile.getSkillLevel(it) }
 }
 ```
@@ -201,7 +201,7 @@ fun parseSkillType(skillName: String): PrimarySkillType {
 
 fun getAllSkillNames(): List<String> {
     return PrimarySkillType.values()
-        .filter { !it.isChildSkill }
+        .filter { !SkillTools.isChildSkill(it) }
         .map { it.name }
 }
 ```

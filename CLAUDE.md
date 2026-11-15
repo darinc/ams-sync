@@ -39,6 +39,7 @@ Uses Kotest with JUnit5 platform.
 ```bash
 ./gradlew detekt
 ```
+Detekt 2 (`dev.detekt` plugin); config uses `allowed*` limits rather than 1.x `threshold` keys.
 HTML report: `build/reports/detekt/detekt.html`
 
 **Run all checks:**
@@ -281,11 +282,11 @@ Features manage lifecycle (initialize/shutdown) of related services. Each implem
 
 ```kotlin
 PrimarySkillType.values()
-    .filter { !it.isChildSkill }
+    .filter { !SkillTools.isChildSkill(it) }
     .sumOf { profile.getSkillLevel(it) }
 ```
 
-Always filter out child skills (e.g., Salvage, Smelting) to avoid double-counting.
+Always filter out child skills (e.g., Salvage, Smelting) to avoid double-counting. Use the static `SkillTools.isChildSkill()` (`com.gmail.nossr50.util.skills`); `PrimarySkillType.isChildSkill` is deprecated.
 
 ### Offline Player Lookup
 
@@ -311,6 +312,12 @@ The shadowJar task relocates dependencies to prevent conflicts:
 - `kotlinx` → `io.github.darinc.amssync.libs.kotlinx`
 
 **DO NOT** relocate SLF4J - JDA needs to find it in the original package.
+
+Other dependency rules in `build.gradle.kts`:
+- JDA excludes `opus-java` and `tink` (no voice features)
+- discord-webhooks excludes its okhttp 4.x so only JDA's okhttp 5 is shaded
+- `org.json` and the Jackson BOM are pinned above transitive versions for security fixes
+- The plain `jar` task uses classifier `plain` so it cannot overwrite the shaded JAR
 
 ## Configuration Structure
 
@@ -382,14 +389,15 @@ All configuration lives in `src/main/resources/config.yml`:
 ## Testing Locally
 
 1. Build: `./gradlew shadowJar`
-2. Copy `build/libs/ams-sync-*.jar` to test server's `plugins/`
+2. Copy `build/libs/ams-sync-<version>.jar` (not `-plain.jar`) to test server's `plugins/`
 3. Start server to generate default config
 4. Stop server and edit `plugins/AMSSync/config.yml` with real bot token and guild ID
 5. Restart server and verify Discord connection in console logs
 
 ## Code Style
 
-- Kotlin 1.9.21 with Java 21 toolchain
+- Kotlin 2.4.21 with Java 25 toolchain (Gradle 9.9.1; daemon JVM pinned in `gradle/gradle-daemon-jvm.properties`)
+- Targets Paper 26.x API and mcMMO 2.3.002 (versions in `gradle.properties`)
 - Detekt for static analysis (config: `detekt-config.yml`)
 - Use `lateinit` for required plugin services initialized in `onEnable()`
 - Nullable types for optional services and features (e.g., `rateLimiter`, `imageFeature`)

@@ -3,7 +3,7 @@ package io.github.darinc.amssync.image
 import java.awt.Color
 import java.awt.image.BufferedImage
 import java.net.HttpURLConnection
-import java.net.URL
+import java.net.URI
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
@@ -159,7 +159,7 @@ class AvatarFetcher(
         return try {
             logger.fine("Fetching avatar from: $urlString")
 
-            val url = URL(urlString)
+            val url = URI.create(urlString).toURL()
             val connection = url.openConnection() as HttpURLConnection
             connection.connectTimeout = CONNECT_TIMEOUT_MS
             connection.readTimeout = READ_TIMEOUT_MS

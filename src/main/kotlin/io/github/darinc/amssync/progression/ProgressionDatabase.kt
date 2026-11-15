@@ -1314,8 +1314,8 @@ class ProgressionDatabase(
      * Takes start and end skills JSON and computes gains.
      */
     fun buildAggregatedSkillsJson(startSkillsJson: String, endSkillsJson: String): String {
-        val startSkills = parseSkillsJson(startSkillsJson)
-        val endSkills = parseSkillsJson(endSkillsJson)
+        val startSkills = parseSkillsJson(startSkillsJson, AggregatedField.START)
+        val endSkills = parseSkillsJson(endSkillsJson, AggregatedField.END)
 
         val allSkills = (startSkills.keys + endSkills.keys).distinct()
         val entries = allSkills.map { skill ->
@@ -1327,29 +1327,43 @@ class ProgressionDatabase(
         return "{${entries.joinToString(",")}}"
     }
 
+    private enum class AggregatedField { START, END }
+
     /**
-     * Parse a simple skills JSON string ({"SKILL":123}) back into a map.
+     * Parse a skills JSON string back into a map of skill -> level.
+     *
+     * Accepts both formats stored in the database:
+     * - Flat snapshot format: {"SKILL":123}
+     * - Aggregated summary format: {"SKILL":{"start":1,"end":5,"gain":4}}
+     *   (uses [field] to pick the start or end level)
      */
-    private fun parseSkillsJson(json: String): Map<String, Int> {
+    private fun parseSkillsJson(json: String, field: AggregatedField = AggregatedField.END): Map<String, Int> {
         if (json.isBlank() || json == "{}") return emptyMap()
 
         return try {
-            // Simple JSON parsing for {"SKILL":123,"SKILL2":456}
-            json.trim()
-                .removePrefix("{")
-                .removeSuffix("}")
-                .split(",")
-                .filter { it.isNotBlank() && !it.contains("{") }
-                .associate { entry ->
-                    val parts = entry.split(":")
-                    val skill = parts[0].trim().removeSurrounding("\"")
-                    val level = parts[1].trim().toInt()
-                    skill to level
+            val aggregated = AGGREGATED_SKILL_REGEX.findAll(json).toList()
+            if (aggregated.isNotEmpty()) {
+                aggregated.associate { match ->
+                    val (skill, start, end) = match.destructured
+                    skill to (if (field == AggregatedField.START) start else end).toInt()
                 }
-        } catch (e: Exception) {
+            } else {
+                FLAT_SKILL_REGEX.findAll(json).associate { match ->
+                    val (skill, level) = match.destructured
+                    skill to level.toInt()
+                }
+            }
+        } catch (e: NumberFormatException) {
             logger.warning("Failed to parse skills JSON: ${e.message}")
             emptyMap()
         }
+    }
+
+    private companion object {
+        val FLAT_SKILL_REGEX = Regex(""""([^"]+)"\s*:\s*(-?\d+)""")
+        val AGGREGATED_SKILL_REGEX = Regex(
+            """"([^"]+)"\s*:\s*\{\s*"start"\s*:\s*(-?\d+)\s*,\s*"end"\s*:\s*(-?\d+)\s*,\s*"gain"\s*:\s*-?\d+\s*\}"""
+        )
     }
 }
 

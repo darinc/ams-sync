@@ -5,7 +5,7 @@
 
 ## Prerequisites
 
-- **Java 21** or higher
+- **Java 25** (Gradle auto-provisions a JDK 25 toolchain if none is installed)
 - **Gradle** (wrapper included)
 - **MCMMO** installed to local Maven repository
 
@@ -32,7 +32,7 @@ This creates `~/.m2/repository/com/gmail/nossr50/mcMMO/mcMMO/...`
 ./gradlew shadowJar
 ```
 
-Output: `build/libs/ams-sync-0.11.3.jar`
+Output: `build/libs/ams-sync-<version>.jar` (the `-plain.jar` beside it has no dependencies and is not deployable)
 
 The Shadow plugin creates a "fat JAR" with all dependencies included.
 
@@ -80,9 +80,9 @@ Quick syntax/type check without full build.
 
 ```kotlin
 plugins {
-    kotlin("jvm") version "1.9.21"              // Kotlin compiler
-    id("com.gradleup.shadow") version "9.3.0"  // Fat JAR creation
-    id("io.gitlab.arturbosch.detekt") version "1.23.3"  // Static analysis
+    kotlin("jvm") version "2.4.21"              // Kotlin compiler
+    id("com.gradleup.shadow") version "9.6.1"  // Fat JAR creation
+    id("dev.detekt") version "2.0.0-alpha.6"   // Static analysis
 }
 ```
 
@@ -91,19 +91,20 @@ plugins {
 ```kotlin
 dependencies {
     // Compile-only: Provided by server at runtime
-    compileOnly("io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT")
-    compileOnly("com.gmail.nossr50.mcMMO:mcMMO:2.2.044-SNAPSHOT")
+    // Versions live in gradle.properties (paperVersion, mcmmoVersion)
+    compileOnly("io.papermc.paper:paper-api:$paperVersion")
+    compileOnly("com.gmail.nossr50.mcMMO:mcMMO:$mcmmoVersion")
 
     // Implementation: Bundled in JAR
-    implementation("net.dv8tion:JDA:5.0.0-beta.18")
-    implementation("club.minnced:discord-webhooks:0.8.4")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-    implementation("org.slf4j:slf4j-api:2.0.9")
-    implementation("org.slf4j:slf4j-simple:2.0.9")
+    implementation("net.dv8tion:JDA:6.7.0")            // excludes opus-java, tink
+    implementation("club.minnced:discord-webhooks:0.8.4") // excludes okhttp 4.x
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
+    implementation("org.slf4j:slf4j-api:2.0.20")
+    implementation("org.slf4j:slf4j-simple:2.0.20")
 
     // Testing
-    testImplementation("io.kotest:kotest-runner-junit5:5.8.0")
-    testImplementation("io.mockk:mockk:1.13.8")
+    testImplementation("io.kotest:kotest-runner-junit5:6.2.7")
+    testImplementation("io.mockk:mockk:1.14.12")
 }
 ```
 
@@ -112,12 +113,12 @@ dependencies {
 ```kotlin
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
+        languageVersion.set(JavaLanguageVersion.of(25))
     }
 }
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(25)
 }
 ```
 
@@ -201,10 +202,9 @@ mvn install -DskipTests
 
 ### "Unsupported class file major version 65"
 
-Java version mismatch. Ensure Java 21:
+Java version mismatch. The build needs JDK 25; check what Gradle sees:
 ```bash
-java -version
-# Should show: openjdk version "21.x.x"
+./gradlew javaToolchains
 ```
 
 ### Shadow JAR Too Large
@@ -255,10 +255,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
+          java-version: '25'
           distribution: 'temurin'
 
       - name: Build MCMMO dependency
