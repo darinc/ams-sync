@@ -97,7 +97,6 @@ dependencies {
 
     // Implementation: Bundled in JAR
     implementation("net.dv8tion:JDA:6.7.0")            // excludes opus-java, tink
-    implementation("club.minnced:discord-webhooks:0.8.4") // excludes okhttp 4.x
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
     implementation("org.slf4j:slf4j-api:2.0.20")
     implementation("org.slf4j:slf4j-simple:2.0.20")
@@ -133,7 +132,6 @@ tasks {
     shadowJar {
         // Relocate packages to avoid conflicts
         relocate("net.dv8tion", "io.github.darinc.amssync.libs.jda")
-        relocate("club.minnced", "io.github.darinc.amssync.libs.webhook")
         relocate("kotlin", "io.github.darinc.amssync.libs.kotlin")
         relocate("kotlinx", "io.github.darinc.amssync.libs.kotlinx")
 

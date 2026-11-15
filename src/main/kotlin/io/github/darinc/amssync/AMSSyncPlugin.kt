@@ -671,7 +671,7 @@ class AMSSyncPlugin : JavaPlugin() {
                 logger.warning("Chat bridge use-webhook is true but no webhook-url configured")
                 logger.warning("Chat bridge falling back to bot messages")
             } else {
-                chatWebhook = ChatWebhookManager(this, resolvedConfig.webhookUrl)
+                chatWebhook = ChatWebhookManager(this, resolvedConfig.webhookUrl, discordManager)
                 if (chatWebhook.isWebhookAvailable()) {
                     logger.info("Chat bridge using webhook for rich messages")
                 }
