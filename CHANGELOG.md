@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.29.2] - 2026-11-16
+
+### Fixed
+
+- `/amswhitelist add` now works for players who have never joined, looking up the account through Mojang instead of the server's player data
+- Run the account lookup off the main thread so it cannot stall the server
+- Refuse to whitelist when the server and Mojang disagree on a player's UUID
+
 ## [0.29.1] - 2026-11-15
 
 ### Changed

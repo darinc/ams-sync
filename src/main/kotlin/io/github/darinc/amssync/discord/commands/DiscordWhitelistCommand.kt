@@ -18,7 +18,10 @@ import java.time.Instant
 /**
  * Handles the /amswhitelist Discord slash command for server whitelist management
  */
-class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) : SlashCommandHandler {
+class DiscordWhitelistCommand(
+    private val plugin: AMSSyncPlugin,
+    private val whitelistService: WhitelistService = WhitelistService(plugin.server)
+) : SlashCommandHandler {
 
     override val commandName = "amswhitelist"
 
@@ -144,73 +147,103 @@ class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) : SlashCommandH
             return
         }
 
-        // Run on Bukkit main thread for safety
-        Bukkit.getScheduler().runTask(plugin, Runnable {
-            try {
-                // Find player by name (search through offline players)
-                val offlinePlayer = findOfflinePlayerByName(minecraftName)
+        // Mojang lookup blocks on network I/O, so resolve the account off the main thread.
+        // New players can't join an enforced whitelist, so we can't rely on server player data.
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, Runnable {
+            when (val lookup = whitelistService.lookupProfile(minecraftName)) {
+                is ProfileLookup.NotFound -> {
+                    logAddFailure(actorName, minecraftName, "account_not_found")
+                    sendEphemeralMessage(
+                        event.hook,
+                        "❌ **Player Not Found**\n\n" +
+                        "No Minecraft account named `$minecraftName` exists. Check the spelling."
+                    )
+                }
+                is ProfileLookup.Failed -> {
+                    plugin.logger.warning("Profile lookup failed for $minecraftName: ${lookup.reason}")
+                    logAddFailure(actorName, minecraftName, "lookup_failed")
+                    sendEphemeralMessage(
+                        event.hook,
+                        "⚠️ **Lookup Failed**\n\n" +
+                        "Couldn't reach Mojang to look up `$minecraftName`. Try again in a moment."
+                    )
+                }
+                is ProfileLookup.Found -> Bukkit.getScheduler().runTask(plugin, Runnable {
+                    applyWhitelistAdd(event, actorName, minecraftName, lookup)
+                })
+            }
+        })
+    }
 
-                if (offlinePlayer == null || !offlinePlayer.hasPlayedBefore()) {
+    private fun applyWhitelistAdd(
+        event: SlashCommandInteractionEvent,
+        actorName: String,
+        requestedName: String,
+        lookup: ProfileLookup.Found
+    ) {
+        try {
+            when (val result = whitelistService.addToWhitelist(lookup)) {
+                is WhitelistAddResult.AlreadyWhitelisted -> sendEphemeralMessage(
+                    event.hook,
+                    "⚠️ **${result.name}** is already whitelisted."
+                )
+                is WhitelistAddResult.Failed -> {
+                    plugin.logger.warning("Whitelist add failed for $requestedName: ${result.reason}")
+                    logAddFailure(actorName, requestedName, "uuid_mismatch")
+                    sendEphemeralMessage(
+                        event.hook,
+                        "⚠️ **Error**\n\n" +
+                        "The server and Mojang disagree on `${lookup.name}`'s UUID, so nothing was changed. " +
+                        "Try `/whitelist add ${lookup.name}` from the console."
+                    )
+                }
+                is WhitelistAddResult.Added -> {
                     plugin.auditLogger.logAdminAction(
                         action = AuditAction.WHITELIST_ADD,
                         actor = actorName,
                         actorType = ActorType.DISCORD_USER,
-                        target = minecraftName,
-                        success = false,
-                        details = mapOf("reason" to "player_never_joined")
+                        target = result.name,
+                        success = true,
+                        details = mapOf("uuid" to result.uuid.toString())
                     )
-                    sendEphemeralMessage(
-                        event.hook,
-                        "❌ **Player Not Found**\n\n" +
-                        "Player `$minecraftName` has never joined this server.\n" +
-                        "Only players who have previously joined can be whitelisted."
-                    )
-                    return@Runnable
+
+                    val embed = EmbedBuilder()
+                        .setTitle("✅ Player Whitelisted")
+                        .setColor(Color.GREEN)
+                        .addField("Minecraft Username", result.name, false)
+                        .addField("UUID", result.uuid.toString(), false)
+                        .setFooter("Amazing Minecraft Server", null)
+                        .setTimestamp(Instant.now())
+
+                    if (!Bukkit.hasWhitelist()) {
+                        embed.setDescription("⚠️ The server whitelist is currently **off**, so this has no effect yet.")
+                    }
+
+                    sendEphemeralEmbed(event.hook, embed.build())
+
+                    plugin.logger.info("Whitelisted ${result.name} via Discord command by ${event.user.name}")
                 }
-
-                // Check if already whitelisted
-                if (offlinePlayer.isWhitelisted) {
-                    sendEphemeralMessage(
-                        event.hook,
-                        "⚠️ **${offlinePlayer.name}** is already whitelisted."
-                    )
-                    return@Runnable
-                }
-
-                // Add to whitelist
-                offlinePlayer.isWhitelisted = true
-
-                plugin.auditLogger.logAdminAction(
-                    action = AuditAction.WHITELIST_ADD,
-                    actor = actorName,
-                    actorType = ActorType.DISCORD_USER,
-                    target = offlinePlayer.name ?: minecraftName,
-                    success = true,
-                    details = mapOf("uuid" to offlinePlayer.uniqueId.toString())
-                )
-
-                val embed = EmbedBuilder()
-                    .setTitle("✅ Player Whitelisted")
-                    .setColor(Color.GREEN)
-                    .addField("Minecraft Username", offlinePlayer.name ?: minecraftName, false)
-                    .addField("UUID", offlinePlayer.uniqueId.toString(), false)
-                    .setFooter("Amazing Minecraft Server", null)
-                    .setTimestamp(Instant.now())
-
-                sendEphemeralEmbed(event.hook, embed.build())
-
-                plugin.logger.info("Whitelisted ${offlinePlayer.name} via Discord command by ${event.user.name}")
-
-            } catch (e: Exception) {
-                plugin.logger.warning("Unexpected error in Discord /amswhitelist add: ${e.message}")
-                e.printStackTrace()
-                sendEphemeralMessage(
-                    event.hook,
-                    "⚠️ **Error**\n\n" +
-                    "An unexpected error occurred: ${e.message}"
-                )
             }
-        })
+        } catch (e: Exception) {
+            plugin.logger.warning("Unexpected error in Discord /amswhitelist add: ${e.message}")
+            e.printStackTrace()
+            sendEphemeralMessage(
+                event.hook,
+                "⚠️ **Error**\n\n" +
+                "An unexpected error occurred: ${e.message}"
+            )
+        }
+    }
+
+    private fun logAddFailure(actorName: String, target: String, reason: String) {
+        plugin.auditLogger.logAdminAction(
+            action = AuditAction.WHITELIST_ADD,
+            actor = actorName,
+            actorType = ActorType.DISCORD_USER,
+            target = target,
+            success = false,
+            details = mapOf("reason" to reason)
+        )
     }
 
     private fun handleRemove(event: SlashCommandInteractionEvent) {
@@ -375,20 +408,5 @@ class DiscordWhitelistCommand(private val plugin: AMSSyncPlugin) : SlashCommandH
                 )
             }
         })
-    }
-
-    /**
-     * Find an offline player by name. Searches online players first, then offline players.
-     * Note: Bukkit.getOfflinePlayer(name) creates a new player if not found, so we must
-     * iterate through existing players instead.
-     */
-    private fun findOfflinePlayerByName(name: String): org.bukkit.OfflinePlayer? {
-        // Check online players first (most efficient)
-        Bukkit.getOnlinePlayers().find { it.name.equals(name, ignoreCase = true) }?.let {
-            return it
-        }
-
-        // Search through offline players
-        return Bukkit.getOfflinePlayers().find { it.name?.equals(name, ignoreCase = true) == true }
     }
 }
