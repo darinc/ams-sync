@@ -1,6 +1,7 @@
 package io.github.darinc.amssync.discord
 
 import io.github.darinc.amssync.AMSSyncPlugin
+import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.MessageEmbed
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel
 import net.dv8tion.jda.api.utils.FileUpload
@@ -11,6 +12,9 @@ import net.dv8tion.jda.api.utils.FileUpload
  * When a valid webhook URL is configured, messages are sent via webhook which allows
  * custom usernames and avatars per message. When not configured, falls back
  * to standard bot channel messages. Both paths use the bot's JDA connection.
+ *
+ * Announcements carry player-controlled text (names, renamed items), so mentions are
+ * disabled on every send: an item named "@everyone" must not ping the server.
  *
  * @property plugin The parent plugin instance
  * @property webhookUrl Optional webhook URL (null = use bot messages)
@@ -24,6 +28,10 @@ class WebhookManager(
 ) {
     private var webhookSender: WebhookSender? = null
 
+    private companion object {
+        val NO_MENTIONS: Set<Message.MentionType> = emptySet()
+    }
+
     init {
         if (!webhookUrl.isNullOrBlank()) {
             if (WebhookSender.isValidUrl(webhookUrl)) {
@@ -31,7 +39,8 @@ class WebhookManager(
                     webhookUrl,
                     { discordManager?.getJda() },
                     { plugin.resilience.circuitBreaker },
-                    plugin.logger
+                    plugin.logger,
+                    allowedMentions = NO_MENTIONS
                 )
                 plugin.logger.info("Webhook client initialized")
             } else {
@@ -114,7 +123,7 @@ class WebhookManager(
             val circuitBreaker = plugin.resilience.circuitBreaker
 
             val sendAction = {
-                channel.sendMessageEmbeds(embed).queue(
+                channel.sendMessageEmbeds(embed).setAllowedMentions(NO_MENTIONS).queue(
                     { plugin.logger.fine("Sent bot embed") },
                     { e -> plugin.logger.warning("Failed to send bot embed: ${e.message}") }
                 )
@@ -140,7 +149,7 @@ class WebhookManager(
             val circuitBreaker = plugin.resilience.circuitBreaker
 
             val sendAction = {
-                channel.sendMessage(content).queue(
+                channel.sendMessage(content).setAllowedMentions(NO_MENTIONS).queue(
                     { plugin.logger.fine("Sent bot message") },
                     { e -> plugin.logger.warning("Failed to send bot message: ${e.message}") }
                 )
@@ -167,7 +176,7 @@ class WebhookManager(
 
             val sendAction = {
                 val fileUpload = FileUpload.fromData(imageBytes, filename)
-                channel.sendFiles(fileUpload).queue(
+                channel.sendFiles(fileUpload).setAllowedMentions(NO_MENTIONS).queue(
                     { plugin.logger.fine("Sent bot image: $filename") },
                     { e -> plugin.logger.warning("Failed to send bot image: ${e.message}") }
                 )

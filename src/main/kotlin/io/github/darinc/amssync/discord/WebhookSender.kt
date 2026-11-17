@@ -3,6 +3,7 @@ package io.github.darinc.amssync.discord
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.entities.IncomingWebhookClient
 import net.dv8tion.jda.api.entities.Message
+import net.dv8tion.jda.api.entities.Message.MentionType
 import net.dv8tion.jda.api.entities.MessageEmbed
 import net.dv8tion.jda.api.entities.Webhook
 import net.dv8tion.jda.api.entities.WebhookClient
@@ -21,6 +22,7 @@ import java.util.logging.Logger
  * @property jdaProvider Supplies the current JDA instance, or null when not connected
  * @property circuitBreakerProvider Supplies the circuit breaker gating sends, if any
  * @property logger Logger for send results
+ * @property allowedMentions Mention types that may ping; null keeps JDA's default
  * @property clientFactory Creates the webhook client (overridable for tests)
  */
 class WebhookSender(
@@ -28,6 +30,7 @@ class WebhookSender(
     private val jdaProvider: () -> JDA?,
     private val circuitBreakerProvider: () -> CircuitBreaker?,
     private val logger: Logger,
+    private val allowedMentions: Collection<MentionType>? = null,
     private val clientFactory: (JDA, String) -> IncomingWebhookClient = { jda, url -> WebhookClient.createClient(jda, url) }
 ) {
     init {
@@ -65,6 +68,7 @@ class WebhookSender(
             val action = create(clientFactory(jda, webhookUrl))
             username?.let { action.setUsername(it) }
             avatarUrl?.let { action.setAvatarUrl(it) }
+            allowedMentions?.let { action.setAllowedMentions(it) }
             action.queue(
                 { logger.fine("Sent $label") },
                 { e -> logger.warning("Failed to send $label: ${e.message}") }

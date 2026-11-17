@@ -2,8 +2,15 @@ package io.github.darinc.amssync.events
 
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.shouldBe
+import io.mockk.every
+import io.mockk.mockk
 import org.bukkit.Material
+import org.bukkit.entity.Arrow
 import org.bukkit.entity.EntityType
+import org.bukkit.entity.Player
+import org.bukkit.entity.Skeleton
+import org.bukkit.event.entity.EntityDamageByEntityEvent
+import org.bukkit.event.entity.PlayerDeathEvent
 import org.bukkit.event.entity.EntityDamageEvent.DamageCause
 
 class DeathCauseClassifierTest : DescribeSpec({
@@ -363,6 +370,29 @@ class DeathCauseClassifierTest : DescribeSpec({
 
             it("handles mixed case messages") {
                 DeathCauseClassifier.parseDeathMessage("Steve DROWNED in the ocean") shouldBe DeathCategory.Environmental.Drowning
+            }
+        }
+
+        describe("classify projectiles") {
+
+            fun deathByArrowFrom(shooter: org.bukkit.projectiles.ProjectileSource?): PlayerDeathEvent {
+                val arrow = mockk<Arrow> {
+                    every { this@mockk.shooter } returns shooter
+                    every { type } returns EntityType.ARROW
+                }
+                val damage = mockk<EntityDamageByEntityEvent> { every { damager } returns arrow }
+                val victim = mockk<Player> { every { lastDamageCause } returns damage }
+                return mockk { every { entity } returns victim }
+            }
+
+            it("attributes an arrow shot by a player to PvP") {
+                DeathCauseClassifier.classify(deathByArrowFrom(mockk<Player> { every { type } returns EntityType.PLAYER })) shouldBe
+                    DeathCategory.PvP
+            }
+
+            it("attributes an arrow shot by a skeleton to the skeleton") {
+                DeathCauseClassifier.classify(deathByArrowFrom(mockk<Skeleton> { every { type } returns EntityType.SKELETON })) shouldBe
+                    DeathCategory.Mob.Skeleton
             }
         }
     }

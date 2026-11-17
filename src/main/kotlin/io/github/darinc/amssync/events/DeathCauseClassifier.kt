@@ -1,8 +1,10 @@
 package io.github.darinc.amssync.events
 
 import org.bukkit.Material
+import org.bukkit.entity.Entity
 import org.bukkit.entity.EntityType
 import org.bukkit.entity.Player
+import org.bukkit.entity.Projectile
 import org.bukkit.event.entity.EntityDamageByBlockEvent
 import org.bukkit.event.entity.EntityDamageByEntityEvent
 import org.bukkit.event.entity.EntityDamageEvent.DamageCause
@@ -30,7 +32,8 @@ object DeathCauseClassifier {
 
         // Check for entity damage (mob or player) first - most specific
         if (lastDamage is EntityDamageByEntityEvent) {
-            val damager = lastDamage.damager
+            // Attribute projectiles (arrows, tridents, fireballs) to whoever fired them
+            val damager = (lastDamage.damager as? Projectile)?.shooter as? Entity ?: lastDamage.damager
 
             // Check for PvP
             if (damager is Player) {

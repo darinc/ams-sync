@@ -148,4 +148,17 @@ class WebhookSenderTest : DescribeSpec({
             verify(exactly = 0) { client.sendMessage(any<String>()) }
         }
     }
+
+    describe("allowed mentions") {
+        it("restricts mentions when configured") {
+            val restricted = WebhookSender(validUrl, { jda }, { null }, logger, allowedMentions = emptySet()) { _, _ -> client }
+            restricted.sendMessage("@everyone hi")
+            verify { action.setAllowedMentions(emptySet()) }
+        }
+
+        it("leaves JDA's default mentions alone when not configured") {
+            sender().sendMessage("@Someone hi")
+            verify(exactly = 0) { action.setAllowedMentions(any()) }
+        }
+    }
 })

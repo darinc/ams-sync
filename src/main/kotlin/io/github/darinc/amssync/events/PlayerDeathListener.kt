@@ -6,7 +6,8 @@ import io.github.darinc.amssync.exceptions.PlayerDataNotFoundException
 import io.github.darinc.amssync.image.AvatarFetcher
 import io.github.darinc.amssync.image.DeathCardRenderer
 import net.dv8tion.jda.api.EmbedBuilder
-import net.dv8tion.jda.api.utils.FileUpload
+import net.dv8tion.jda.api.utils.MarkdownSanitizer
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
@@ -35,6 +36,17 @@ class PlayerDeathListener(
     private val avatarFetcher: AvatarFetcher? = null
 ) : Listener {
 
+    private val pvpTracker = PvpTracker()
+
+    /**
+     * Killer details for a death caused by another player.
+     */
+    private data class PvpKill(
+        val killer: Player,
+        val context: PvpKillContext,
+        val weaponName: String?
+    )
+
     /**
      * Handle player death event and announce to Discord.
      */
@@ -46,20 +58,41 @@ class PlayerDeathListener(
         val deathMessage = event.deathMessage() ?: return
 
         // Convert adventure Component to plain text
-        val plainMessage = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
-            .plainText()
-            .serialize(deathMessage)
+        val plainMessage = PlainTextComponentSerializer.plainText().serialize(deathMessage)
 
         plugin.logger.fine("Announcing player death: $plainMessage")
 
         val category = DeathCauseClassifier.classify(event)
+        val pvpKill = recordPvp(player)
 
         // Check if death cards are enabled and available
         if (config.playerDeaths.deathCards.enabled && deathCardRenderer != null && avatarFetcher != null) {
             sendDeathCard(player, category)
         } else {
-            sendDeathEmbed(player, plainMessage, category)
+            sendDeathEmbed(player, plainMessage, category, pvpKill)
         }
+    }
+
+    /**
+     * Update kill streak tracking and return killer details if another player caused this death.
+     */
+    private fun recordPvp(victim: Player): PvpKill? {
+        val killer = victim.killer?.takeIf { it.uniqueId != victim.uniqueId }
+        if (killer == null) {
+            pvpTracker.recordDeath(victim.uniqueId)
+            return null
+        }
+        val context = pvpTracker.recordKill(killer.uniqueId, victim.uniqueId)
+        return PvpKill(killer, context, weaponName(killer))
+    }
+
+    /**
+     * The custom name of the killer's held item, in the same `[Name]` form vanilla uses.
+     */
+    private fun weaponName(killer: Player): String? {
+        val name = killer.inventory.itemInMainHand.itemMeta?.customName() ?: return null
+        val plain = PlainTextComponentSerializer.plainText().serialize(name)
+        return plain.takeIf { it.isNotBlank() }?.let { "[$it]" }
     }
 
     /**
@@ -123,7 +156,9 @@ class PlayerDeathListener(
                     val avatarUrl = if (config.showAvatars) {
                         EventAnnouncementConfig.getAvatarUrl(player.name, player.uniqueId, config.avatarProvider)
                     } else null
-                    sendEmbedWithCommentary("${player.name} died", commentary, player.name, avatarUrl)
+                    sendEmbedWithCommentary(
+                        "${escapeForDiscord(player.name)} died", commentary, player.name, avatarUrl, avatarUrl
+                    )
                 })
             }
         })
@@ -132,9 +167,23 @@ class PlayerDeathListener(
     /**
      * Send a traditional embed-based death announcement.
      */
-    private fun sendDeathEmbed(player: Player, plainMessage: String, category: DeathCategory) {
+    private fun sendDeathEmbed(player: Player, plainMessage: String, category: DeathCategory, pvpKill: PvpKill?) {
+        // Player names like Silver_Parallax would otherwise render as Discord italics, and
+        // renamed items could otherwise inject masked links
+        val safeMessage = escapeForDiscord(plainMessage)
+
         val commentary = if (config.playerDeaths.commentaryEnabled) {
-            generateCommentary(player.name, category)
+            if (pvpKill != null) {
+                PvpCommentary.generate(
+                    killer = escapeForDiscord(pvpKill.killer.name),
+                    victim = escapeForDiscord(player.name),
+                    context = pvpKill.context,
+                    weaponName = pvpKill.weaponName?.let { escapeForDiscord(it) },
+                    fallback = { generateCommentary(player.name, category) }
+                )
+            } else {
+                generateCommentary(player.name, category)
+            }
         } else null
 
         val avatarUrl = if (config.showAvatars) {
@@ -145,13 +194,20 @@ class PlayerDeathListener(
             )
         } else null
 
+        // For PvP, the thumbnail shows the killer; the webhook avatar already shows the victim
+        val thumbnailUrl = if (config.showAvatars && pvpKill != null) {
+            EventAnnouncementConfig.getAvatarUrl(pvpKill.killer.name, pvpKill.killer.uniqueId, config.avatarProvider)
+        } else {
+            avatarUrl
+        }
+
         if (config.useEmbeds) {
-            sendEmbedWithCommentary(plainMessage, commentary, player.name, avatarUrl)
+            sendEmbedWithCommentary(safeMessage, commentary, player.name, avatarUrl, thumbnailUrl)
         } else {
             val fullMessage = if (commentary != null) {
-                "$plainMessage\n*$commentary*"
+                "$safeMessage\n*$commentary*"
             } else {
-                plainMessage
+                safeMessage
             }
             webhookManager.sendMessage(fullMessage, player.name, avatarUrl)
         }
@@ -211,7 +267,8 @@ class PlayerDeathListener(
         deathMessage: String,
         commentary: String?,
         playerName: String,
-        avatarUrl: String?
+        avatarUrl: String?,
+        thumbnailUrl: String?
     ) {
         val description = if (commentary != null) {
             "$deathMessage\n\n*$commentary*"
@@ -223,13 +280,22 @@ class PlayerDeathListener(
             .setColor(Color(237, 66, 69)) // Discord red
             .setDescription(description)
             .apply {
-                if (avatarUrl != null) {
-                    setThumbnail(avatarUrl)
+                if (thumbnailUrl != null) {
+                    setThumbnail(thumbnailUrl)
                 }
             }
             .setTimestamp(Instant.now())
             .build()
 
         webhookManager.sendEmbed(embed, playerName, avatarUrl)
+    }
+
+    companion object {
+        /**
+         * Escape player-controlled text (names, renamed items) for Discord markdown.
+         * Brackets are escaped too so `[text](url)` cannot become a masked link.
+         */
+        internal fun escapeForDiscord(text: String): String =
+            MarkdownSanitizer.escape(text).replace(Regex("""[\[\]()]"""), """\\$0""")
     }
 }
