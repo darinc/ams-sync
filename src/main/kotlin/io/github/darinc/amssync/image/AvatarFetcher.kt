@@ -35,6 +35,24 @@ class AvatarFetcher(
         const val BODY_SIZE = 128
         const val HEAD_SIZE = 64
         const val PODIUM_HEAD_SIZE = 48
+
+        /** Largest image accepted from an avatar or skin service */
+        private const val MAX_IMAGE_BYTES = 2 * 1024 * 1024
+        private const val MAX_IMAGE_DIMENSION = 1024
+
+        private const val MOJANG_TEXTURE_HOST = "textures.minecraft.net"
+
+        /**
+         * Whether a skin URL points at Mojang's texture server (exact host match, http or https).
+         */
+        fun isMojangTextureUrl(url: String): Boolean = try {
+            val uri = URI(url)
+            uri.scheme?.lowercase() in setOf("http", "https") &&
+                uri.host.equals(MOJANG_TEXTURE_HOST, ignoreCase = true) &&
+                uri.userInfo == null && (uri.port == -1 || uri.port == 80 || uri.port == 443)
+        } catch (_: Exception) {
+            false
+        }
     }
 
     /**
@@ -104,6 +122,34 @@ class AvatarFetcher(
     }
 
     /**
+     * Fetch a player's raw skin texture.
+     *
+     * Tries the texture URL from the player's own profile first (served by Mojang), then
+     * mc-heads.net by name. Returns null if neither yields a valid skin.
+     *
+     * @param playerName Minecraft username
+     * @param textureUrl Skin URL from the player's profile, if known
+     * @return 64x64 (or legacy 64x32) skin texture, or null
+     */
+    fun fetchSkin(playerName: String, textureUrl: String?): BufferedImage? {
+        val cacheKey = "skin:$playerName:${textureUrl.orEmpty()}"
+        avatarCache[cacheKey]?.let { cached ->
+            if (!cached.isExpired(cacheTtlMs) && isSkinTexture(cached.image)) return cached.image
+        }
+
+        // Profile textures can be set by skin plugins or offline-mode servers, so only trust Mojang's host
+        val trustedTexture = textureUrl?.takeIf { isMojangTextureUrl(it) }
+        val candidates = listOfNotNull(trustedTexture, "https://mc-heads.net/skin/$playerName")
+        return candidates.firstNotNullOfOrNull { url ->
+            fetchAndCache(url, cacheKey)?.takeIf { isSkinTexture(it) }
+        }
+    }
+
+    private fun isSkinTexture(image: BufferedImage): Boolean =
+        image.width >= 64 && image.width % 64 == 0 &&
+            (image.height == image.width || image.height * 2 == image.width)
+
+    /**
      * Fetch body render asynchronously.
      */
     fun fetchBodyRenderAsync(
@@ -164,6 +210,7 @@ class AvatarFetcher(
             connection.connectTimeout = CONNECT_TIMEOUT_MS
             connection.readTimeout = READ_TIMEOUT_MS
             connection.requestMethod = "GET"
+            connection.instanceFollowRedirects = false
             connection.setRequestProperty("User-Agent", "AMSSync-Minecraft-Plugin")
 
             if (connection.responseCode != HttpURLConnection.HTTP_OK) {
@@ -171,8 +218,13 @@ class AvatarFetcher(
                 return null
             }
 
-            val image = ImageIO.read(connection.inputStream)
+            val bytes = connection.inputStream.use { it.readNBytes(MAX_IMAGE_BYTES + 1) }
             connection.disconnect()
+            if (bytes.size > MAX_IMAGE_BYTES) {
+                logger.warning("Avatar response too large: $urlString")
+                return null
+            }
+            val image = decodeBounded(bytes) ?: return null
 
             if (image != null) {
                 // Add to cache, evict old entries if needed
@@ -185,6 +237,25 @@ class AvatarFetcher(
         } catch (e: Exception) {
             logger.warning("Failed to fetch avatar from $urlString: ${e.message}")
             null
+        }
+    }
+
+    /**
+     * Decode an image only if its declared size is reasonable, before allocating pixels.
+     */
+    private fun decodeBounded(bytes: ByteArray): BufferedImage? {
+        ImageIO.createImageInputStream(bytes.inputStream()).use { input ->
+            val reader = ImageIO.getImageReaders(input).asSequence().firstOrNull() ?: return null
+            try {
+                reader.input = input
+                if (reader.getWidth(0) > MAX_IMAGE_DIMENSION || reader.getHeight(0) > MAX_IMAGE_DIMENSION) {
+                    logger.warning("Avatar image dimensions too large")
+                    return null
+                }
+                return reader.read(0)
+            } finally {
+                reader.dispose()
+            }
         }
     }
 

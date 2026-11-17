@@ -279,7 +279,7 @@ event-announcements:
     death-cards:
       # Enable visual death card images
       # When enabled, sends images instead of embeds for death announcements
-      enabled: false
+      enabled: true
 
       # Include player body render in the coffin
       show-body: true

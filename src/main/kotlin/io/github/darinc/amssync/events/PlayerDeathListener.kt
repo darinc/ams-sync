@@ -9,6 +9,7 @@ import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.utils.MarkdownSanitizer
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import org.bukkit.entity.Player
+import org.bukkit.profile.PlayerTextures
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
@@ -44,7 +45,8 @@ class PlayerDeathListener(
     private data class PvpKill(
         val killer: Player,
         val context: PvpKillContext,
-        val weaponName: String?
+        val weaponName: String?,
+        val weaponSkill: String?
     )
 
     /**
@@ -67,7 +69,7 @@ class PlayerDeathListener(
 
         // Check if death cards are enabled and available
         if (config.playerDeaths.deathCards.enabled && deathCardRenderer != null && avatarFetcher != null) {
-            sendDeathCard(player, category)
+            sendDeathCard(player, category, pvpKill)
         } else {
             sendDeathEmbed(player, plainMessage, category, pvpKill)
         }
@@ -83,7 +85,8 @@ class PlayerDeathListener(
             return null
         }
         val context = pvpTracker.recordKill(killer.uniqueId, victim.uniqueId)
-        return PvpKill(killer, context, weaponName(killer))
+        val weaponSkill = DeathCardCommentary.weaponSkillFor(killer.inventory.itemInMainHand.type.name)
+        return PvpKill(killer, context, weaponName(killer), weaponSkill)
     }
 
     /**
@@ -98,7 +101,12 @@ class PlayerDeathListener(
     /**
      * Send a visual death card image to Discord.
      */
-    private fun sendDeathCard(player: Player, category: DeathCategory) {
+    private fun sendDeathCard(player: Player, category: DeathCategory, pvpKill: PvpKill?) {
+        // Read the skin from the player's own profile while still on the main thread
+        val textures = player.playerProfile.textures
+        val skinUrl = textures.skin?.toString()
+        val slimSkin = if (skinUrl != null) textures.skinModel == PlayerTextures.SkinModel.SLIM else null
+
         // Run async to avoid blocking the main thread
         plugin.server.scheduler.runTaskAsynchronously(plugin, Runnable {
             try {
@@ -112,16 +120,21 @@ class PlayerDeathListener(
 
                 val powerLevel = stats?.values?.sum()
 
-                // Fetch body render
-                val bodyImage = avatarFetcher!!.fetchBodyRender(
-                    player.name,
-                    player.uniqueId,
-                    config.avatarProvider
-                )
+                val skin = avatarFetcher!!.fetchSkin(player.name, skinUrl)
 
-                // Generate sarcastic messages
+                val pvpInfo = pvpKill?.let { kill ->
+                    PvpCardInfo(
+                        killerName = kill.killer.name,
+                        weaponName = kill.weaponName,
+                        weaponSkill = kill.weaponSkill,
+                        killerStats = runCatching { plugin.mcmmoApi.getPlayerStats(kill.killer.name) }.getOrNull(),
+                        context = kill.context
+                    )
+                }
+
+                // Generate the headline and epitaph
                 val (sarcasticMessage, commentary) = if (config.playerDeaths.deathCards.skillSpecificRoasts) {
-                    DeathCardCommentary.generateMessages(category, stats, powerLevel)
+                    DeathCardCommentary.generateMessages(category, stats, powerLevel, player.name, pvpInfo)
                 } else {
                     // Fall back to basic commentary
                     val basic = DeathCommentaryRepository.getCommentary(category)
@@ -135,7 +148,8 @@ class PlayerDeathListener(
                     deathCategory = category,
                     sarcasticMessage = sarcasticMessage,
                     commentary = commentary,
-                    bodyImage = bodyImage
+                    skin = skin,
+                    slimSkin = slimSkin
                 )
 
                 // Convert to bytes and send

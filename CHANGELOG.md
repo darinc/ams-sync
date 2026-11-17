@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.31.0] - 2026-11-16
+
+### Changed
+
+- Death cards show the player's own skin lying face up in a larger, open coffin
+- Death card headlines are short epitaphs, with roasts tied to the skill that fits the death and PvP cards naming the killer
+- Death cards are enabled by default
+
+### Fixed
+
+- Death and PvP commentary no longer repeats recently used lines
+
+### Security
+
+- Skins are downloaded only from Mojang's texture server, without redirects and with a size limit
+
 ## [0.30.0] - 2026-11-16
 
 ### Added

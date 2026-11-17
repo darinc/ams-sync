@@ -16,10 +16,10 @@ object DeathCardStyles {
     // ========== CARD DIMENSIONS ==========
 
     /** Death card width */
-    const val CARD_WIDTH = 500
+    const val CARD_WIDTH = 560
 
     /** Death card height */
-    const val CARD_HEIGHT = 350
+    const val CARD_HEIGHT = 440
 
     // ========== LAYOUT HEIGHTS ==========
 
@@ -30,10 +30,10 @@ object DeathCardStyles {
     const val DEATH_MESSAGE_BOX_HEIGHT = 50
 
     /** Coffin/body section height */
-    const val COFFIN_SECTION_HEIGHT = 130
+    const val COFFIN_SECTION_HEIGHT = 230
 
     /** Commentary section height */
-    const val COMMENTARY_HEIGHT = 55
+    const val COMMENTARY_HEIGHT = 60
 
     /** Footer section height */
     const val FOOTER_HEIGHT = 30
@@ -56,15 +56,6 @@ object DeathCardStyles {
 
     /** Mob/cause icon size */
     const val MOB_ICON_SIZE = 40
-
-    /** Coffin sprite width */
-    const val COFFIN_WIDTH = 260
-
-    /** Coffin sprite height */
-    const val COFFIN_HEIGHT = 90
-
-    /** Body render height when horizontal */
-    const val BODY_RENDER_HEIGHT = 100
 
     // ========== BADGE DIMENSIONS ==========
 
@@ -150,11 +141,14 @@ object DeathCardStyles {
     /** DECEASED badge font */
     val FONT_DECEASED: Font = Font("SansSerif", Font.BOLD, 10)
 
-    /** Death message font */
-    val FONT_DEATH_MESSAGE: Font = Font("SansSerif", Font.BOLD, 13)
+    /** Death message font (largest size; shrinks to fit long headlines) */
+    val FONT_DEATH_MESSAGE: Font = Font("SansSerif", Font.BOLD, 16)
+
+    /** Smallest size a headline shrinks to before it is truncated */
+    const val DEATH_MESSAGE_MIN_SIZE = 11
 
     /** Sarcastic commentary font */
-    val FONT_COMMENTARY: Font = Font("SansSerif", Font.ITALIC, 12)
+    val FONT_COMMENTARY: Font = Font("SansSerif", Font.ITALIC, 14)
 
     /** "Press F" text font */
     val FONT_PRESS_F: Font = Font("SansSerif", Font.ITALIC, 11)

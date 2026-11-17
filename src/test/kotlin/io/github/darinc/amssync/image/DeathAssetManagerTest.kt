@@ -72,19 +72,6 @@ class DeathAssetManagerTest : DescribeSpec({
             }
         }
 
-        describe("getCoffin") {
-
-            it("returns fallback coffin when asset not found") {
-                val assetManager = DeathAssetManager(mockPlugin, mockLogger)
-
-                val coffin = assetManager.getCoffin()
-
-                coffin shouldNotBe null
-                coffin.width shouldBe DeathCardStyles.COFFIN_WIDTH
-                coffin.height shouldBe DeathCardStyles.COFFIN_HEIGHT
-            }
-        }
-
         describe("getSkullIcon") {
 
             it("returns fallback skull when asset not found") {
@@ -111,7 +98,6 @@ class DeathAssetManagerTest : DescribeSpec({
 
                 // Load some assets to populate cache (will load fallbacks)
                 assetManager.getSkullIcon()
-                assetManager.getCoffin()
 
                 // Clear cache
                 assetManager.clearCache()

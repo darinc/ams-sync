@@ -4,7 +4,6 @@ import io.github.darinc.amssync.events.DeathCategory
 import java.awt.Color
 import java.awt.GradientPaint
 import java.awt.Graphics2D
-import java.awt.geom.AffineTransform
 import java.awt.image.BufferedImage
 
 /**
@@ -12,7 +11,7 @@ import java.awt.image.BufferedImage
  *
  * Generates eye-catching death cards featuring:
  * - Themed backgrounds based on death cause
- * - Player body render in coffin
+ * - The player's skin laid face up in an open coffin
  * - MCMMO-integrated sarcastic commentary
  * - Skill/power level information
  *
@@ -32,7 +31,8 @@ class DeathCardRenderer(
      * @param deathCategory The classified death category
      * @param sarcasticMessage The main sarcastic death message
      * @param commentary Additional commentary (shown below coffin)
-     * @param bodyImage Player's body render (fetched from avatar service)
+     * @param skin Player's skin texture, or null to show a shrouded body
+     * @param slimSkin Whether the skin has slim arms; null detects it from the texture
      * @return BufferedImage of the rendered card
      */
     fun renderDeathCard(
@@ -41,7 +41,8 @@ class DeathCardRenderer(
         deathCategory: DeathCategory,
         sarcasticMessage: String,
         commentary: String,
-        bodyImage: BufferedImage
+        skin: BufferedImage?,
+        slimSkin: Boolean? = null
     ): BufferedImage {
         val width = DeathCardStyles.CARD_WIDTH
         val height = DeathCardStyles.CARD_HEIGHT
@@ -61,8 +62,9 @@ class DeathCardRenderer(
         // 3. Draw death message box with icons
         drawDeathMessageBox(g2d, sarcasticMessage, deathCategory)
 
-        // 4. Draw coffin with horizontal player body
-        drawCoffinSection(g2d, bodyImage, width)
+        // 4. Draw coffin with the player lying face up
+        val body = skin?.let { SkinBodyRenderer.renderFront(it, slimSkin) } ?: SkinBodyRenderer.renderShroud()
+        drawCoffinSection(g2d, body, width, height)
 
         // 5. Draw commentary section
         drawCommentarySection(g2d, commentary, width, height)
@@ -247,8 +249,13 @@ class DeathCardRenderer(
         val messageMaxWidth = boxWidth - DeathCardStyles.SKULL_ICON_SIZE - DeathCardStyles.MOB_ICON_SIZE - 50
         val messageY = boxY + boxHeight / 2 + 5
 
-        // Truncate message if too long
-        g2d.font = DeathCardStyles.FONT_DEATH_MESSAGE
+        // Shrink the font to fit; truncate only as a last resort
+        var font = DeathCardStyles.FONT_DEATH_MESSAGE
+        g2d.font = font
+        while (g2d.fontMetrics.stringWidth(message) > messageMaxWidth && font.size > DeathCardStyles.DEATH_MESSAGE_MIN_SIZE) {
+            font = font.deriveFont((font.size - 1).toFloat())
+            g2d.font = font
+        }
         var displayMessage = message
         while (g2d.fontMetrics.stringWidth(displayMessage) > messageMaxWidth && displayMessage.length > 10) {
             displayMessage = displayMessage.dropLast(4) + "..."
@@ -257,64 +264,14 @@ class DeathCardRenderer(
         GraphicsUtils.drawString(
             g2d, displayMessage,
             messageX, messageY,
-            DeathCardStyles.FONT_DEATH_MESSAGE, DeathCardStyles.TEXT_PRIMARY
+            font, DeathCardStyles.TEXT_PRIMARY
         )
     }
 
-    private fun drawCoffinSection(g2d: Graphics2D, bodyImage: BufferedImage, width: Int) {
-        val sectionY = DeathCardStyles.HEADER_HEIGHT + DeathCardStyles.DEATH_MESSAGE_BOX_HEIGHT + 15
-        val centerX = width / 2
-
-        // Draw coffin sprite
-        val coffin = assetManager.getCoffin()
-        val coffinX = centerX - DeathCardStyles.COFFIN_WIDTH / 2
-        val coffinY = sectionY + 15
-
-        g2d.drawImage(
-            coffin,
-            coffinX, coffinY,
-            DeathCardStyles.COFFIN_WIDTH, DeathCardStyles.COFFIN_HEIGHT,
-            null
-        )
-
-        // Draw rotated player body (lying horizontal in coffin)
-        val rotatedBody = rotateBodyImage(bodyImage)
-        val bodyX = centerX - rotatedBody.width / 2
-        val bodyY = coffinY + (DeathCardStyles.COFFIN_HEIGHT - rotatedBody.height) / 2 - 5
-
-        g2d.drawImage(rotatedBody, bodyX, bodyY, null)
-    }
-
-    /**
-     * Rotate a body image 90 degrees to lay horizontally.
-     */
-    private fun rotateBodyImage(bodyImage: BufferedImage): BufferedImage {
-        // Scale down the body first
-        val scaledHeight = DeathCardStyles.BODY_RENDER_HEIGHT
-        val scale = scaledHeight.toDouble() / bodyImage.height
-        val scaledWidth = (bodyImage.width * scale).toInt()
-
-        val scaled = BufferedImage(scaledWidth, scaledHeight, BufferedImage.TYPE_INT_ARGB)
-        val sg = scaled.createGraphics()
-        GraphicsUtils.enableAntialiasing(sg)
-        sg.drawImage(bodyImage, 0, 0, scaledWidth, scaledHeight, null)
-        sg.dispose()
-
-        // Now rotate 90 degrees (width and height swap)
-        val rotatedWidth = scaledHeight
-        val rotatedHeight = scaledWidth
-        val rotated = BufferedImage(rotatedWidth, rotatedHeight, BufferedImage.TYPE_INT_ARGB)
-        val g2d = rotated.createGraphics()
-        GraphicsUtils.enableAntialiasing(g2d)
-
-        val transform = AffineTransform()
-        transform.translate(rotatedWidth.toDouble(), 0.0)
-        transform.rotate(Math.PI / 2)
-        g2d.transform = transform
-        g2d.drawImage(scaled, 0, 0, null)
-
-        g2d.dispose()
-        return rotated
+    private fun drawCoffinSection(g2d: Graphics2D, body: BufferedImage, width: Int, height: Int) {
+        val sectionTop = DeathCardStyles.HEADER_HEIGHT + DeathCardStyles.DEATH_MESSAGE_BOX_HEIGHT + 10
+        val sectionBottom = height - DeathCardStyles.FOOTER_HEIGHT - DeathCardStyles.COMMENTARY_HEIGHT
+        CoffinPainter.paint(g2d, width / 2, (sectionTop + sectionBottom) / 2, body)
     }
 
     private fun drawCommentarySection(g2d: Graphics2D, commentary: String, width: Int, height: Int) {

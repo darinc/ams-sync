@@ -200,4 +200,25 @@ class AvatarFetcherTest : DescribeSpec({
             }
         }
     }
+
+    describe("isMojangTextureUrl") {
+
+        it("accepts Mojang texture URLs") {
+            AvatarFetcher.isMojangTextureUrl("http://textures.minecraft.net/texture/a9355c22") shouldBe true
+            AvatarFetcher.isMojangTextureUrl("https://textures.minecraft.net/texture/a9355c22") shouldBe true
+        }
+
+        it("rejects other hosts, look-alike hosts and odd schemes") {
+            listOf(
+                "http://169.254.169.254/latest/meta-data",
+                "http://localhost:8080/admin",
+                "http://textures.minecraft.net.evil.example/texture/x",
+                "http://evil.example/textures.minecraft.net/texture/x",
+                "http://user@textures.minecraft.net/texture/x",
+                "http://textures.minecraft.net:8080/texture/x",
+                "file:///etc/passwd",
+                "not a url"
+            ).forEach { AvatarFetcher.isMojangTextureUrl(it) shouldBe false }
+        }
+    }
 })

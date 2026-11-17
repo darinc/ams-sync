@@ -4,392 +4,295 @@ import io.github.darinc.amssync.image.DeathThemes
 import kotlin.random.Random
 
 /**
- * Enhanced sarcastic commentary system for death cards.
+ * Details about the killer for a PvP death card.
  *
- * Incorporates MCMMO skill data for personalized, skill-specific roasts.
- * Generates two types of messages:
- * - Main sarcastic message (appears in death message box)
- * - Commentary (appears below the coffin)
+ * @property killerName Killer's username
+ * @property weaponName Custom name of the killer's weapon in `[Name]` form, if renamed
+ * @property weaponSkill mcMMO skill matching the killer's weapon (e.g. SWORDS), if known
+ * @property killerStats Killer's mcMMO skill levels, if available
+ * @property context Streak and revenge context from [PvpTracker]
  */
-@Suppress("MaxLineLength")
+data class PvpCardInfo(
+    val killerName: String,
+    val weaponName: String?,
+    val weaponSkill: String?,
+    val killerStats: Map<String, Int>?,
+    val context: PvpKillContext
+)
+
+/**
+ * Text for death cards: a short headline in the box above the coffin and an epitaph below it.
+ *
+ * Headlines are kept short so they fit on one line. The epitaph prefers something specific
+ * to the death (PvP context, a skill matchup, an mcMMO roast) and falls back to the
+ * standard per-cause commentary.
+ */
+@Suppress("MaxLineLength", "TooManyFunctions")
 object DeathCardCommentary {
 
-    private val random = Random.Default
-
-    /** High skill threshold for ironic roasts */
+    /** Relevant skill at or above this level gets an ironic roast */
     const val HIGH_SKILL_THRESHOLD = 400
 
-    /** Low skill threshold for "needs training" roasts */
+    /** Relevant skill below this level gets a "needs training" roast */
     const val LOW_SKILL_THRESHOLD = 100
 
-    /** Elite power level threshold */
+    /** Elite power level threshold for embarrassing-death roasts */
     const val ELITE_POWER_THRESHOLD = 3000
+
+    /** Longest headline the card shows without shrinking the font much */
+    const val MAX_HEADLINE_LENGTH = 48
+
+    private const val SKILL_ROAST_CHANCE = 0.6f
+
+    private val COMBAT_SKILLS = listOf("SWORDS", "AXES", "ARCHERY", "UNARMED", "MACES", "TRIDENTS", "CROSSBOWS", "SPEARS")
 
     // ========== PUBLIC API ==========
 
     /**
-     * Generate both the main sarcastic message and commentary.
+     * Generate the headline and epitaph for a death card.
      *
      * @param category Death category
-     * @param playerStats Map of skill name to level (nullable)
-     * @param powerLevel Player's power level (nullable)
-     * @return Pair of (sarcasticMessage, commentary)
+     * @param playerStats Victim's mcMMO skill levels (nullable)
+     * @param powerLevel Victim's power level (nullable)
+     * @param playerName Victim's username, used in PvP lines
+     * @param pvp Killer details when another player caused the death
+     * @return Pair of (headline, epitaph)
      */
     fun generateMessages(
         category: DeathCategory,
         playerStats: Map<String, Int>?,
-        powerLevel: Int?
+        powerLevel: Int?,
+        playerName: String = "They",
+        pvp: PvpCardInfo? = null,
+        picker: NoRepeatPicker = NoRepeatPicker.shared,
+        random: Random = Random.Default
     ): Pair<String, String> {
-        val causeName = DeathThemes.getDeathCauseName(category)
-
-        // Generate main sarcastic message
-        val sarcasticMessage = generateSarcasticMessage(category, causeName, playerStats, powerLevel)
-
-        // Generate commentary
-        val commentary = generateCommentary(category, playerStats, powerLevel)
-
-        return sarcasticMessage to commentary
+        val headline = if (pvp != null) pvpHeadline(pvp, picker) else headline(category, picker)
+        val epitaph = if (pvp != null) {
+            pvpEpitaph(playerName, playerStats, pvp, picker) ?: DeathCommentaryRepository.getCommentary(DeathCategory.PvP)
+        } else {
+            epitaph(category, playerStats, powerLevel, picker, random)
+        }
+        return headline to epitaph
     }
 
     /**
-     * Generate the main sarcastic death message.
-     * Format: "Slain by a WARDEN. How EPIC. Your Herbalism won't help you now."
+     * The mcMMO skill trained by a weapon, from its Bukkit material name.
      */
-    private fun generateSarcasticMessage(
-        category: DeathCategory,
-        causeName: String,
-        playerStats: Map<String, Int>?,
-        powerLevel: Int?
-    ): String {
-        val slainBy = getSlainByPhrase(category, causeName)
-        val tierComment = if (powerLevel != null) getTierComment(powerLevel) else ""
-        val skillComment = getSkillComment(category, playerStats)
+    fun weaponSkillFor(materialName: String): String? = when {
+        materialName == "AIR" -> "UNARMED"
+        materialName.endsWith("_SWORD") -> "SWORDS"
+        materialName.endsWith("_AXE") -> "AXES"
+        materialName.endsWith("_SPEAR") -> "SPEARS"
+        materialName == "BOW" -> "ARCHERY"
+        materialName == "CROSSBOW" -> "CROSSBOWS"
+        materialName == "TRIDENT" -> "TRIDENTS"
+        materialName == "MACE" -> "MACES"
+        else -> null
+    }
 
-        return buildString {
-            append(slainBy)
-            if (tierComment.isNotEmpty()) {
-                append(" ")
-                append(tierComment)
-            }
-            if (skillComment.isNotEmpty()) {
-                append(" ")
-                append(skillComment)
-            }
+    // ========== HEADLINES ==========
+
+    private fun headline(category: DeathCategory, picker: NoRepeatPicker): String {
+        val cause = causeName(category)
+        return picker.pick("card-headline:$category", headlinesFor(category)).replace("{cause}", cause)
+    }
+
+    private fun pvpHeadline(pvp: PvpCardInfo, picker: NoRepeatPicker): String {
+        val weapon = pvp.weaponName
+        if (weapon != null) {
+            val withWeapon = picker.pick("card-headline:pvp-weapon", PVP_WEAPON_HEADLINES)
+                .replace("{killer}", pvp.killerName)
+                .replace("{weapon}", weapon)
+            if (withWeapon.length <= MAX_HEADLINE_LENGTH) return withWeapon
         }
+        return picker.pick("card-headline:pvp", PVP_HEADLINES).replace("{killer}", pvp.killerName)
     }
 
-    private fun getSlainByPhrase(category: DeathCategory, causeName: String): String {
-        return when (category) {
-            is DeathCategory.Mob -> {
-                val phrases = listOf(
-                    "Slain by a $causeName.",
-                    "Killed by a $causeName.",
-                    "Defeated by a $causeName.",
-                    "Eliminated by a $causeName."
-                )
-                phrases.random()
-            }
-            is DeathCategory.Environmental -> {
-                val phrases = when (category) {
-                    DeathCategory.Environmental.Fall -> listOf("Gravity wins again.", "The floor said hello.", "Splat.")
-                    DeathCategory.Environmental.Lava -> listOf("Took a lava bath.", "Became extra crispy.", "Swimming in lava.")
-                    DeathCategory.Environmental.Drowning -> listOf("Forgot to breathe.", "Went swimming forever.", "Glub glub.")
-                    DeathCategory.Environmental.Fire -> listOf("Caught fire.", "Became a torch.", "Too hot to handle.")
-                    DeathCategory.Environmental.Void -> listOf("Fell into the void.", "Embraced the abyss.", "Gone forever.")
-                    DeathCategory.Environmental.Starvation -> listOf("Forgot to eat.", "Starved to death.", "Died hungry.")
-                    DeathCategory.Environmental.Cactus -> listOf("Hugged a cactus.", "Prickly end.", "Death by plant.")
-                    DeathCategory.Environmental.Freeze -> listOf("Froze to death.", "Became an ice cube.", "Cold ending.")
-                    else -> listOf("Died to $causeName.", "Killed by $causeName.")
-                }
-                phrases.random()
-            }
-            is DeathCategory.PvP -> {
-                listOf("Got owned.", "Skill issue.", "Outplayed.", "GG.").random()
-            }
-            else -> "Died mysteriously."
-        }
+    @Suppress("CyclomaticComplexMethod") // Flat lookup table
+    internal fun headlinesFor(category: DeathCategory): List<String> = when (category) {
+        DeathCategory.Mob.Creeper -> listOf("Hugged by a creeper. Briefly.", "Went out with a bang.", "Ssssssorry for your loss.", "Now available in several pieces.", "Exploded into the afterlife.")
+        DeathCategory.Mob.Skeleton -> listOf("Turned into a pincushion.", "Shot by a guy with no lungs.", "Outranged by a calcium deposit.", "Died to a walking xylophone.")
+        DeathCategory.Mob.Zombie -> listOf("Outrun by a zombie. Somehow.", "Lunch for the undead.", "Caught by the slowest mob in the game.", "Became a zombie snack.")
+        DeathCategory.Mob.Spider -> listOf("Wrapped up for later.", "Eight legs beat two.", "Spider: 1. Arachnophobia: justified.")
+        DeathCategory.Mob.Enderman -> listOf("Made eye contact. Big mistake.", "Stared at the wrong tall guy.", "Teleported to the afterlife.")
+        DeathCategory.Mob.Wither -> listOf("Withered away.", "Summoned their own doom.", "Three heads beat one.")
+        DeathCategory.Mob.EnderDragon -> listOf("Lost to the final boss.", "Flung into orbit by a dragon.", "The dragon sends its regards.")
+        DeathCategory.Mob.Blaze -> listOf("Roasted by a flying fire stick.", "Blazed and confused.", "Fireballed into ash.")
+        DeathCategory.Mob.Ghast -> listOf("Lost at fireball tennis.", "Ghasted.", "Killed by a crying jellyfish.")
+        DeathCategory.Mob.Piglin -> listOf("Should've worn gold.", "Bartered their life away.", "Piglins don't do refunds.")
+        DeathCategory.Mob.Warden -> listOf("Woke the Warden.", "Sneaking: failed.", "Heard. Found. Flattened.")
+        DeathCategory.Mob.Witch -> listOf("Lost a potion fight to a witch.", "Hexed and wrecked.", "Cackled to death.")
+        DeathCategory.Mob.Phantom -> listOf("Should have slept.", "Bedtime, enforced by phantoms.", "Insomnia: fatal.")
+        DeathCategory.Mob.Guardian -> listOf("Lasered by an angry fish.", "Stared down by a guardian.", "Ocean monument: 1.")
+        DeathCategory.Mob.Slime -> listOf("Bounced to death.", "Defeated by gelatin.", "Absorbed by a cube.")
+        DeathCategory.Mob.Wolf -> listOf("Not a good boy.", "Picked a fight with the pack.", "Mauled by a floof.")
+        DeathCategory.Mob.Bee -> listOf("Bee'd to death.", "Stung by a pollen courier.", "Messed with the hive.")
+        DeathCategory.Mob.Golem -> listOf("The Iron Golem said no.", "Thrown into orbit by a golem.", "Punched by village security.")
+        DeathCategory.Mob.GenericMob -> listOf("Slain by a {cause}.", "Lost to a {cause}.", "A {cause} sends its regards.")
+        DeathCategory.Environmental.Fall -> listOf("Forgot gravity was on.", "Took the express way down.", "Floor: 1. Player: 0.", "Missed the water bucket clutch.", "Splat.")
+        DeathCategory.Environmental.Lava -> listOf("Took a lava bath.", "Swam in the spicy water.", "Became one with the magma.", "Cooked medium well.")
+        DeathCategory.Environmental.Fire -> listOf("Became a torch.", "Too hot to handle.", "Stopped, dropped, forgot to roll.")
+        DeathCategory.Environmental.Drowning -> listOf("Forgot how to breathe.", "Glub glub.", "Sleeps with the fishes now.", "Ran out of bubbles.")
+        DeathCategory.Environmental.Void -> listOf("Fell out of the world.", "Lost to the void. No refunds.", "Gone. Items too.")
+        DeathCategory.Environmental.Lightning -> listOf("Struck by lightning.", "Smitten by the sky.", "Zapped. Unlucky.")
+        DeathCategory.Environmental.Cactus -> listOf("Hugged a cactus.", "Lost a fight to a plant.", "A prickly ending.")
+        DeathCategory.Environmental.Suffocation -> listOf("Became part of the wall.", "Stuck in a block. Forever.", "Needed more air, less dirt.")
+        DeathCategory.Environmental.Starvation -> listOf("Forgot to eat.", "Starved with a full inventory.", "Hunger bar: empty. Life: also.")
+        DeathCategory.Environmental.FallingBlock -> listOf("Flattened by a falling block.", "An anvil, cartoon style.", "Looked up too late.")
+        DeathCategory.Environmental.Magma -> listOf("The floor was lava. Sort of.", "Should have sneaked on magma.", "Toasted from the feet up.")
+        DeathCategory.Environmental.BerryBush -> listOf("Murdered by berries.", "The bush fought back.", "Death by fruit salad.")
+        DeathCategory.Environmental.Freeze -> listOf("Froze solid.", "Powder snow claims another.", "Chilled to the bone.")
+        DeathCategory.Environmental.Explosion -> listOf("Blown to bits.", "Exploded. Unclear why.", "Kaboom.")
+        DeathCategory.Environmental.Thorns -> listOf("Hurt themselves in confusion.", "Hit something spiky.", "Thorns did the rest.")
+        DeathCategory.PvP -> PVP_HEADLINES.map { it.replace("{killer}", "a player") }
+        DeathCategory.Unknown -> listOf("Died mysteriously.", "Cause of death: unclear.", "It just happened.")
     }
 
-    private fun getTierComment(powerLevel: Int): String {
-        return when {
-            powerLevel >= 10000 -> listOf("How LEGENDARY.", "Legends CAN fall.", "Even legends die.").random()
-            powerLevel >= 5000 -> listOf("How EPIC.", "An EPIC failure.", "Not so EPIC now.").random()
-            powerLevel >= 1000 -> listOf("How RARE.", "RARE but dead.", "That's not very RARE.").random()
-            else -> ""
-        }
-    }
+    private val PVP_HEADLINES = listOf(
+        "Slain by {killer}.",
+        "Sent home by {killer}.",
+        "{killer} wins this round.",
+        "Deleted by {killer}.",
+        "Outplayed by {killer}."
+    )
 
-    private fun getSkillComment(category: DeathCategory, stats: Map<String, Int>?): String {
-        if (stats == null) return ""
+    private val PVP_WEAPON_HEADLINES = listOf(
+        "Slain by {killer}'s {weapon}.",
+        "Taken out by {killer} and {weapon}.",
+        "{killer} brought {weapon}."
+    )
 
-        val relevantSkill = getRelevantSkill(category)
-        val topSkill = stats.maxByOrNull { it.value }
+    // ========== EPITAPHS ==========
 
-        // Try relevant skill first
-        if (relevantSkill != null) {
-            val skillLevel = stats[relevantSkill] ?: 0
-            if (skillLevel > HIGH_SKILL_THRESHOLD) {
-                return getIronicSkillComment(relevantSkill, skillLevel)
-            }
-        }
-
-        // Fall back to top skill
-        if (topSkill != null && topSkill.value > 200) {
-            return getTopSkillComment(topSkill.key, topSkill.value)
-        }
-
-        return ""
-    }
-
-    private fun getIronicSkillComment(skill: String, level: Int): String {
-        val formattedSkill = formatSkillName(skill)
-        return listOf(
-            "Your $level $formattedSkill won't help you now.",
-            "$formattedSkill $level didn't save you.",
-            "All that $formattedSkill training, wasted.",
-            "$level in $formattedSkill and THIS happens?"
-        ).random()
-    }
-
-    private fun getTopSkillComment(skill: String, level: Int): String {
-        val formattedSkill = formatSkillName(skill)
-        return listOf(
-            "Your $formattedSkill won't help you now.",
-            "$formattedSkill master, still died.",
-            "Maybe train something else besides $formattedSkill?"
-        ).random()
-    }
-
-    // ========== COMMENTARY GENERATION ==========
-
-    /**
-     * Generate the commentary that appears below the coffin.
-     */
-    private fun generateCommentary(
+    private fun epitaph(
         category: DeathCategory,
         stats: Map<String, Int>?,
-        powerLevel: Int?
+        powerLevel: Int?,
+        picker: NoRepeatPicker,
+        random: Random
     ): String {
-        // Try skill-specific commentary first
-        if (stats != null && powerLevel != null) {
-            val skillCommentary = trySkillSpecificCommentary(category, stats, powerLevel)
-            if (skillCommentary != null) return skillCommentary
-        }
-
-        // Try elite roast if applicable
         if (powerLevel != null && powerLevel >= ELITE_POWER_THRESHOLD && category.isEmbarrassing()) {
-            val eliteRoast = DeathCommentaryRepository.getEliteRoast(category, powerLevel)
-            if (eliteRoast != null) return eliteRoast
+            DeathCommentaryRepository.getEliteRoast(category, powerLevel, ELITE_POWER_THRESHOLD)?.let { return it }
         }
-
-        // Fall back to standard commentary
+        if (stats != null && random.nextFloat() < SKILL_ROAST_CHANCE) {
+            skillRoast(category, stats, picker)?.let { return it }
+        }
         return DeathCommentaryRepository.getCommentary(category)
     }
 
-    private fun trySkillSpecificCommentary(
-        category: DeathCategory,
-        stats: Map<String, Int>,
-        powerLevel: Int
-    ): String? {
-        val relevantSkill = getRelevantSkill(category) ?: return null
-        val skillLevel = stats[relevantSkill] ?: return null
+    private fun skillRoast(category: DeathCategory, stats: Map<String, Int>, picker: NoRepeatPicker): String? {
+        val skill = relevantSkill(category, stats) ?: return null
+        val level = stats[skill] ?: return null
+        val isMob = category is DeathCategory.Mob
 
-        // High skill + relevant death = maximum irony
-        if (skillLevel >= HIGH_SKILL_THRESHOLD) {
-            return getIronicCommentary(relevantSkill, skillLevel)
+        val (key, lines) = when {
+            level >= HIGH_SKILL_THRESHOLD -> "high:$skill" to (HIGH_SKILL[skill].orEmpty() + HIGH_GENERIC + if (isMob) HIGH_VS_MOB else emptyList())
+            level < LOW_SKILL_THRESHOLD -> "low:$skill" to (LOW_SKILL[skill].orEmpty() + LOW_GENERIC)
+            else -> return null
         }
-
-        // Low skill + relevant death = "needed more training"
-        if (skillLevel < LOW_SKILL_THRESHOLD) {
-            return getLowSkillCommentary(relevantSkill, skillLevel)
-        }
-
-        // Medium skill - random chance of skill-specific or generic
-        return if (random.nextFloat() < 0.5f) {
-            getMidSkillCommentary(relevantSkill, skillLevel)
-        } else {
-            null
-        }
+        return picker.pick("card-skill:$key", lines)
+            .replace("{skill}", formatSkillName(skill))
+            .replace("{level}", level.toString())
+            .replace("{cause}", causeName(category))
     }
 
-    // ========== SKILL-SPECIFIC ROASTS ==========
+    private fun pvpEpitaph(victimName: String, victimStats: Map<String, Int>?, pvp: PvpCardInfo, picker: NoRepeatPicker): String? {
+        val context = pvp.context
+        val notable = context.isRevenge ||
+            context.endedStreak >= PvpCommentary.ENDED_STREAK_CALLOUT ||
+            context.killerStreak >= PvpCommentary.STREAK_CALLOUT
+        if (notable) {
+            return PvpCommentary.generate(pvp.killerName, victimName, context, null, fallback = { "" }, picker = picker)
+        }
 
-    private val IRONIC_COMMENTARY = mapOf(
-        "ACROBATICS" to listOf(
-            "But don't worry, your {level} levels of Acrobatics make great fertilizer.",
-            "{level} Acrobatics and THAT'S your landing technique?",
-            "All that Acrobatics training. Zero style points.",
-            "Acrobatics {level}. Graceful in life, splat in death."
-        ),
-        "ARCHERY" to listOf(
-            "Your {level} Archery skill couldn't outshoot that one.",
-            "{level} in Archery and still got outshot. Ironic.",
-            "All those arrows trained, none of them helped.",
-            "Hawkeye would be disappointed. Archery {level}."
-        ),
-        "SWORDS" to listOf(
-            "Your {level} Swords skill couldn't cut it.",
-            "All that sword training at level {level}, wasted.",
-            "{level} in Swords. The mob didn't care.",
-            "Swords master. Mob victim."
-        ),
-        "AXES" to listOf(
-            "Your {level} Axes skill chopped nothing useful.",
-            "{level} Axes training couldn't axe your way out.",
-            "Maybe next time use those {level} levels of Axes."
-        ),
-        "UNARMED" to listOf(
-            "Your {level} Unarmed skill punched nothing today.",
-            "{level} in Unarmed. Fists of fury, feet of clay.",
-            "All that hand-to-hand training at {level}. Still dead."
-        ),
-        "TAMING" to listOf(
-            "Your {level} Taming couldn't tame THAT.",
-            "{level} in Taming and the animals still hate you.",
-            "Maybe try taming something that WON'T kill you."
-        ),
-        "MINING" to listOf(
-            "Your {level} Mining skill couldn't dig you out of this one.",
-            "{level} in Mining. Should've mined your own business.",
-            "All those hours mining at level {level}. Still got buried."
-        ),
-        "WOODCUTTING" to listOf(
-            "Your {level} Woodcutting skill couldn't chop through THAT.",
-            "{level} in Woodcutting. Log off, permanently.",
-            "Should've stuck to trees. Woodcutting {level}."
-        ),
-        "HERBALISM" to listOf(
-            "But don't worry, your {level} levels of Herbalism will make excellent fertilizer.",
-            "{level} in Herbalism. At least you'll decompose nicely.",
-            "All those plants at level {level}. None of them could save you.",
-            "Herbalism master at {level}. Plant food now."
-        ),
-        "EXCAVATION" to listOf(
-            "Your {level} Excavation skill couldn't dig you out of THAT.",
-            "{level} in Excavation. Time to dig your own grave.",
-            "All that digging at level {level}. Now someone digs for YOU."
-        ),
-        "FISHING" to listOf(
-            "Your {level} Fishing skill is sleeping with the fishes.",
-            "{level} in Fishing. Fish: 1, You: 0.",
-            "Master angler at {level}. Got hooked instead.",
-            "All those fish at level {level}. Still drowned."
-        ),
-        "ALCHEMY" to listOf(
-            "Your {level} Alchemy skill brewed nothing useful.",
-            "{level} in Alchemy. No potion for THAT.",
-            "Should've brewed a survival potion. Alchemy {level}.",
-            "All those potions at level {level}. Forgot the important one."
-        ),
-        "REPAIR" to listOf(
-            "Your {level} Repair skill couldn't fix THAT.",
-            "{level} in Repair. Some things can't be fixed.",
-            "Master repairer at {level}. Body: unfixable."
-        )
-    )
-
-    private val LOW_SKILL_COMMENTARY = mapOf(
-        "ACROBATICS" to listOf(
-            "Maybe train Acrobatics above {level}?",
-            "Acrobatics {level}. That explains the splat.",
-            "Pro tip: Acrobatics helps with falling. Yours is {level}."
-        ),
-        "FISHING" to listOf(
-            "Fishing {level}. Try breathing lessons first.",
-            "Maybe train Fishing. Currently: {level}.",
-            "Water training 101: don't drown. Fishing: {level}."
-        ),
-        "SWORDS" to listOf(
-            "Swords {level}. That mob felt zero resistance.",
-            "With Swords at {level}, what did you expect?",
-            "Maybe try leveling Swords past {level}?"
-        ),
-        "ACROBATICS" to listOf(
-            "Acrobatics {level}. Explains the gravity issue.",
-            "Perhaps invest in Acrobatics training? Currently: {level}."
-        ),
-        "ALCHEMY" to listOf(
-            "Alchemy {level}. Fire Resistance exists, you know.",
-            "Pro tip: Alchemy makes survival potions. Yours: {level}."
-        ),
-        "TAMING" to listOf(
-            "Taming {level}. The animals are NOT impressed.",
-            "Maybe level Taming before approaching wildlife? Current: {level}."
-        )
-    )
-
-    private val MID_SKILL_COMMENTARY = mapOf(
-        "ACROBATICS" to listOf(
-            "Acrobatics {level}. Not bad, but not enough.",
-            "Keep training Acrobatics. {level} almost saved you."
-        ),
-        "SWORDS" to listOf(
-            "Swords {level}. You'll get there eventually.",
-            "Close, but Swords {level} wasn't enough today."
-        ),
-        "FISHING" to listOf(
-            "Fishing {level}. Almost pro, still drowning.",
-            "Keep at it. Fishing {level} is getting there."
-        )
-    )
-
-    private fun getIronicCommentary(skill: String, level: Int): String {
-        val messages = IRONIC_COMMENTARY[skill] ?: IRONIC_COMMENTARY["SWORDS"]!!
-        return messages.random().replace("{level}", level.toString())
+        val skill = pvp.weaponSkill ?: return null
+        val killerLevel = pvp.killerStats?.get(skill) ?: return null
+        val victimLevel = victimStats?.get(skill) ?: return null
+        val lines = if (killerLevel >= victimLevel) PVP_SKILL_GAP else PVP_UPSET
+        return picker.pick("card-pvp-skill:${killerLevel >= victimLevel}", lines)
+            .replace("{killer}", pvp.killerName)
+            .replace("{victim}", victimName)
+            .replace("{skill}", formatSkillName(skill))
+            .replace("{k}", killerLevel.toString())
+            .replace("{v}", victimLevel.toString())
     }
 
-    private fun getLowSkillCommentary(skill: String, level: Int): String {
-        val messages = LOW_SKILL_COMMENTARY[skill] ?: listOf(
-            "Maybe train ${formatSkillName(skill)}? Currently: {level}.",
-            "${formatSkillName(skill)} {level}. That explains a lot."
-        )
-        return messages.random().replace("{level}", level.toString())
-    }
+    private val PVP_SKILL_GAP = listOf(
+        "{skill} {k} vs. {skill} {v}. The math checks out.",
+        "{killer} has {k} {skill}. {victim} has {v}. Any questions?",
+        "Brought {skill} {v} to a {skill} {k} fight."
+    )
 
-    private fun getMidSkillCommentary(skill: String, level: Int): String {
-        val messages = MID_SKILL_COMMENTARY[skill] ?: listOf(
-            "${formatSkillName(skill)} {level}. Getting there.",
-            "Keep training ${formatSkillName(skill)}. {level} is respectable."
-        )
-        return messages.random().replace("{level}", level.toString())
+    private val PVP_UPSET = listOf(
+        "Higher {skill} than {killer} and still lost. Upset of the year.",
+        "{victim} had {skill} {v}. {killer} had {k}. Skill isn't everything.",
+        "{skill} {v} vs. {skill} {k}. The underdog bites."
+    )
+
+    // ========== SKILL ROASTS ==========
+
+    private val HIGH_GENERIC = listOf(
+        "{skill} {level}, and this is how it ends.",
+        "{level} levels of {skill}. Zero levels of survival.",
+        "{skill} {level}. Somewhere, a trainer is crying.",
+        "{skill} {level} looked great on paper."
+    )
+
+    private val HIGH_VS_MOB = listOf(
+        "{skill} {level} vs. one {cause}. The {cause} won.",
+        "All that {skill}, and a {cause} still got the last hit."
+    )
+
+    private val HIGH_SKILL = mapOf(
+        "ACROBATICS" to listOf("Acrobatics {level}. Didn't roll. Did fall.", "{level} Acrobatics and that was the landing?"),
+        "ALCHEMY" to listOf("Alchemy {level} and no Fire Resistance on hand?", "Brewed {level} levels of potions. Forgot the useful one."),
+        "FISHING" to listOf("Fishing {level}. The fish finally got even.", "Caught thousands of fish. Became fish food."),
+        "HERBALISM" to listOf("Herbalism {level}. Will make excellent compost.", "{level} Herbalism. The plants have unionized."),
+        "MINING" to listOf("Mining {level}. Finally hit rock bottom.", "{level} Mining. Dug their own grave, professionally."),
+        "TAMING" to listOf("Taming {level}. The animals did not agree.", "{level} Taming, and nature still said no.")
+    )
+
+    private val LOW_GENERIC = listOf(
+        "{skill} {level}. That explains a lot.",
+        "Maybe level {skill} past {level}?",
+        "{skill} {level}. Training starts at respawn."
+    )
+
+    private val LOW_SKILL = mapOf(
+        "ACROBATICS" to listOf("Acrobatics {level}. Gravity noticed.", "Pro tip: Acrobatics helps with falling. Yours is {level}."),
+        "ALCHEMY" to listOf("Alchemy {level}. Fire Resistance is a potion, by the way.", "Alchemy {level}. Never met a cauldron."),
+        "FISHING" to listOf("Fishing {level}. Never really learned water.", "Fishing {level}. Swims like a rock."),
+        "HERBALISM" to listOf("Herbalism {level}. Could not identify food.", "Herbalism {level}. Wheat remains a mystery.")
+    )
+
+    /**
+     * The skill that should have prevented this death.
+     * Mob deaths use the victim's best combat skill.
+     */
+    @Suppress("CyclomaticComplexMethod") // Flat lookup table
+    internal fun relevantSkill(category: DeathCategory, stats: Map<String, Int>): String? = when (category) {
+        DeathCategory.Environmental.Fall -> "ACROBATICS"
+        DeathCategory.Environmental.Drowning -> "FISHING"
+        DeathCategory.Environmental.Lava,
+        DeathCategory.Environmental.Fire,
+        DeathCategory.Environmental.Magma -> "ALCHEMY"
+        DeathCategory.Environmental.Starvation,
+        DeathCategory.Environmental.BerryBush,
+        DeathCategory.Environmental.Cactus -> "HERBALISM"
+        DeathCategory.Environmental.Suffocation,
+        DeathCategory.Environmental.FallingBlock -> "MINING"
+        DeathCategory.Mob.Wolf,
+        DeathCategory.Mob.Bee -> "TAMING"
+        is DeathCategory.Mob -> COMBAT_SKILLS.filter { it in stats }.maxByOrNull { stats.getValue(it) }
+        else -> null
     }
 
     // ========== UTILITY ==========
 
-    /**
-     * Get the relevant skill for a death category.
-     */
-    private fun getRelevantSkill(category: DeathCategory): String? {
-        return when (category) {
-            is DeathCategory.Environmental.Fall -> "ACROBATICS"
-            is DeathCategory.Environmental.Drowning -> "FISHING"
-            is DeathCategory.Environmental.Lava,
-            is DeathCategory.Environmental.Fire,
-            is DeathCategory.Environmental.Magma -> "ALCHEMY"
-            is DeathCategory.Mob.Skeleton -> "ARCHERY"
-            is DeathCategory.Mob.Zombie -> "SWORDS"
-            is DeathCategory.Mob.Spider -> "ARCHERY"
-            is DeathCategory.Mob.Creeper -> "MINING"
-            is DeathCategory.Mob.Wolf,
-            is DeathCategory.Mob.Bee -> "TAMING"
-            is DeathCategory.Environmental.Starvation,
-            is DeathCategory.Environmental.BerryBush -> "HERBALISM"
-            is DeathCategory.Environmental.Suffocation,
-            is DeathCategory.Environmental.FallingBlock -> "MINING"
-            is DeathCategory.PvP -> "UNARMED"
-            is DeathCategory.Mob.Wither,
-            is DeathCategory.Mob.EnderDragon,
-            is DeathCategory.Mob.Warden -> "AXES"
-            is DeathCategory.Mob.Blaze,
-            is DeathCategory.Mob.Ghast -> "ARCHERY"
-            else -> null
-        }
-    }
+    private fun causeName(category: DeathCategory): String =
+        DeathThemes.getDeathCauseName(category).lowercase()
+            .split(" ").joinToString(" ") { word -> word.replaceFirstChar { it.uppercase() } }
 
-    /**
-     * Format skill name for display.
-     */
-    private fun formatSkillName(skill: String): String {
-        return skill.lowercase().replaceFirstChar { it.uppercase() }
-    }
+    private fun formatSkillName(skill: String): String = skill.lowercase().replaceFirstChar { it.uppercase() }
 }

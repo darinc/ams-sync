@@ -39,7 +39,7 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 every { config.getBoolean("event-announcements.achievements.enabled", true) } returns true
                 every { config.getBoolean("event-announcements.achievements.exclude-recipes", true) } returns false
                 // DeathCardConfig mocks
-                every { config.getBoolean("event-announcements.player-deaths.death-cards.enabled", false) } returns false
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.enabled", true) } returns false
                 every { config.getBoolean("event-announcements.player-deaths.death-cards.show-body", true) } returns true
                 every { config.getBoolean("event-announcements.player-deaths.death-cards.show-power-level", true) } returns true
                 every { config.getBoolean("event-announcements.player-deaths.death-cards.themed-backgrounds", true) } returns true
@@ -90,7 +90,7 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 every { config.getBoolean("event-announcements.achievements.enabled", true) } returns true
                 every { config.getBoolean("event-announcements.achievements.exclude-recipes", true) } returns true
                 // DeathCardConfig mocks
-                every { config.getBoolean("event-announcements.player-deaths.death-cards.enabled", false) } returns false
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.enabled", true) } returns false
                 every { config.getBoolean("event-announcements.player-deaths.death-cards.show-body", true) } returns true
                 every { config.getBoolean("event-announcements.player-deaths.death-cards.show-power-level", true) } returns true
                 every { config.getBoolean("event-announcements.player-deaths.death-cards.themed-backgrounds", true) } returns true
@@ -141,7 +141,7 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 every { config.getBoolean("event-announcements.achievements.enabled", true) } returns true
                 every { config.getBoolean("event-announcements.achievements.exclude-recipes", true) } returns true
                 // DeathCardConfig mocks
-                every { config.getBoolean("event-announcements.player-deaths.death-cards.enabled", false) } returns false
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.enabled", true) } returns false
                 every { config.getBoolean("event-announcements.player-deaths.death-cards.show-body", true) } returns true
                 every { config.getBoolean("event-announcements.player-deaths.death-cards.show-power-level", true) } returns true
                 every { config.getBoolean("event-announcements.player-deaths.death-cards.themed-backgrounds", true) } returns true
@@ -177,7 +177,7 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 every { config.getBoolean("event-announcements.achievements.enabled", true) } returns true
                 every { config.getBoolean("event-announcements.achievements.exclude-recipes", true) } returns true
                 // DeathCardConfig mocks
-                every { config.getBoolean("event-announcements.player-deaths.death-cards.enabled", false) } returns false
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.enabled", true) } returns false
                 every { config.getBoolean("event-announcements.player-deaths.death-cards.show-body", true) } returns true
                 every { config.getBoolean("event-announcements.player-deaths.death-cards.show-power-level", true) } returns true
                 every { config.getBoolean("event-announcements.player-deaths.death-cards.themed-backgrounds", true) } returns true
@@ -217,7 +217,7 @@ class EventAnnouncementConfigTest : DescribeSpec({
                 every { config.getBoolean("event-announcements.achievements.enabled", true) } returns false
                 every { config.getBoolean("event-announcements.achievements.exclude-recipes", true) } returns true
                 // DeathCardConfig mocks
-                every { config.getBoolean("event-announcements.player-deaths.death-cards.enabled", false) } returns false
+                every { config.getBoolean("event-announcements.player-deaths.death-cards.enabled", true) } returns false
                 every { config.getBoolean("event-announcements.player-deaths.death-cards.show-body", true) } returns true
                 every { config.getBoolean("event-announcements.player-deaths.death-cards.show-power-level", true) } returns true
                 every { config.getBoolean("event-announcements.player-deaths.death-cards.themed-backgrounds", true) } returns true

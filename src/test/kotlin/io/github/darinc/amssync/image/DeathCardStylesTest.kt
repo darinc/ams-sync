@@ -97,15 +97,15 @@ class DeathCardStylesTest : DescribeSpec({
         describe("constants") {
 
             it("has expected card dimensions") {
-                DeathCardStyles.CARD_WIDTH shouldBe 500
-                DeathCardStyles.CARD_HEIGHT shouldBe 350
+                DeathCardStyles.CARD_WIDTH shouldBe 560
+                DeathCardStyles.CARD_HEIGHT shouldBe 440
             }
 
             it("has non-zero section heights") {
                 DeathCardStyles.HEADER_HEIGHT shouldBe 55
                 DeathCardStyles.DEATH_MESSAGE_BOX_HEIGHT shouldBe 50
-                DeathCardStyles.COFFIN_SECTION_HEIGHT shouldBe 130
-                DeathCardStyles.COMMENTARY_HEIGHT shouldBe 55
+                DeathCardStyles.COFFIN_SECTION_HEIGHT shouldBe 230
+                DeathCardStyles.COMMENTARY_HEIGHT shouldBe 60
                 DeathCardStyles.FOOTER_HEIGHT shouldBe 30
             }
         }

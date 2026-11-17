@@ -31,8 +31,6 @@ class DeathAssetManager(
         private const val FALLBACK_BG_WIDTH = DeathCardStyles.CARD_WIDTH
         private const val FALLBACK_BG_HEIGHT = DeathCardStyles.CARD_HEIGHT
         private const val FALLBACK_ICON_SIZE = 40
-        private const val FALLBACK_COFFIN_WIDTH = DeathCardStyles.COFFIN_WIDTH
-        private const val FALLBACK_COFFIN_HEIGHT = DeathCardStyles.COFFIN_HEIGHT
     }
 
     /**
@@ -82,16 +80,6 @@ class DeathAssetManager(
      */
     fun getEnvironmentalIcon(iconName: String): BufferedImage? {
         return loadAsset("environmental/$iconName.png")
-    }
-
-    /**
-     * Load the coffin/casket sprite.
-     *
-     * @return BufferedImage of the coffin, or fallback if not found
-     */
-    fun getCoffin(): BufferedImage {
-        return loadAsset("coffin/coffin_base.png")
-            ?: createFallbackCoffin()
     }
 
     /**
@@ -164,58 +152,6 @@ class DeathAssetManager(
                 }
             }
         }
-
-        g2d.dispose()
-        return image
-    }
-
-    /**
-     * Create a fallback coffin shape.
-     */
-    private fun createFallbackCoffin(): BufferedImage {
-        val image = BufferedImage(FALLBACK_COFFIN_WIDTH, FALLBACK_COFFIN_HEIGHT, BufferedImage.TYPE_INT_ARGB)
-        val g2d = image.createGraphics()
-        GraphicsUtils.enableAntialiasing(g2d)
-
-        val centerX = FALLBACK_COFFIN_WIDTH / 2
-        val topWidth = 60
-        val midWidth = 80
-        val bottomWidth = 50
-        val height = FALLBACK_COFFIN_HEIGHT - 10
-
-        // Coffin shape (hexagonal)
-        val xPoints = intArrayOf(
-            centerX - topWidth / 2,      // top-left
-            centerX + topWidth / 2,      // top-right
-            centerX + midWidth / 2,      // shoulder-right
-            centerX + bottomWidth / 2,   // hip-right
-            centerX - bottomWidth / 2,   // hip-left
-            centerX - midWidth / 2       // shoulder-left
-        )
-        val yPoints = intArrayOf(
-            5,           // top
-            5,           // top
-            25,          // shoulders
-            height,      // bottom
-            height,      // bottom
-            25           // shoulders
-        )
-
-        // Dark wood color
-        g2d.color = Color(60, 40, 30)
-        g2d.fillPolygon(xPoints, yPoints, 6)
-
-        // Lighter wood grain
-        g2d.color = Color(80, 55, 40)
-        g2d.stroke = java.awt.BasicStroke(2f)
-        for (offset in listOf(-15, 0, 15)) {
-            g2d.drawLine(centerX + offset, 15, centerX + offset, height - 10)
-        }
-
-        // Border
-        g2d.color = Color(40, 25, 20)
-        g2d.stroke = java.awt.BasicStroke(3f)
-        g2d.drawPolygon(xPoints, yPoints, 6)
 
         g2d.dispose()
         return image

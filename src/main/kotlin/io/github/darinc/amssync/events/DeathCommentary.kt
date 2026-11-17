@@ -1,6 +1,5 @@
 package io.github.darinc.amssync.events
 
-import kotlin.random.Random
 
 /**
  * Represents categories of death for commentary selection.
@@ -87,8 +86,6 @@ sealed class DeathCategory {
  */
 @Suppress("MaxLineLength")
 object DeathCommentaryRepository {
-
-    private val random = Random.Default
 
     /** MCMMO power level threshold for "elite" status */
     const val DEFAULT_ELITE_POWER_THRESHOLD = 3000
@@ -540,8 +537,7 @@ object DeathCommentaryRepository {
      * @return A randomly selected commentary string
      */
     fun getCommentary(category: DeathCategory): String {
-        val messages = getMessagesForCategory(category)
-        return messages[random.nextInt(messages.size)]
+        return NoRepeatPicker.shared.pick("commentary:$category", getMessagesForCategory(category))
     }
 
     /**
@@ -558,7 +554,7 @@ object DeathCommentaryRepository {
         if (!category.isEmbarrassing()) return null
 
         val roasts = ELITE_ROAST_MESSAGES[category] ?: return null
-        val message = roasts[random.nextInt(roasts.size)]
+        val message = NoRepeatPicker.shared.pick("elite:$category", roasts)
         return message.replace("{level}", powerLevel.toString())
     }
 

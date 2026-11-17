@@ -1,7 +1,5 @@
 package io.github.darinc.amssync.events
 
-import kotlin.random.Random
-
 /**
  * Builds PvP-specific commentary from kill context (revenge, streaks, weapon).
  *
@@ -53,6 +51,7 @@ object PvpCommentary {
      * @param context Streak/revenge context from [PvpTracker]
      * @param weaponName Custom name of the killer's weapon, if it has one
      * @param fallback Generic commentary used when nothing notable happened
+     * @param picker Line picker that avoids recent repeats
      */
     fun generate(
         killer: String,
@@ -60,16 +59,16 @@ object PvpCommentary {
         context: PvpKillContext,
         weaponName: String?,
         fallback: () -> String,
-        random: Random = Random.Default
+        picker: NoRepeatPicker = NoRepeatPicker.shared
     ): String {
-        val templates = when {
-            context.isRevenge -> REVENGE
-            context.endedStreak >= ENDED_STREAK_CALLOUT -> ENDED_STREAK
-            context.killerStreak >= STREAK_CALLOUT -> STREAK
-            weaponName != null -> WEAPON
+        val (key, templates) = when {
+            context.isRevenge -> "revenge" to REVENGE
+            context.endedStreak >= ENDED_STREAK_CALLOUT -> "ended" to ENDED_STREAK
+            context.killerStreak >= STREAK_CALLOUT -> "streak" to STREAK
+            weaponName != null -> "weapon" to WEAPON
             else -> return fallback()
         }
-        return templates.random(random)
+        return picker.pick("pvp:$key", templates)
             .replace("{killer}", killer)
             .replace("{victim}", victim)
             .replace("{streak}", context.killerStreak.toString())

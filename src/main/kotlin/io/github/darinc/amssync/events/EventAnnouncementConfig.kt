@@ -159,7 +159,7 @@ data class PlayerDeathConfig(
  * @property skillSpecificRoasts Use skill-specific sarcastic messages
  */
 data class DeathCardConfig(
-    val enabled: Boolean = false,
+    val enabled: Boolean = true,
     val showBody: Boolean = true,
     val showPowerLevel: Boolean = true,
     val themedBackgrounds: Boolean = true,
@@ -168,7 +168,7 @@ data class DeathCardConfig(
     companion object {
         fun fromConfig(config: org.bukkit.configuration.file.FileConfiguration): DeathCardConfig {
             return DeathCardConfig(
-                enabled = config.getBoolean("event-announcements.player-deaths.death-cards.enabled", false),
+                enabled = config.getBoolean("event-announcements.player-deaths.death-cards.enabled", true),
                 showBody = config.getBoolean("event-announcements.player-deaths.death-cards.show-body", true),
                 showPowerLevel = config.getBoolean(
                     "event-announcements.player-deaths.death-cards.show-power-level",
